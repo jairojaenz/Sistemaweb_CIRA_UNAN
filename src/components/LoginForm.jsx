@@ -5,28 +5,52 @@ import { FaUserAlt, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
 export default function LoginForm() {
   const [correo, setCorreo] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // <--- para el ojito
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
+    
 
     try {
-      const response = await fetch("https://wv94tnfc-7055.use2.devtunnels.ms/api/Auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ correo, password }),
-      });
+      setLoading(true);
+      const response = await fetch(
+        "http://127.0.0.1:8000/api/login",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ correo, password }),
+        }
+      );
 
-      if (!response.ok) throw new Error("Credenciales incorrectas");
+      if (!response.ok) {
+        let errorMessage = "Error al iniciar sesión";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error ||
+            "Credenciales incorrectas o usuario no encontrado";
+        } catch {
+          errorMessage = "Error de conexión con el servidor";
+        }
+        throw new Error(errorMessage);
+      }
 
       const data = await response.json();
+      if (!data.token) throw new Error("Respuesta inválida del servidor");
+
       localStorage.setItem("token", data.token);
       navigate("/dashboard");
     } catch (err) {
-      setError(err.message);
+      if (err.name === "TypeError") {
+        setError("No se pudo conectar con el servidor. Verifique su conexión!!!");
+      } else {
+        setError(err.message);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -44,8 +68,8 @@ export default function LoginForm() {
             />
           </div>
           <div className="text-center w-full md:w-1/3">
-            <h4 className="w-full text-gray-200 text-lg font-semibold">
-              Sistema de Gestión de Recursos Acuáticos y Ambientales (SIGRAA)
+            <h4 className="text-gray-200 text-lg font-semibold whitespace-nowrap">
+              Sistema de Gestión de Ingreso de Muestras Ambientales (SGIMA)
             </h4>
             <h2 className="text-2xl font-bold text-gray-100">Portal Web</h2>
           </div>
@@ -60,11 +84,38 @@ export default function LoginForm() {
         </p>
       </div>
 
- {/* ****************************************************************************************************************** */}
       {/* Formulario */}
-      <main className="flex flex-col items-center justify-center py-10 px-4 flex-grow">
-        <div className="max-w-md w-full space-y-6">
-          <div className="bg-white rounded-lg shadow-md p-6">
+      <main className="flex flex-col items-center justify-center py-10 px-4 flex-grow relative">
+        <div className="max-w-md w-full space-y-6 relative">
+          <div className="bg-white rounded-lg shadow-md p-6 relative overflow-hidden">
+            
+            {/* Loader flotante encima del formulario */}
+            {loading && (
+              <div className="absolute inset-0 bg-white bg-opacity-80 flex flex-col items-center justify-center z-10">
+                <svg
+                  className="animate-spin h-10 w-10 text-blue-900 mb-3"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v8H4z"
+                  ></path>
+                </svg>
+                <p className="text-blue-900 font-semibold">Cargando...</p>
+              </div>
+            )}
+
             <div className="text-center mb-4">
               <img
                 src="https://img.freepik.com/fotos-premium/grupo-jovenes-investigadores-que-analizan-datos-quimicos-laboratorio_52137-34195.jpg?semt=ais_hybrid&w=740&q=80"
@@ -112,7 +163,7 @@ export default function LoginForm() {
                     <FaLock />
                   </span>
                   <input
-                    type={showPassword ? "text" : "password"} // <-- Aquí se alterna
+                    type={showPassword ? "text" : "password"}
                     id="password"
                     name="password"
                     placeholder="Ingrese su contraseña"
@@ -121,8 +172,6 @@ export default function LoginForm() {
                     className="pl-10 pr-10 py-2 w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-900"
                     required
                   />
-
-                  {/* Ojito */}
                   <span
                     className="absolute inset-y-0 right-0 pr-3 flex items-center text-blue-900 cursor-pointer"
                     onClick={() => setShowPassword(!showPassword)}
@@ -141,7 +190,12 @@ export default function LoginForm() {
               {/* Botón Iniciar Sesión */}
               <button
                 type="submit"
-                className="w-full bg-blue-900 text-white font-semibold py-2 rounded-md hover:bg-blue-800 transition"
+                disabled={loading}
+                className={`w-full font-semibold py-2 rounded-md transition ${
+                  loading
+                    ? "bg-blue-400 cursor-not-allowed text-white"
+                    : "bg-blue-900 hover:bg-blue-800 text-white"
+                }`}
               >
                 Iniciar Sesión
               </button>

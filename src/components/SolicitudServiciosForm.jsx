@@ -91,7 +91,9 @@ export default function SolicitudServiciosForm() {
         >
           {/* Datos generales */}
           <section>
-            <h3 className="title-section">Datos Generales</h3>
+            <h3 className="text-lg font-semibold text-blue-900 border-b pb-1 mb-3">
+              Datos Generales
+              </h3>
             <div className="grid md:grid-cols-3 gap-4">
               <input name="solicitudNo" value={formData.solicitudNo} onChange={handleChange} placeholder="Solicitud No." className="input" />
               <select name="medioRecepcion" value={formData.medioRecepcion} onChange={handleChange} className="input">
@@ -107,8 +109,10 @@ export default function SolicitudServiciosForm() {
 
           {/* Usuario */}
           <section>
-            <h3 className="title-section">Información del Usuario</h3>
-            <div className="grid md:grid-cols-2 gap-4">
+            <h3 className="text-lg font-semibold text-blue-900 border-b pb-1 mb-3">
+              Información del Usuario
+              </h3>
+            <div className="grid md:grid-cols-3 gap-4">
               <input name="nombreUsuario" value={formData.nombreUsuario} onChange={handleChange} placeholder="Nombre del usuario (empresa o institución)" className="input" />
               <input name="direccionUsuario" value={formData.direccionUsuario} onChange={handleChange} placeholder="Dirección del usuario" className="input" />
               <input name="ruc" value={formData.ruc} onChange={handleChange} placeholder="No. RUC" className="input" />
@@ -122,7 +126,9 @@ export default function SolicitudServiciosForm() {
 
           {/* Servicio solicitado */}
           <section>
-            <h3 className="title-section">Servicio Solicitado</h3>
+            <h3 className="text-lg font-semibold text-blue-900 border-b pb-1 mb-3">
+              Servicio Solicitado
+              </h3>
             <div className="grid md:grid-cols-4 gap-4">
               {Object.entries(formData.servicios).map(([key, value]) => (
                 <label key={key} className="flex items-center gap-2">
@@ -167,7 +173,9 @@ export default function SolicitudServiciosForm() {
 
           {/* Detalles */}
           <section>
-            <h3 className="title-section">Detalles de la Solicitud</h3>
+            <h3 className="text-lg font-semibold text-blue-900 border-b pb-1 mb-3">
+              Detalles de la Solicitud
+              </h3>
             <textarea name="analisisSolicitados" value={formData.analisisSolicitados} onChange={handleChange} placeholder="Análisis solicitados" className="input" rows={3} />
             <textarea name="coordenadas" value={formData.coordenadas} onChange={handleChange} placeholder="Dirección y/o coordenadas de los puntos de muestreo" className="input" rows={3} />
             <textarea name="observacion" value={formData.observacion} onChange={handleChange} placeholder="Observación" className="input" rows={3} />
@@ -175,7 +183,9 @@ export default function SolicitudServiciosForm() {
 
           {/* Firmas */}
           <section>
-            <h3 className="title-section">Firma y Recepción</h3>
+            <h3 className="text-lg font-semibold text-blue-900 border-b pb-1 mb-3">
+              Firma y Recepción
+              </h3>
             <div className="grid md:grid-cols-3 gap-4">
               <input name="firmaUsuario" value={formData.firmaUsuario} onChange={handleChange} placeholder="Firma del usuario" className="input" />
               <input name="solicitudRecibidaPor" value={formData.solicitudRecibidaPor} onChange={handleChange} placeholder="Solicitud recibida por" className="input" />

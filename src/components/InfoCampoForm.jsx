@@ -2,7 +2,6 @@ import { useState } from "react";
 
 export default function CampoForm() {
   const [formData, setFormData] = useState({
-
     usuario: "",
     identificacion: "",
     lugar: "",
@@ -18,17 +17,15 @@ export default function CampoForm() {
     matriz: "",
     fuente: "",
 
-    parametros: {
-      temperatura: "",
-      ph: "",
-      conductividad: "",
-      redox: "",
-      cloro: "",
-      salinidad: "",
-      oxigeno: "",
-      saturacion: "",
-    },
-
+    temperatura: "",
+    ph: "",
+    conductividad: "",
+    redox: "",
+    cloro: "",
+    salinidad: "",
+    oxigeno: "",
+    sat_oxigeno: "",
+   
     tipoMuestreo: "",
     horasCompuesto: "",
     equipos: "",
@@ -57,7 +54,7 @@ export default function CampoForm() {
     "Agua Potable": ["Agua Envasada", "Tanque de almacenamiento", "Grifo", "Otro"],
     "Agua Residual": ["Industrial", "Doméstica", "Industrial tratada", "Doméstica tratada", "Cisterna", "Otro"],
     Suelo: ["Uso agrícola", "Uso forestal", "Uso pecuario", "Natural"],
-    Sedimento: ["Marino", "Lacustre", "Fluvial", "Residual"],
+    Sedimento: ["Marino", "Lacustre", "Fluvial", "Residual", "Otro"],
     Lodos: ["Primarios", "Secundarios", "Otro"],
   };
 
@@ -216,16 +213,18 @@ export default function CampoForm() {
               Parámetros de Campo
             </h3>
             <div className="grid md:grid-cols-4 gap-4">
-              {Object.entries(formData.parametros).map(([key, value]) => (
-                <input
-                  key={key}
-                  name={`parametros.${key}`}
-                  value={value}
-                  onChange={handleChange}
-                  placeholder={key.charAt(0).toUpperCase() + key.slice(1)}
-                  className="input"
-                />
-              ))}
+              <input name="temperatura" value={formData.temperatura} onChange={handleChange} placeholder="Temperatura(°C)" className="input" />
+              <input name="ph" value={formData.ph} onChange={handleChange} placeholder="pH (Unidades)" className="input" />
+              <input name="conductividad" value={formData.conductividad} onChange={handleChange} placeholder="Conductividad (µS/cm⁻¹)" className="input" />
+              <input name="redox" value={formData.redox} onChange={handleChange} placeholder="Pot. Redox (mV)" className="input" />
+              <input name="cloro" value={formData.cloro} onChange={handleChange} placeholder="Cloro Residual (mg.l⁻¹)" className="input" />
+              <input name="Salinidad" value={formData.salinidad} onChange={handleChange} placeholder="Salinidad (‰)" className="input" />
+              <input name="oxigeno" value={formData.oxigeno} onChange={handleChange} placeholder="Oxígeno Disuelto (mg.l⁻¹)" className="input" />
+              <input name="sat_oxigeno"
+               value={formData.sat_oxigeno}
+               onChange={handleChange} 
+               placeholder="Sat. Oxígeno (%)" 
+               className="border-b border-blue-400 p-2 w-full text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
             </div>
           </section>
 
@@ -283,4 +282,4 @@ export default function CampoForm() {
 }
 
 /* Reutilizable */
-const input = `border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-900 focus:outline-none`;
+//const input = `border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-900 focus:outline-none`;
