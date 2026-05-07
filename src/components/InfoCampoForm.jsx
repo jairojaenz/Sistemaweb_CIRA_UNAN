@@ -38,7 +38,7 @@ export default function CampoForm() {
     codigoMuestra: "",
   });
 
-  // 🔹 Relación matriz → fuentes
+  // Relación matriz → fuentes
   const fuentesPorMatriz = {
     "Agua Natural": [
       "Río",
@@ -53,7 +53,7 @@ export default function CampoForm() {
     ],
     "Agua Potable": ["Agua Envasada", "Tanque de almacenamiento", "Grifo", "Otro"],
     "Agua Residual": ["Industrial", "Doméstica", "Industrial tratada", "Doméstica tratada", "Cisterna", "Otro"],
-    Suelo: ["Uso agrícola", "Uso forestal", "Uso pecuario", "Natural"],
+    Suelo: ["Uso agrícola", "Uso forestal", "Uso pecuario", "Natural", "Otro"],
     Sedimento: ["Marino", "Lacustre", "Fluvial", "Residual", "Otro"],
     Lodos: ["Primarios", "Secundarios", "Otro"],
   };
@@ -84,6 +84,8 @@ export default function CampoForm() {
     alert("Formulario enviado ");
     console.log(formData);
   };
+
+  
 
   return (
 
@@ -123,20 +125,32 @@ export default function CampoForm() {
               Información General
             </h3>
             <div className="grid md:grid-cols-2 gap-4">
-              <input
-                name="usuario"
-                value={formData.usuario}
-                onChange={handleChange}
-                placeholder="Usuario"
-                className="input"
-              />
-              <input
-                name="identificacion"
-                value={formData.identificacion}
-                onChange={handleChange}
-                placeholder="Identificación de la muestra"
-                className="input"
-              />
+              <div className="relative">
+  <input
+    name="usuario"
+    value={formData.usuario}
+    onChange={handleChange}
+    placeholder=" "
+    className="peer w-full border-b-2 border-gray-400 bg-transparent pt-5 pb-2 text-gray-900 focus:border-blue-500 focus:outline-none"
+  />
+  <span className="absolute left-0 top-2 text-gray-500 text-sm transition-all duration-200 peer-placeholder-shown:top-5 peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-focus:top-2 peer-focus:text-blue-500">
+    Usuario
+  </span>
+</div>
+
+             <div className="relative">
+  <input
+    name="identificacion"
+    value={formData.identificacion}
+    onChange={handleChange}
+    placeholder=" "
+    className="peer w-full border-b-2 border-gray-400 bg-transparent pt-5 pb-2 text-gray-900 focus:border-blue-500 focus:outline-none"
+  />
+  <span className="absolute left-0 top-2 text-gray-500 text-sm transition-all duration-200 peer-placeholder-shown:top-5 peer-placeholder-shown:text-base peer-placeholder-shown:text-gray-400 peer-focus:top-2 peer-focus:text-blue-500">
+    Identificación de la muestra
+  </span>
+</div>
+
             </div>
           </section>
 
@@ -148,7 +162,11 @@ export default function CampoForm() {
               Localización
             </h3>
             <div className="grid md:grid-cols-2 gap-4">
-              <input name="lugar" value={formData.lugar} onChange={handleChange} placeholder="Lugar" className="input" />
+              <input name="lugar" 
+              value={formData.lugar} 
+              onChange={handleChange} 
+              placeholder="Lugar" 
+              className="input"/>
               <input name="comunidad" value={formData.comunidad} onChange={handleChange} placeholder="Comunidad" className="input" />
               <input name="municipio" value={formData.municipio} onChange={handleChange} placeholder="Municipio" className="input" />
               <input name="departamento" value={formData.departamento} onChange={handleChange} placeholder="Departamento" className="input" />
@@ -212,14 +230,50 @@ export default function CampoForm() {
             <h3 className="text-lg font-semibold text-blue-900 border-b pb-1 mb-3">
               Parámetros de Campo
             </h3>
+
             <div className="grid md:grid-cols-4 gap-4">
-              <input name="temperatura" value={formData.temperatura} onChange={handleChange} placeholder="Temperatura(°C)" className="input" />
-              <input name="ph" value={formData.ph} onChange={handleChange} placeholder="pH (Unidades)" className="input" />
-              <input name="conductividad" value={formData.conductividad} onChange={handleChange} placeholder="Conductividad (µS/cm⁻¹)" className="input" />
-              <input name="redox" value={formData.redox} onChange={handleChange} placeholder="Pot. Redox (mV)" className="input" />
-              <input name="cloro" value={formData.cloro} onChange={handleChange} placeholder="Cloro Residual (mg.l⁻¹)" className="input" />
-              <input name="Salinidad" value={formData.salinidad} onChange={handleChange} placeholder="Salinidad (‰)" className="input" />
-              <input name="oxigeno" value={formData.oxigeno} onChange={handleChange} placeholder="Oxígeno Disuelto (mg.l⁻¹)" className="input" />
+              <input name="temperatura" 
+              value={formData.temperatura} 
+              onChange={handleChange} 
+              placeholder="Temperatura(°C)" 
+              className="input"/>
+
+              <input name="ph" 
+              value={formData.ph} 
+              onChange={handleChange} 
+              placeholder="pH (Unidades)" 
+              className="input"/>
+
+              <input name="conductividad" 
+              value={formData.conductividad} 
+              onChange={handleChange} 
+              placeholder="Conductividad (µS/cm⁻¹)" 
+              className="input" />
+
+              <input name="redox" 
+              value={formData.redox} 
+              onChange={handleChange} 
+              placeholder="Pot. Redox (mV)" 
+              className="input"/>
+
+              <input name="cloro" 
+              value={formData.cloro} 
+              onChange={handleChange} 
+              placeholder="Cloro Residual (mg.l⁻¹)" 
+              className="input"/>
+
+              <input name="Salinidad" 
+              value={formData.salinidad} 
+              onChange={handleChange} 
+              placeholder="Salinidad (‰)" 
+              className="input"/>
+
+              <input name="oxigeno" 
+              value={formData.oxigeno} 
+              onChange={handleChange} 
+              placeholder="Oxígeno Disuelto (mg.l⁻¹)" 
+              className="input"/>
+              
               <input name="sat_oxigeno"
                value={formData.sat_oxigeno}
                onChange={handleChange} 
@@ -281,5 +335,3 @@ export default function CampoForm() {
   );
 }
 
-/* Reutilizable */
-//const input = `border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-900 focus:outline-none`;
