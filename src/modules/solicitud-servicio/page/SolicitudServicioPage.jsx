@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { saveSolicitudServicioLocal } from "../service/solicitudServicioService.js";
 
-export default function SolicitudServiciosForm() {
+export default function SolicitudServicioPage() {
   const [formData, setFormData] = useState({
     solicitudNo: "",
     medioRecepcion: "",
@@ -57,12 +58,11 @@ export default function SolicitudServiciosForm() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    alert("Formulario enviado (simulado)");
-    console.log(formData);
+    saveSolicitudServicioLocal(formData);
   };
 
   return (
-    <div className="bg-white text-gray-800 min-h-screen flex flex-col">
+    <div className="flex w-full flex-col bg-white text-gray-800">
       {/* Encabezado */}
       <header className="bg-blue-900 text-white py-4">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between px-4">
@@ -212,7 +212,3 @@ export default function SolicitudServiciosForm() {
     </div>
   );
 }
-
-/* Clases auxiliares Tailwind */
-const input = "border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-900 focus:outline-none w-full";
-const titleSection = "text-lg font-semibold text-blue-900 border-b pb-1 mb-3";

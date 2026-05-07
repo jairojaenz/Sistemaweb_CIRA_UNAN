@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { saveInfoCampoLocal } from "../service/infoCampoService.js";
 
-export default function CampoForm() {
+export default function InfoCampoPage() {
   const [formData, setFormData] = useState({
     usuario: "",
     identificacion: "",
@@ -81,13 +82,11 @@ export default function CampoForm() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    alert("Formulario enviado ");
-    console.log(formData);
+    saveInfoCampoLocal(formData);
   };
 
   return (
-
-    <div className="bg-white text-gray-800 min-h-screen flex flex-col">
+    <div className="flex w-full flex-col bg-white text-gray-800">
 
       {/* Encabezado */}
       <header className="bg-blue-900 text-white py-4">
@@ -280,6 +279,3 @@ export default function CampoForm() {
     </div>
   );
 }
-
-/* Reutilizable */
-//const input = `border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-900 focus:outline-none`;

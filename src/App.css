@@ -1,4 +1,18 @@
 @import "tailwindcss";
+
+@layer components {
+  .input {
+    @apply w-full border border-gray-300 rounded-md p-2 text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-900;
+  }
+
+  .select {
+    @apply w-full border border-gray-300 rounded-md p-2 text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-900;
+  }
+
+  .textarea {
+    @apply w-full border border-gray-300 rounded-md p-2 text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-900;
+  }
+}
 /*
 #root {
   max-width: 1280px;
