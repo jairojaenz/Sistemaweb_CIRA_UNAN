@@ -88,35 +88,16 @@ export default function InfoCampoPage() {
   
 
   return (
-    <div className="flex w-full flex-col bg-white text-gray-800">
-
-      {/* Encabezado */}
-      <header className="bg-blue-900 text-white py-4">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between px-4">
-          <img
-            src="/src/assets/CIRA.png"
-            alt="Logo CIRA"
-            className="h-16 mb-2 md:mb-0"
-          />
-          <div className="text-center">
-            <h2 className="text-xl font-bold">INFORMACIÓN DE CAMPO DE MUESTRAS</h2>
-            <p className="text-sm">FOR-CIRA-ATACC-27 V5 — UNAN Managua / CIRA</p>
-          </div>
-        </div>
-      </header>
-
-      {/* Subencabezado */}
-      <div className="bg-yellow-400 text-blue-900 text-center py-2 font-semibold">
+    <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col bg-white text-gray-800">
+      <div className="bg-yellow-400 py-2 text-center font-semibold text-blue-900">
         ÁREA TÉCNICA, ASEGURAMIENTO Y CONTROL DE LA CALIDAD
       </div>
 
-     {/* ****************************************************************************************************************** */}
-
       {/* Formulario */}
-      <main className="flex-grow flex justify-center py-8 px-4">
+      <main className="flex flex-grow justify-center bg-white py-8 px-4">
         <form
           onSubmit={handleSubmit}
-          className="w-full max-w-4xl bg-white shadow-lg rounded-lg p-6 space-y-6 border border-gray-200"
+          className="w-full max-w-4xl space-y-6 rounded-lg border border-gray-200 bg-white p-6 shadow-lg"
         >
           {/* Información General */}
           <section>
@@ -333,7 +314,3 @@ export default function InfoCampoPage() {
     </div>
   );
 }
-<<<<<<< HEAD:src/modules/info-campo/page/InfoCampoPage.jsx
-=======
-
->>>>>>> bc7c1a981a1acd41056fd6efe3eb01392beaa282:src/components/InfoCampoForm.jsx

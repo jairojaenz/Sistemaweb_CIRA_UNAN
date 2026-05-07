@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { FaTrashAlt } from "react-icons/fa";
 import PlanMuestreoStepper from "./PlanMuestreoStepper.jsx";
 import { loadDraft, saveDraft } from "../service/planMuestreoDraftStorage.js";
 import { ROUTES } from "../../../router/routes.js";
@@ -50,26 +51,34 @@ export default function PlanMuestreoPaso2() {
     });
   };
 
+  const emptyDetalleRow = () => ({
+    lugarMuestreo: "",
+    identificacionMuestra: "",
+    coordenadas: "",
+    matriz: "",
+    fuente: "",
+    ensayosSolicitados: "",
+    tipoEnvaseVolumen: "",
+    preservantes: "",
+  });
+
   const addRow = () => {
     setDraft((prev) => ({
       ...prev,
       paso2: {
         ...prev.paso2,
-        detalle: [
-          ...(prev.paso2.detalle ?? []),
-          {
-            lugarMuestreo: "",
-            identificacionMuestra: "",
-            coordenadas: "",
-            matriz: "",
-            fuente: "",
-            ensayosSolicitados: "",
-            tipoEnvaseVolumen: "",
-            preservantes: "",
-          },
-        ],
+        detalle: [...(prev.paso2.detalle ?? []), emptyDetalleRow()],
       },
     }));
+  };
+
+  const removeRow = (idx) => {
+    setDraft((prev) => {
+      const rows = [...(prev.paso2.detalle ?? [])];
+      if (rows.length <= 1) return prev;
+      rows.splice(idx, 1);
+      return { ...prev, paso2: { ...prev.paso2, detalle: rows } };
+    });
   };
 
   const toggleHora = (label) => {
@@ -81,9 +90,13 @@ export default function PlanMuestreoPaso2() {
   };
 
   return (
-    <div className="w-full pb-4">
-      <div className="mx-auto max-w-6xl px-0 py-2 md:px-2">
-        <div className="bg-white rounded-2xl shadow-md p-6">
+    <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col bg-white text-gray-800">
+      <div className="bg-yellow-400 py-2 text-center font-semibold text-blue-900">
+        Plan de Muestreo
+      </div>
+
+      <main className="flex flex-grow justify-center bg-white py-8 px-4">
+        <div className="w-full max-w-7xl space-y-6 rounded-lg border border-gray-200 bg-white p-6 shadow-lg">
           <PlanMuestreoStepper step={2} />
 
           <div className="border border-gray-200 rounded-md">
@@ -163,8 +176,8 @@ export default function PlanMuestreoPaso2() {
             <div className="bg-gray-100 px-4 py-2 font-semibold text-gray-700">
               DETALLE DEL MUESTREO
             </div>
-            <div className="px-4 py-4 overflow-x-auto">
-              <table className="min-w-[1100px] w-full border border-gray-200">
+            <div className="overflow-x-auto px-4 py-4">
+              <table className="w-full min-w-[1180px] border border-gray-200">
                 <thead>
                   <tr className="bg-gray-50 text-xs text-gray-700">
                     <th className="border p-2 text-left">Lugar de muestreo</th>
@@ -175,6 +188,7 @@ export default function PlanMuestreoPaso2() {
                     <th className="border p-2 text-left">Ensayos solicitados</th>
                     <th className="border p-2 text-left">Tipo de envase / Volumen</th>
                     <th className="border p-2 text-left">Preservantes</th>
+                    <th className="w-14 border p-2 text-center align-middle"> </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -216,7 +230,7 @@ export default function PlanMuestreoPaso2() {
                           value={row.matriz}
                           onChange={(e) => updateDetalleRow(idx, { matriz: e.target.value })}
                         >
-                          <option value="">Seleccionar matriz...</option>
+                          <option value="">Seleccionar</option>
                           {MATRICES.map((m) => (
                             <option key={m} value={m}>
                               {m}
@@ -230,7 +244,7 @@ export default function PlanMuestreoPaso2() {
                           value={row.fuente}
                           onChange={(e) => updateDetalleRow(idx, { fuente: e.target.value })}
                         >
-                          <option value="">Seleccionar fuente...</option>
+                          <option value="">Seleccionar</option>
                           {FUENTES.map((f) => (
                             <option key={f} value={f}>
                               {f}
@@ -255,7 +269,7 @@ export default function PlanMuestreoPaso2() {
                             updateDetalleRow(idx, { tipoEnvaseVolumen: e.target.value })
                           }
                         >
-                          <option value="">Seleccionar envase...</option>
+                          <option value="">Seleccionar</option>
                           {ENVASES.map((x) => (
                             <option key={x} value={x}>
                               {x}
@@ -271,13 +285,25 @@ export default function PlanMuestreoPaso2() {
                             updateDetalleRow(idx, { preservantes: e.target.value })
                           }
                         >
-                          <option value="">Seleccionar preservante...</option>
+                          <option value="">Seleccionar</option>
                           {PRESERVANTES.map((x) => (
                             <option key={x} value={x}>
                               {x}
                             </option>
                           ))}
                         </select>
+                      </td>
+                      <td className="border p-2 align-middle text-center">
+                        <button
+                          type="button"
+                          title="Eliminar fila"
+                          disabled={detalle.length <= 1}
+                          className="inline-flex items-center justify-center rounded-md border border-red-200 bg-red-50 p-2 text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40"
+                          onClick={() => removeRow(idx)}
+                        >
+                          <FaTrashAlt className="h-4 w-4" aria-hidden />
+                          <span className="sr-only">Eliminar fila</span>
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -301,26 +327,32 @@ export default function PlanMuestreoPaso2() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between mt-8">
+          <div className="flex items-center justify-between pt-2">
             <button
-              className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 font-semibold px-6 py-2 rounded-lg"
+              type="button"
+              className="rounded-lg border border-gray-300 bg-white px-6 py-2 font-semibold text-gray-800 hover:bg-gray-50"
               onClick={() => navigate(ROUTES.planMuestreoPaso(1))}
             >
               Atrás
             </button>
             <button
-              className="bg-blue-900 hover:bg-blue-800 text-white font-semibold px-6 py-2 rounded-lg"
+              type="button"
+              className="rounded-lg bg-blue-900 px-6 py-2 font-semibold text-white hover:bg-blue-800"
               onClick={() => navigate(ROUTES.planMuestreoPaso(3))}
             >
               Siguiente
             </button>
           </div>
 
-          <div className="mt-8 text-xs text-gray-600">
+          <div className="text-xs text-gray-600">
             Estado actual: <span className="font-semibold">{tipoLabel}</span>
           </div>
         </div>
-      </div>
+      </main>
+
+      <footer className="bg-blue-900 py-2 text-center text-white">
+        <p>© {new Date().getFullYear()} CIRA - UNAN Managua | Plan de Muestreo</p>
+      </footer>
     </div>
   );
 }

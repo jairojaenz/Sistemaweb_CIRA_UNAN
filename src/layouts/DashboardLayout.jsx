@@ -7,9 +7,10 @@ import {
   FaHome,
   FaSignOutAlt,
   FaTasks,
-  FaUserCircle,
 } from "react-icons/fa";
 import { ROUTES } from "../router/routes";
+import ciraLogo from "../assets/CIRA.png";
+import unanLogo from "../assets/unan-managua.png";
 
 function navLinkClass({ isActive }) {
   return [
@@ -25,7 +26,6 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [menuOpen, setMenuOpen] = useState(false);
 
   const planMuestreoActive = pathname.includes("/plan-muestreo");
 
@@ -136,49 +136,63 @@ export default function DashboardLayout() {
         </div>
       </aside>
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 py-3 shadow-sm md:px-6">
-          <h1 className="truncate text-lg font-semibold text-blue-900 md:text-xl">
-            Panel de Control — CIRA UNAN Managua
-          </h1>
-          <div className="relative flex-shrink-0">
-            <button
-              type="button"
-              onClick={() => setMenuOpen((v) => !v)}
-              className="flex items-center gap-2 text-blue-900 hover:text-blue-700"
-            >
-              <FaUserCircle size={24} />
-              <span className="hidden font-semibold md:inline">Usuario</span>
-            </button>
-
-            {menuOpen && (
-              <div className="absolute right-0 z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg">
-                <ul className="py-1">
-                  <li>
-                    <button
-                      type="button"
-                      className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100"
-                      onClick={() => alert("Perfil del usuario")}
-                    >
-                      Perfil
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      type="button"
-                      className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-100"
-                      onClick={handleLogout}
-                    >
-                      Cerrar sesión
-                    </button>
-                  </li>
-                </ul>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-white">
+        <header className="flex-shrink-0 border-b border-blue-800 bg-blue-900 px-3 py-3 shadow-sm sm:px-4 md:px-6">
+          <div className="mx-auto flex w-full max-w-full items-center gap-2 sm:gap-4">
+            <div className="flex min-w-0 flex-shrink-0 items-start gap-2 sm:gap-3">
+              <img
+                src={unanLogo}
+                alt="UNAN Managua"
+                className="h-10 w-auto max-w-[26vw] shrink-0 object-contain sm:h-12 sm:max-w-[7.5rem] md:h-14 md:max-w-[9rem]"
+              />
+              <div className="min-w-0">
+                <div className="flex gap-2 sm:gap-2.5">
+                  <div
+                    className="w-px shrink-0 bg-white self-stretch"
+                    aria-hidden
+                  />
+                  <div className="text-left uppercase leading-[1.12] text-white">
+                    <span className="block text-[0.5rem] font-semibold tracking-[0.02em] sm:text-[0.58rem] md:text-[0.65rem]">
+                      UNIVERSIDAD
+                    </span>
+                    <span className="block text-[0.5rem] font-semibold tracking-[0.02em] sm:text-[0.58rem] md:text-[0.65rem]">
+                      NACIONAL
+                    </span>
+                    <span className="block text-[0.5rem] font-semibold tracking-[0.02em] sm:text-[0.58rem] md:text-[0.65rem]">
+                      AUTÓNOMA DE
+                    </span>
+                    <span className="block text-[0.5rem] font-semibold tracking-[0.02em] sm:text-[0.58rem] md:text-[0.65rem]">
+                      NICARAGUA,
+                    </span>
+                    <span className="block text-[0.5rem] font-semibold tracking-[0.02em] sm:text-[0.58rem] md:text-[0.65rem]">
+                      MANAGUA
+                    </span>
+                  </div>
+                </div>
+                <p className="mt-1 pl-[9px] text-[0.45rem] font-medium uppercase leading-none tracking-wide text-white sm:pl-2.5 sm:text-[0.52rem] md:text-[0.58rem]">
+                  UNAN-MANAGUA
+                </p>
               </div>
-            )}
+            </div>
+            <div className="min-w-0 flex-1 text-center text-white">
+              <p className="text-[0.7rem] font-bold leading-tight sm:text-sm md:text-base lg:text-lg">
+                INFORMACIÓN DE CAMPO DE MUESTRAS
+              </p>
+              <p className="mt-0.5 text-[0.65rem] font-semibold leading-tight text-white/95 sm:text-xs md:text-sm">
+                FOR-CIRA-ATACC-27 V5 — UNAN Managua / CIRA
+              </p>
+            </div>
+            <div className="flex flex-shrink-0 justify-end">
+              <img
+                src={ciraLogo}
+                alt="CIRA"
+                className="h-10 w-auto max-w-[32vw] object-contain sm:h-12 sm:max-w-[13rem] md:h-14"
+              />
+            </div>
           </div>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
+        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-white">
           <Outlet />
         </main>
       </div>

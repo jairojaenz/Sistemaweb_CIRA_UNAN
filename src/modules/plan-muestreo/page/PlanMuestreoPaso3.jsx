@@ -46,9 +46,13 @@ export default function PlanMuestreoPaso3() {
   };
 
   return (
-    <div className="w-full pb-4">
-      <div className="mx-auto max-w-6xl px-0 py-2 md:px-2">
-        <div className="bg-white rounded-2xl shadow-md p-6">
+    <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col bg-white text-gray-800">
+      <div className="bg-yellow-400 py-2 text-center font-semibold text-blue-900">
+        Plan de Muestreo
+      </div>
+
+      <main className="flex flex-grow justify-center bg-white py-8 px-4">
+        <div className="w-full max-w-5xl space-y-6 rounded-lg border border-gray-200 bg-white p-6 shadow-lg">
           <PlanMuestreoStepper step={3} />
 
           <div className="space-y-6">
@@ -109,27 +113,33 @@ export default function PlanMuestreoPaso3() {
             />
           </div>
 
-          <div className="flex items-center justify-between mt-8">
+          <div className="flex items-center justify-between pt-2">
             <button
-              className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 font-semibold px-6 py-2 rounded-lg"
+              type="button"
+              className="rounded-lg border border-gray-300 bg-white px-6 py-2 font-semibold text-gray-800 hover:bg-gray-50"
               onClick={() => navigate(ROUTES.planMuestreoPaso(2))}
             >
               Atrás
             </button>
             <button
-              className="bg-blue-900 hover:bg-blue-800 text-white font-semibold px-6 py-2 rounded-lg"
+              type="button"
+              className="rounded-lg bg-blue-900 px-6 py-2 font-semibold text-white hover:bg-blue-800"
               onClick={handleCreate}
             >
               Crear
             </button>
           </div>
 
-          <div className="mt-6 text-xs text-gray-600">
+          <div className="text-xs text-gray-600">
             Contactos APE: Oficinas: 2278-8987/82, Ext. 8318 y 8317. Denis Herrera:
             8391-2846 (logo). Sandra Vásquez 8994-6598 (logo).
           </div>
         </div>
-      </div>
+      </main>
+
+      <footer className="bg-blue-900 py-2 text-center text-white">
+        <p>© {new Date().getFullYear()} CIRA - UNAN Managua | Plan de Muestreo</p>
+      </footer>
     </div>
   );
 }
