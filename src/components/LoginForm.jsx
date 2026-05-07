@@ -228,7 +228,7 @@ export default function LoginForm() {
           >
             CIRA - Managua
           </a>{" "}
-          - 2025
+          - 2026
         </p>
       </footer>
     </div>
