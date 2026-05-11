@@ -1,6 +1,5 @@
 import { DEFAULT_LOCAL_PASSWORD, DEFAULT_LOCAL_USER } from "../model/constants.js";
-
-const API_LOGIN = "http://127.0.0.1:8000/api/login";
+import { apiPost, setAccessToken } from "../../../auth/api.js";
 
 /**
  * @param {{ username: string, password: string }} creds
@@ -17,26 +16,15 @@ export async function login(creds) {
     };
   }
 
-  const response = await fetch(API_LOGIN, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ correo: username, password }),
-  });
+  const body = await apiPost("/api/auth/login", {
+    Correo: username,
+    Password: password,
+  }, true);
 
-  if (!response.ok) {
-    let errorMessage = "Error al iniciar sesión";
-    try {
-      const errorData = await response.json();
-      errorMessage =
-        errorData.message || errorData.error || "Credenciales incorrectas o usuario no encontrado";
-    } catch {
-      errorMessage = "Error de conexión con el servidor";
-    }
-    throw new Error(errorMessage);
-  }
+  const { data } = body;
+  if (!data?.token) throw new Error("Respuesta inválida del servidor");
 
-  const data = await response.json();
-  if (!data.token) throw new Error("Respuesta inválida del servidor");
+  setAccessToken(data.token);
 
   return { token: data.token, user: data.user ?? { username, mode: "remote" } };
 }

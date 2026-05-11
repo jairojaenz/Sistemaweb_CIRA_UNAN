@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import DashboardLayout from "../layouts/DashboardLayout.jsx";
+import ProtectedRoute from "../components/ProtectedRoute.jsx";
 import { ROUTES } from "./routes.js";
 
 const LoginPage = lazy(() => import("../modules/auth/page/LoginPage.jsx"));
@@ -31,7 +32,14 @@ export default function AppRoutes() {
         <Routes>
           <Route path={ROUTES.login} element={<LoginPage />} />
 
-          <Route path="/dashboard" element={<DashboardLayout />}>
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout />
+              </ProtectedRoute>
+            }
+          >
             <Route index element={<DashboardHomePage />} />
             <Route path="info-campo" element={<InfoCampoPage />} />
             <Route path="solicitud-servicio" element={<SolicitudServicioPage />} />

@@ -7,7 +7,9 @@ import {
   FaHome,
   FaSignOutAlt,
   FaTasks,
+  FaUserCircle,
 } from "react-icons/fa";
+import { useAuth } from "../auth/AuthContext";
 import { ROUTES } from "../router/routes";
 import ciraLogo from "../assets/CIRA.png";
 import unanLogo from "../assets/unan-managua.png";
@@ -22,16 +24,48 @@ function navLinkClass({ isActive }) {
   ].join(" ");
 }
 
+function ConfirmDialog({ open, onConfirm, onCancel }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="w-80 rounded-lg bg-white p-6 shadow-xl">
+        <h3 className="text-lg font-semibold text-gray-800">Cerrar Sesión</h3>
+        <p className="mt-2 text-sm text-gray-600">
+          ¿Está seguro de que desea cerrar la sesión?
+        </p>
+        <div className="mt-5 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+          >
+            Cerrar Sesión
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardLayout() {
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const planMuestreoActive = pathname.includes("/plan-muestreo");
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+  const handleLogout = async () => {
+    setShowLogoutConfirm(false);
+    await logout();
     navigate(ROUTES.login);
   };
 
@@ -120,11 +154,17 @@ export default function DashboardLayout() {
           </Link>
         </nav>
 
-        <div className="border-t border-blue-800 p-2">
+        <div className="border-t border-blue-800 p-2 space-y-1">
+          {sidebarOpen && user && (
+            <div className="flex items-center gap-2 px-3 py-2 text-sm text-blue-200 truncate">
+              <FaUserCircle className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate">{user.nombre} {user.apellido}</span>
+            </div>
+          )}
           <button
             type="button"
             title={!sidebarOpen ? "Cerrar sesión" : undefined}
-            onClick={handleLogout}
+            onClick={() => setShowLogoutConfirm(true)}
             className={[
               "flex w-full items-center rounded-lg bg-red-500 py-2.5 font-medium text-white transition hover:bg-red-600",
               sidebarOpen ? "gap-3 px-4" : "justify-center px-0",
@@ -134,6 +174,12 @@ export default function DashboardLayout() {
             {sidebarOpen && <span className="truncate">Cerrar Sesión</span>}
           </button>
         </div>
+
+      <ConfirmDialog
+        open={showLogoutConfirm}
+        onConfirm={handleLogout}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-white">

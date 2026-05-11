@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaUserAlt, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
-import { login } from "../service/authService.js";
+import { useAuth } from "../../../auth/AuthContext.jsx";
 import { ROUTES } from "../../../router/routes.js";
 
 export default function LoginPage() {
+  const { isAuthenticated, login } = useAuth();
   const [correo, setCorreo] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -12,16 +13,20 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(ROUTES.dashboard, { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
 
     try {
       setLoading(true);
-      const { token, user } = await login({ username: correo, password });
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(user));
-      navigate(ROUTES.dashboard);
+      await login({ username: correo, password });
+      navigate(ROUTES.dashboard, { replace: true });
     } catch (err) {
       if (err.name === "TypeError") {
         setError("No se pudo conectar con el servidor. Verifique su conexión!!!");
