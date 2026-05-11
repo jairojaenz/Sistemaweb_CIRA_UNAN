@@ -13,6 +13,8 @@ const SolicitudServicioPage = lazy(() =>
 const PlanMuestreoPaso1 = lazy(() => import("../modules/plan-muestreo/page/PlanMuestreoPaso1.jsx"));
 const PlanMuestreoPaso2 = lazy(() => import("../modules/plan-muestreo/page/PlanMuestreoPaso2.jsx"));
 const PlanMuestreoPaso3 = lazy(() => import("../modules/plan-muestreo/page/PlanMuestreoPaso3.jsx"));
+const GestionUsuariosPage = lazy(() => import("../modules/usuarios/page/GestionUsuariosPage.jsx"));
+const GestionClientesPage = lazy(() => import("../modules/clientes/page/GestionClientesPage.jsx"));
 
 function RouteFallback() {
   return (
@@ -46,6 +48,8 @@ export default function AppRoutes() {
             <Route path="plan-muestreo/paso-1" element={<PlanMuestreoPaso1 />} />
             <Route path="plan-muestreo/paso-2" element={<PlanMuestreoPaso2 />} />
             <Route path="plan-muestreo/paso-3" element={<PlanMuestreoPaso3 />} />
+            <Route path="gestion-usuarios" element={<GestionUsuariosPage />} />
+            <Route path="gestion-clientes" element={<GestionClientesPage />} />
           </Route>
 
           <Route path="/info-campo" element={<Navigate to="/dashboard/info-campo" replace />} />

@@ -6,7 +6,6 @@ export default function DashboardHomePage() {
   return (
     <div className="p-4 md:p-6">
       <div className="rounded-xl bg-white p-6 shadow-md">
-        <h2 className="mb-4 text-2xl font-semibold text-blue-900">Bienvenido al Sistema</h2>
         <p className="text-gray-600">
           Selecciona una opción del menú lateral o una tarjeta para abrir el módulo (se carga solo lo necesario).
         </p>

@@ -47,10 +47,6 @@ export default function PlanMuestreoPaso3() {
 
   return (
     <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col bg-white text-gray-800">
-      <div className="bg-yellow-400 py-2 text-center font-semibold text-blue-900">
-        Plan de Muestreo
-      </div>
-
       <main className="flex flex-grow justify-center bg-white py-8 px-4">
         <div className="w-full max-w-5xl space-y-6 rounded-lg border border-gray-200 bg-white p-6 shadow-lg">
           <PlanMuestreoStepper step={3} />

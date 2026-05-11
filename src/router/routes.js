@@ -6,4 +6,6 @@ export const ROUTES = {
   infoCampo: "/dashboard/info-campo",
   solicitudServicio: "/dashboard/solicitud-servicio",
   planMuestreoPaso: (n) => `/dashboard/plan-muestreo/paso-${n}`,
+  gestionUsuarios: "/dashboard/gestion-usuarios",
+  gestionClientes: "/dashboard/gestion-clientes",
 };

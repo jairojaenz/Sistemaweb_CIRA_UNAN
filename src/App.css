@@ -13,6 +13,21 @@
     @apply w-full border border-gray-300 rounded-md p-2 text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-900;
   }
 }
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}
 /*
 #root {
   max-width: 1280px;

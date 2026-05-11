@@ -8,6 +8,7 @@ import {
   FaSignOutAlt,
   FaTasks,
   FaUserCircle,
+  FaUsersCog,
 } from "react-icons/fa";
 import { useAuth } from "../auth/AuthContext";
 import { ROUTES } from "../router/routes";
@@ -62,6 +63,15 @@ export default function DashboardLayout() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const planMuestreoActive = pathname.includes("/plan-muestreo");
+
+  function getPageTitle(p) {
+    if (p === "/dashboard" || p === "/dashboard/") return "Bienvenido al Sistema de Gestión de Información de Campo de Muestras";
+    if (p.includes("/info-campo")) return "Información de Campo de Muestras";
+    if (p.includes("/solicitud-servicio")) return "Solicitud de Servicios";
+    if (p.includes("/plan-muestreo")) return "Plan de Muestreo";
+    if (p.includes("/gestion-usuarios")) return "Gestión de Usuarios";
+    return "INFORMACIÓN DE CAMPO DE MUESTRAS";
+  }
 
   const handleLogout = async () => {
     setShowLogoutConfirm(false);
@@ -152,6 +162,37 @@ export default function DashboardLayout() {
             <FaTasks className="h-5 w-5 flex-shrink-0 opacity-90" />
             {sidebarOpen && <span className="truncate">Plan de Muestreo</span>}
           </Link>
+
+          {(user?.cargoNombre === "Administrador" || user?.role === "admin") && (
+            <NavLink
+              to={ROUTES.gestionUsuarios}
+              title={!sidebarOpen ? "Gestión de Usuarios" : undefined}
+              className={({ isActive }) =>
+                [
+                  navLinkClass({ isActive }),
+                  sidebarOpen ? "gap-3 px-4" : "justify-center px-0",
+                ].join(" ")
+              }
+            >
+              <FaUsersCog className="h-5 w-5 flex-shrink-0 opacity-90" />
+              {sidebarOpen && <span className="truncate">Gestión de Usuarios</span>}
+            </NavLink>
+          )}
+           {(user?.cargoNombre === "Administrador" || user?.role === "admin") && (
+            <NavLink
+              to={ROUTES.gestionClientes}
+              title={!sidebarOpen ? "Gestión de Usuarios" : undefined}
+              className={({ isActive }) =>
+                [
+                  navLinkClass({ isActive }),
+                  sidebarOpen ? "gap-3 px-4" : "justify-center px-0",
+                ].join(" ")
+              }
+            >
+              <FaUserCircle className="h-5 w-5 shrink-0 opacity-90" />
+              {sidebarOpen && <span className="truncate">Gestión de Clientes</span>}
+            </NavLink>
+          )}
         </nav>
 
         <div className="border-t border-blue-800 p-2 space-y-1">
@@ -222,10 +263,7 @@ export default function DashboardLayout() {
             </div>
             <div className="min-w-0 flex-1 text-center text-white">
               <p className="text-[0.7rem] font-bold leading-tight sm:text-sm md:text-base lg:text-lg">
-                INFORMACIÓN DE CAMPO DE MUESTRAS
-              </p>
-              <p className="mt-0.5 text-[0.65rem] font-semibold leading-tight text-white/95 sm:text-xs md:text-sm">
-                FOR-CIRA-ATACC-27 V5 — UNAN Managua / CIRA
+                {getPageTitle(pathname)}
               </p>
             </div>
             <div className="flex flex-shrink-0 justify-end">
