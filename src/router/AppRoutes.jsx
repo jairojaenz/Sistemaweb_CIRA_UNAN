@@ -15,6 +15,20 @@ const PlanMuestreoPaso2 = lazy(() => import("../modules/plan-muestreo/page/PlanM
 const PlanMuestreoPaso3 = lazy(() => import("../modules/plan-muestreo/page/PlanMuestreoPaso3.jsx"));
 const GestionUsuariosPage = lazy(() => import("../modules/usuarios/page/GestionUsuariosPage.jsx"));
 const GestionClientesPage = lazy(() => import("../modules/clientes/page/GestionClientesPage.jsx"));
+const GestionLaboratoriosPage = lazy(() => import("../modules/laboratorios/page/GestionLaboratoriosPage.jsx"));
+const CargosPage = lazy(() => import("../modules/catalogos/page/CargosPage.jsx"));
+const DepartamentosPage = lazy(() => import("../modules/catalogos/page/DepartamentosPage.jsx"));
+const FuentesPage = lazy(() => import("../modules/catalogos/page/FuentesPage.jsx"));
+const MatrizPage = lazy(() => import("../modules/catalogos/page/MatrizPage.jsx"));
+const MetodosRecepcionPage = lazy(() => import("../modules/catalogos/page/MetodosRecepcionPage.jsx"));
+const MunicipiosPage = lazy(() => import("../modules/catalogos/page/MunicipiosPage.jsx"));
+const PreservantesPage = lazy(() => import("../modules/catalogos/page/PreservantesPage.jsx"));
+const ServiciosPage = lazy(() => import("../modules/catalogos/page/ServiciosPage.jsx"));
+const TiposClientesPage = lazy(() => import("../modules/catalogos/page/TiposClientesPage.jsx"));
+const GruposAnalisisPage = lazy(() => import("../modules/catalogos/page/GruposAnalisisPage.jsx"));
+const TecnicasAnalisisPage = lazy(() => import("../modules/catalogos/page/TecnicasAnalisisPage.jsx"));
+const TiposMuestreoPage = lazy(() => import("../modules/catalogos/page/TiposMuestreoPage.jsx"));
+const EquiposMuestreoPage = lazy(() => import("../modules/catalogos/page/EquiposMuestreoPage.jsx"));
 
 function RouteFallback() {
   return (
@@ -50,6 +64,20 @@ export default function AppRoutes() {
             <Route path="plan-muestreo/paso-3" element={<PlanMuestreoPaso3 />} />
             <Route path="gestion-usuarios" element={<GestionUsuariosPage />} />
             <Route path="gestion-clientes" element={<GestionClientesPage />} />
+            <Route path="gestion-laboratorios" element={<GestionLaboratoriosPage />} />
+            <Route path="catalogos/cargos" element={<CargosPage />} />
+            <Route path="catalogos/departamentos" element={<DepartamentosPage />} />
+            <Route path="catalogos/fuentes" element={<FuentesPage />} />
+            <Route path="catalogos/matriz" element={<MatrizPage />} />
+            <Route path="catalogos/metodos-recepcion" element={<MetodosRecepcionPage />} />
+            <Route path="catalogos/municipios" element={<MunicipiosPage />} />
+            <Route path="catalogos/preservantes" element={<PreservantesPage />} />
+            <Route path="catalogos/servicios" element={<ServiciosPage />} />
+            <Route path="catalogos/tipos-clientes" element={<TiposClientesPage />} />
+            <Route path="catalogos/grupos-analisis" element={<GruposAnalisisPage />} />
+            <Route path="catalogos/tecnicas-analisis" element={<TecnicasAnalisisPage />} />
+            <Route path="catalogos/tipos-muestreo" element={<TiposMuestreoPage />} />
+            <Route path="catalogos/equipos-muestreo" element={<EquiposMuestreoPage />} />
           </Route>
 
           <Route path="/info-campo" element={<Navigate to="/dashboard/info-campo" replace />} />

@@ -2,11 +2,14 @@ import { useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   FaBars,
+  FaChevronDown,
   FaClipboardList,
+  FaFolder,
   FaFlask,
   FaHome,
   FaSignOutAlt,
   FaTasks,
+  FaUniversity,
   FaUserCircle,
   FaUsersCog,
 } from "react-icons/fa";
@@ -63,6 +66,24 @@ export default function DashboardLayout() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const planMuestreoActive = pathname.includes("/plan-muestreo");
+  const catalogosActive = pathname.includes("/catalogos");
+  const [catalogosOpen, setCatalogosOpen] = useState(catalogosActive);
+
+  const catalogosSubmenu = [
+    { label: "Cargos", to: ROUTES.catalogosCargos },
+    { label: "Departamentos", to: ROUTES.catalogosDepartamentos },
+    { label: "Fuentes", to: ROUTES.catalogosFuentes },
+    { label: "Matriz", to: ROUTES.catalogosMatriz },
+    { label: "Métodos de recepción", to: ROUTES.catalogosMetodosRecepcion },
+    { label: "Municipios", to: ROUTES.catalogosMunicipios },
+    { label: "Preservantes", to: ROUTES.catalogosPreservantes },
+    { label: "Servicios", to: ROUTES.catalogosServicios },
+    { label: "Tipos de clientes", to: ROUTES.catalogosTiposClientes },
+    { label: "Grupos de análisis", to: ROUTES.catalogosGruposAnalisis },
+    { label: "Técnicas de análisis", to: ROUTES.catalogosTecnicasAnalisis },
+    { label: "Tipos de muestreo", to: ROUTES.catalogosTiposMuestreo },
+    { label: "Equipos de muestreo", to: ROUTES.catalogosEquiposMuestreo },
+  ];
 
   function getPageTitle(p) {
     if (p === "/dashboard" || p === "/dashboard/") return "Bienvenido al Sistema de Gestión de Información de Campo de Muestras";
@@ -163,6 +184,68 @@ export default function DashboardLayout() {
             <FaTasks className="h-5 w-5 flex-shrink-0 opacity-90" />
             {sidebarOpen && <span className="truncate">Plan de Muestreo</span>}
           </Link>
+
+          <div>
+            <button
+              type="button"
+              onClick={() => setCatalogosOpen((v) => !v)}
+              title={!sidebarOpen ? "Catálogos" : undefined}
+              className={[
+                "flex w-full items-center rounded-lg py-2.5 text-sm font-medium transition",
+                sidebarOpen ? "gap-3 px-4" : "justify-center px-0",
+                catalogosActive
+                  ? "bg-blue-800 text-white shadow-inner"
+                  : "text-blue-100 hover:bg-blue-800/70 hover:text-white",
+              ].join(" ")}
+            >
+              <FaFolder className="h-5 w-5 flex-shrink-0 opacity-90" />
+              {sidebarOpen && (
+                <>
+                  <span className="flex-1 truncate text-left">Catálogos</span>
+                  <FaChevronDown
+                    className={`h-3 w-3 transition-transform duration-200 ${
+                      catalogosOpen ? "rotate-0" : "-rotate-90"
+                    }`}
+                  />
+                </>
+              )}
+            </button>
+            {sidebarOpen && catalogosOpen && (
+              <div className="ml-4 mt-1 space-y-1 border-l border-blue-700 pl-2">
+                {catalogosSubmenu.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    className={({ isActive }) =>
+                      [
+                        "flex w-full items-center rounded-lg py-2 text-sm font-medium transition",
+                        isActive
+                          ? "bg-blue-800 text-white shadow-inner"
+                          : "text-blue-100 hover:bg-blue-800/70 hover:text-white",
+                        sidebarOpen ? "px-3" : "justify-center px-0",
+                      ].join(" ")
+                    }
+                  >
+                    {item.label}
+                  </NavLink>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <NavLink
+            to={ROUTES.gestionLaboratorios}
+            title={!sidebarOpen ? "Gestión de Laboratorios" : undefined}
+            className={({ isActive }) =>
+              [
+                navLinkClass({ isActive }),
+                sidebarOpen ? "gap-3 px-4" : "justify-center px-0",
+              ].join(" ")
+            }
+          >
+            <FaUniversity className="h-5 w-5 flex-shrink-0 opacity-90" />
+            {sidebarOpen && <span className="truncate">Gestión de Laboratorios</span>}
+          </NavLink>
 
           {(user?.cargoNombre === "Administrador" || user?.role === "admin") && (
             <NavLink
