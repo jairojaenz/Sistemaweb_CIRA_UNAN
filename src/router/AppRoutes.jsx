@@ -70,6 +70,11 @@ export default function AppRoutes() {
             element={<Navigate to="/dashboard/plan-muestreo/paso-3" replace />}
           />
 
+          <Route
+            path="/gestion-clientes"
+            element={<Navigate to="/dashboard/gestion-clientes" replace />}
+          />
+
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { FaPlus, FaEdit, FaTrash, FaTimes, FaSpinner, FaSearch } from "react-icons/fa";
 import { useToast } from "../../../components/ToastContext";
+import { formatTelefonoLocal } from "../../../utils/phoneFormat.js";
 import ConfirmDialog from "../../../components/ConfirmDialog";
 import {
   getUsuarios, createUsuario, updateUsuario, deleteUsuario, toggleUsuarioStatus,
@@ -115,12 +116,16 @@ export default function GestionUsuariosPage() {
 
   function handleFormChange(e) {
     const { name, value } = e.target;
-    const updates = { [name]: value };
+    let next = value;
+    if (name === "CelularUsuario") {
+      next = formatTelefonoLocal(value);
+    }
+    const updates = { [name]: next };
     if (name === "NombreDep") {
       updates.NombreMunic = "";
     }
     setForm((prev) => ({ ...prev, ...updates }));
-    const error = validateField(name, value);
+    const error = validateField(name, next);
     setFormErrors((prev) => ({ ...prev, [name]: error }));
     if (name === "NombreDep") {
       setFormErrors((prev) => ({ ...prev, NombreMunic: "" }));
@@ -159,7 +164,7 @@ export default function GestionUsuariosPage() {
       NombreDep: user.departamento || "",
       NombreMunic: user.municipio || "",
       Laboratorio: user.laboratorio || "",
-      CelularUsuario: user.celularUsuario || "",
+      CelularUsuario: formatTelefonoLocal(user.celularUsuario || ""),
       CedulaUsuario: user.cedulaUsuario || "",
     });
     setFormErrors({});
@@ -468,6 +473,9 @@ export default function GestionUsuariosPage() {
                   name="CelularUsuario"
                   value={form.CelularUsuario}
                   onChange={handleFormChange}
+                  inputMode="numeric"
+                  autoComplete="tel"
+                  placeholder="0000-0000"
                 />
                 <InputField
                   label="Cédula"
@@ -521,7 +529,18 @@ export default function GestionUsuariosPage() {
   );
 }
 
-function InputField({ label, name, type = "text", value, error, onChange, required, placeholder }) {
+function InputField({
+  label,
+  name,
+  type = "text",
+  value,
+  error,
+  onChange,
+  required,
+  placeholder,
+  inputMode,
+  autoComplete,
+}) {
   const id = `field-${name}`;
   return (
     <div>
@@ -536,6 +555,8 @@ function InputField({ label, name, type = "text", value, error, onChange, requir
         value={value}
         onChange={onChange}
         placeholder={placeholder}
+        inputMode={inputMode}
+        autoComplete={autoComplete}
         className={`input ${error ? "border-red-400 ring-1 ring-red-400" : ""}`}
       />
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
