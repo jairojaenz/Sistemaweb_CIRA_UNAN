@@ -91,7 +91,7 @@ export default function DashboardLayout() {
     if (p.includes("/solicitud-servicio")) return "Solicitud de Servicios";
     if (p.includes("/plan-muestreo")) return "Plan de Muestreo";
     if (p.includes("/gestion-usuarios")) return "Gestión de Usuarios";
-    if (p.includes("/gestion-laboratorios")) return "Gestión de Laboratorios";
+    if (p.includes("/gestion-clientes")) return "Gestión de Clientes";
     return "INFORMACIÓN DE CAMPO DE MUESTRAS";
   }
 
@@ -265,7 +265,7 @@ export default function DashboardLayout() {
            {(user?.cargoNombre === "Administrador" || user?.role === "admin") && (
             <NavLink
               to={ROUTES.gestionClientes}
-              title={!sidebarOpen ? "Gestión de Usuarios" : undefined}
+              title={!sidebarOpen ? "Gestión de Clientes" : undefined}
               className={({ isActive }) =>
                 [
                   navLinkClass({ isActive }),

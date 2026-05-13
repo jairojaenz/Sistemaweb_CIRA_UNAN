@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import PlanMuestreoStepper from "./PlanMuestreoStepper.jsx";
 import { loadDraft, saveDraft } from "../service/planMuestreoDraftStorage.js";
 import { ROUTES } from "../../../router/routes.js";
+import { formatTelefonoLocal } from "../../../utils/phoneFormat.js";
 
 export default function PlanMuestreoPaso1() {
   const navigate = useNavigate();
@@ -84,8 +85,11 @@ export default function PlanMuestreoPaso1() {
                 </label>
                 <input
                   className="input mt-1"
+                  inputMode="numeric"
+                  autoComplete="tel"
+                  placeholder="0000-0000"
                   value={paso1.telefono}
-                  onChange={(e) => setPaso1({ telefono: e.target.value })}
+                  onChange={(e) => setPaso1({ telefono: formatTelefonoLocal(e.target.value) })}
                 />
               </div>
             </div>
@@ -107,8 +111,11 @@ export default function PlanMuestreoPaso1() {
                 </label>
                 <input
                   className="input mt-1"
+                  inputMode="numeric"
+                  autoComplete="tel"
+                  placeholder="0000-0000"
                   value={paso1.telefonoContacto}
-                  onChange={(e) => setPaso1({ telefonoContacto: e.target.value })}
+                  onChange={(e) => setPaso1({ telefonoContacto: formatTelefonoLocal(e.target.value) })}
                 />
               </div>
             </div>
