@@ -1,31 +1,80 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FaEye, FaPlus, FaSearch, FaSpinner, FaTimes } from "react-icons/fa";
+import { FaEye, FaPen, FaPlus, FaSearch, FaSpinner, FaTimes, FaTrashAlt } from "react-icons/fa";
 import { useAuth } from "../../../auth/AuthContext.jsx";
-import SignaturePad from "../../../components/SignaturePad.jsx";
+import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
+import SignaturePad, { FIRMA_CANVAS_ALTO, FIRMA_CANVAS_ANCHO } from "../../../components/SignaturePad.jsx";
 import { useToast } from "../../../components/ToastContext.jsx";
 import { getDepartamentos, getMunicipios } from "../../usuarios/service/usuarioService.js";
+import { CEDULA_NICARAGUA_REGEX, formatCedulaNicaragua } from "../../../utils/cedulaNicaraguaFormat.js";
 import { formatTelefonoLocal } from "../../../utils/phoneFormat.js";
-import { createCliente, getClientes } from "../service/clienteService.js";
+import { createCliente, deleteCliente, getClientes, updateCliente } from "../service/clienteService.js";
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
 const TIPOS_CLIENTE = ["Individuo", "Empresa", "Institución", "ONG", "Otro"];
+
+const TIPO_INDIVIDUO = "Individuo";
+
+/** Tipos jurídicos que identifican con RUC (no cédula de persona natural). */
+const TIPOS_RUC_OBLIGATORIO = new Set(["Empresa", "Institución", "ONG"]);
+
+function tipoRequiereRucObligatorio(tipo) {
+  return TIPOS_RUC_OBLIGATORIO.has(tipo);
+}
 
 const CAMPOS_TELEFONO_LOCAL = new Set(["TelefonoCliente", "CelularCliente"]);
 
 const initialForm = {
   NombreCliente: "",
   ApellidoCliente: "",
+  NombreContacto: "",
   TelefonoCliente: "",
   CelularCliente: "",
   CorreoCliente: "",
   DireccionCliente: "",
   CedulaCliente: "",
+  NumeroRuc: "",
   NombreDepartamento: "",
   NombreMunicipio: "",
   NombreTipoCliente: "Individuo",
   Activo: true,
 };
+
+/** Mapea un cliente del API (camelCase) al estado del formulario de alta/edición. */
+function mapClienteToForm(c) {
+  const tipo = c.tiposCliente ?? c.nombreTipoCliente ?? TIPO_INDIVIDUO;
+  const esInd = tipo === TIPO_INDIVIDUO;
+  return {
+    NombreCliente: c.nombreCliente ?? "",
+    ApellidoCliente: c.apellidoCliente ?? "",
+    NombreContacto: !esInd ? String(c.nombreContacto ?? c.NombreContacto ?? "").trim() : "",
+    TelefonoCliente: formatTelefonoLocal(c.telefonoCliente ?? ""),
+    CelularCliente: formatTelefonoLocal(c.celularCliente ?? ""),
+    CorreoCliente: c.correoCliente ?? "",
+    DireccionCliente: c.direccionCliente ?? "",
+    CedulaCliente: esInd ? formatCedulaNicaragua(c.cedulaCliente ?? "") : "",
+    NumeroRuc: !esInd ? String(c.numeroRuc ?? c.NumeroRuc ?? "").trim() : "",
+    NombreDepartamento: c.departamento ?? c.nombreDepartamento ?? "",
+    NombreMunicipio: c.municipio ?? c.nombreMunicipio ?? "",
+    NombreTipoCliente: tipo,
+    Activo: c.activo !== false,
+  };
+}
+
+function buildDeleteConfirmMessage(c) {
+  const nombre = `${c.nombreCliente || ""} ${c.apellidoCliente || ""}`.trim() || "Sin nombre";
+  const ced = c.cedulaCliente || "—";
+  const mail = c.correoCliente || "—";
+  return (
+    `Va a eliminar de forma permanente al siguiente cliente:\n\n` +
+    `• Nombre: ${nombre}\n` +
+    `• Cédula: ${ced}\n` +
+    `• Correo: ${mail}\n\n` +
+    `Advertencia: esta acción no se puede deshacer. ` +
+    `Si hay datos vinculados (solicitudes, órdenes, etc.), el servidor podría rechazar la eliminación o dejar registros huérfanos.\n\n` +
+    `¿Desea continuar?`
+  );
+}
 
 export default function GestionClientesPage() {
   const { addToast } = useToast();
@@ -40,7 +89,10 @@ export default function GestionClientesPage() {
   const [catalogsLoading, setCatalogsLoading] = useState(true);
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [editingClienteId, setEditingClienteId] = useState(null);
   const [detailCliente, setDetailCliente] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [form, setForm] = useState({ ...initialForm });
   const [formErrors, setFormErrors] = useState({});
@@ -99,15 +151,49 @@ export default function GestionClientesPage() {
 
   const filteredClientes = clientes.filter((c) => {
     const q = search.toLowerCase();
+    const ruc = String(c.numeroRuc ?? c.NumeroRuc ?? "").toLowerCase();
     return (
       c.nombreCliente?.toLowerCase().includes(q) ||
       c.apellidoCliente?.toLowerCase().includes(q) ||
       c.correoCliente?.toLowerCase().includes(q) ||
-      c.cedulaCliente?.toLowerCase().includes(q)
+      c.cedulaCliente?.toLowerCase().includes(q) ||
+      ruc.includes(q) ||
+      String(c.nombreContacto ?? c.NombreContacto ?? "")
+        .toLowerCase()
+        .includes(q)
     );
   });
 
-  function validateField(name, value) {
+  function validateField(name, value, mergedForm) {
+    const tipo = mergedForm.NombreTipoCliente;
+    const esInd = tipo === TIPO_INDIVIDUO;
+    const rucObl = tipoRequiereRucObligatorio(tipo);
+
+    if (name === "CedulaCliente") {
+      if (!esInd) return "";
+      const v = String(value ?? "").trim();
+      if (!v) return "La cédula es obligatoria para tipo Individuo";
+      if (!CEDULA_NICARAGUA_REGEX.test(v)) {
+        return "Formato nicaragüense: 000-000000-0000F (13 dígitos y una letra mayúscula al final)";
+      }
+      return "";
+    }
+    if (name === "NumeroRuc") {
+      if (esInd) return "";
+      if (rucObl) {
+        const v = String(value ?? "").trim();
+        if (!v) return "El número RUC es obligatorio para Empresa, Institución u ONG";
+        return "";
+      }
+      return "";
+    }
+    if (name === "NombreContacto") {
+      if (esInd) return "";
+      if (!String(value ?? "").trim()) {
+        return "El nombre de contacto es obligatorio para este tipo de cliente";
+      }
+      return "";
+    }
     if (
       [
         "NombreCliente",
@@ -133,23 +219,42 @@ export default function GestionClientesPage() {
     if (type !== "checkbox" && CAMPOS_TELEFONO_LOCAL.has(name)) {
       nextVal = formatTelefonoLocal(value);
     }
-    const updates = { [name]: nextVal };
-    if (name === "NombreDepartamento") {
-      updates.NombreMunicipio = "";
+    if (type !== "checkbox" && name === "CedulaCliente") {
+      nextVal = formatCedulaNicaragua(value);
     }
-    setForm((prev) => ({ ...prev, ...updates }));
-    const error = validateField(
-      name,
-      type === "checkbox" ? (checked ? "x" : "") : nextVal
-    );
-    setFormErrors((prev) => ({ ...prev, [name]: error }));
+
+    const merged = { ...form, [name]: type === "checkbox" ? checked : nextVal };
     if (name === "NombreDepartamento") {
-      setFormErrors((prev) => ({ ...prev, NombreMunicipio: "" }));
+      merged.NombreMunicipio = "";
     }
+    if (name === "NombreTipoCliente") {
+      if (nextVal === TIPO_INDIVIDUO) {
+        merged.NumeroRuc = "";
+        merged.NombreContacto = "";
+      } else {
+        merged.CedulaCliente = "";
+      }
+    }
+
+    setForm(merged);
+
+    const valForError = type === "checkbox" ? (checked ? "x" : "") : merged[name];
+    setFormErrors((prev) => {
+      const nextErr = { ...prev, [name]: validateField(name, valForError, merged) };
+      if (name === "NombreTipoCliente") {
+        nextErr.CedulaCliente = validateField("CedulaCliente", merged.CedulaCliente, merged);
+        nextErr.NumeroRuc = validateField("NumeroRuc", merged.NumeroRuc, merged);
+        nextErr.NombreContacto = validateField("NombreContacto", merged.NombreContacto, merged);
+      }
+      if (name === "NombreDepartamento") {
+        nextErr.NombreMunicipio = "";
+      }
+      return nextErr;
+    });
   }
 
   function isFormValid() {
-    const fields = [
+    const baseFields = [
       "NombreCliente",
       "ApellidoCliente",
       "CorreoCliente",
@@ -157,18 +262,42 @@ export default function GestionClientesPage() {
       "NombreMunicipio",
       "NombreTipoCliente",
     ];
-    for (const f of fields) {
+    for (const f of baseFields) {
       const val = form[f] || "";
       if (!String(val).trim()) return false;
-      if (validateField(f, val)) return false;
+      if (validateField(f, val, form)) return false;
     }
-    if (!firmaFile) return false;
+    if (form.NombreTipoCliente === TIPO_INDIVIDUO) {
+      if (validateField("CedulaCliente", form.CedulaCliente, form)) return false;
+    } else {
+      if (validateField("NumeroRuc", form.NumeroRuc, form)) return false;
+      if (validateField("NombreContacto", form.NombreContacto, form)) return false;
+    }
+    if (editingClienteId == null && !firmaFile) return false;
     return true;
+  }
+
+  function closeClienteModal() {
+    setCreateModalOpen(false);
+    setEditingClienteId(null);
+    setFirmaFile(null);
+    setSignatureResetVersion((v) => v + 1);
   }
 
   function openCreateModal() {
     setDetailCliente(null);
+    setEditingClienteId(null);
     setForm({ ...initialForm, Activo: true });
+    setFormErrors({});
+    setFirmaFile(null);
+    setSignatureResetVersion((v) => v + 1);
+    setCreateModalOpen(true);
+  }
+
+  function openEditModal(c) {
+    setDetailCliente(null);
+    setEditingClienteId(c.idCliente);
+    setForm(mapClienteToForm(c));
     setFormErrors({});
     setFirmaFile(null);
     setSignatureResetVersion((v) => v + 1);
@@ -177,6 +306,7 @@ export default function GestionClientesPage() {
 
   function openDetailModal(c) {
     setCreateModalOpen(false);
+    setEditingClienteId(null);
     setDetailCliente(c);
   }
 
@@ -188,13 +318,23 @@ export default function GestionClientesPage() {
     e.preventDefault();
     if (!isFormValid()) return;
     const payload = { ...form, IdUsuario: idUsuarioActual };
+    if (payload.NombreTipoCliente === TIPO_INDIVIDUO) {
+      payload.NumeroRuc = "";
+      payload.NombreContacto = "";
+    } else {
+      payload.CedulaCliente = "";
+    }
     setSaving(true);
     try {
-      await createCliente(payload, firmaFile);
-      addToast("Cliente creado exitosamente", "success");
-      setCreateModalOpen(false);
-      setFirmaFile(null);
-      setSignatureResetVersion((v) => v + 1);
+      if (editingClienteId != null) {
+        await updateCliente(editingClienteId, payload, firmaFile);
+        addToast("Cliente actualizado correctamente.", "success");
+      } else {
+        await createCliente(payload, firmaFile);
+        addToast("Cliente creado exitosamente", "success");
+      }
+      closeClienteModal();
+      setFormErrors({});
       await loadClientes();
     } catch (err) {
       addToast(err.message, "error");
@@ -203,7 +343,28 @@ export default function GestionClientesPage() {
     }
   }
 
+  async function handleConfirmDelete() {
+    if (!deleteTarget?.idCliente) return;
+    setDeleteLoading(true);
+    try {
+      await deleteCliente(deleteTarget.idCliente);
+      addToast("Cliente eliminado correctamente.", "success");
+      setDeleteTarget(null);
+      if (detailCliente?.idCliente === deleteTarget.idCliente) {
+        setDetailCliente(null);
+      }
+      await loadClientes();
+    } catch (err) {
+      addToast(err.message, "error");
+    } finally {
+      setDeleteLoading(false);
+    }
+  }
+
   const fullName = (c) => `${c.nombreCliente || ""} ${c.apellidoCliente || ""}`.trim();
+
+  const esIndividuoForm = form.NombreTipoCliente === TIPO_INDIVIDUO;
+  const rucObligatorioForm = tipoRequiereRucObligatorio(form.NombreTipoCliente);
 
   return (
     <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col bg-white text-gray-800">
@@ -226,7 +387,7 @@ export default function GestionClientesPage() {
             <FaSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="Buscar por nombre, correo o cédula..."
+              placeholder="Buscar por nombre, contacto, correo, cédula o RUC..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="input w-full pl-10"
@@ -234,7 +395,7 @@ export default function GestionClientesPage() {
           </div>
 
           <div className="overflow-x-auto rounded-lg border border-gray-200">
-            <table className="w-full min-w-[640px] text-left text-sm">
+            <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="bg-gray-50 text-xs uppercase text-gray-600">
                 <tr>
                   <th className="px-3 py-3 font-semibold sm:px-4">Nombre</th>
@@ -243,7 +404,7 @@ export default function GestionClientesPage() {
                   <th className="px-3 py-3 font-semibold sm:px-4">Ubicación</th>
                   <th className="px-3 py-3 font-semibold sm:px-4">Tipo</th>
                   <th className="px-3 py-3 font-semibold sm:px-4">Estado</th>
-                  <th className="px-3 py-3 font-semibold sm:px-4">Ver</th>
+                  <th className="px-3 py-3 font-semibold sm:px-4">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -293,14 +454,32 @@ export default function GestionClientesPage() {
                         </span>
                       </td>
                       <td className="px-3 py-2 sm:px-4">
-                        <button
-                          type="button"
-                          title="Ver detalle del cliente"
-                          onClick={() => openDetailModal(c)}
-                          className="rounded p-1.5 text-blue-600 hover:bg-blue-100"
-                        >
-                          <FaEye className="h-4 w-4" />
-                        </button>
+                        <div className="flex flex-wrap items-center gap-0.5">
+                          <button
+                            type="button"
+                            title="Ver detalle del cliente"
+                            onClick={() => openDetailModal(c)}
+                            className="rounded p-1.5 text-blue-600 hover:bg-blue-100"
+                          >
+                            <FaEye className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            title="Actualizar cliente"
+                            onClick={() => openEditModal(c)}
+                            className="rounded p-1.5 text-amber-700 hover:bg-amber-100"
+                          >
+                            <FaPen className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            title="Eliminar cliente"
+                            onClick={() => setDeleteTarget(c)}
+                            className="rounded p-1.5 text-red-600 hover:bg-red-50"
+                          >
+                            <FaTrashAlt className="h-4 w-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -343,10 +522,24 @@ export default function GestionClientesPage() {
                 />
                 <DetailRow label="Correo" value={detailCliente.correoCliente} />
                 <DetailRow label="Dirección" value={detailCliente.direccionCliente} />
-                <DetailRow label="Cédula" value={detailCliente.cedulaCliente} />
+                <DetailRow label="Tipo de cliente" value={detailCliente.tiposCliente} />
+                {(detailCliente.tiposCliente ?? detailCliente.nombreTipoCliente ?? TIPO_INDIVIDUO) ===
+                TIPO_INDIVIDUO ? (
+                  <DetailRow label="Cédula" value={detailCliente.cedulaCliente} />
+                ) : (
+                  <>
+                    <DetailRow
+                      label="Número RUC"
+                      value={detailCliente.numeroRuc ?? detailCliente.NumeroRuc}
+                    />
+                    <DetailRow
+                      label="Nombre de contacto"
+                      value={detailCliente.nombreContacto ?? detailCliente.NombreContacto}
+                    />
+                  </>
+                )}
                 <DetailRow label="Departamento" value={detailCliente.departamento} />
                 <DetailRow label="Municipio" value={detailCliente.municipio} />
-                <DetailRow label="Tipo de cliente" value={detailCliente.tiposCliente} />
                 <DetailRow
                   label="Estado"
                   value={detailCliente.activo !== false ? "Activo" : "Inactivo"}
@@ -358,7 +551,10 @@ export default function GestionClientesPage() {
 
               <div className="border-t pt-4">
                 <p className="mb-2 text-sm font-medium text-gray-700">Firma</p>
-                <div className="rounded-md border border-gray-200 bg-gray-50 p-4">
+                <p className="mb-2 text-xs text-gray-500">
+                  Si la firma llega en Base64 desde el servidor, se decodifica automáticamente para mostrarla.
+                </p>
+                <div className="flex justify-center rounded-md border border-gray-200 bg-gray-50 p-4">
                   <FirmaDisplay src={detailCliente.firmaCliente} />
                 </div>
               </div>
@@ -381,10 +577,12 @@ export default function GestionClientesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-xl">
             <div className="flex items-center justify-between border-b px-6 py-4">
-              <h2 className="text-lg font-semibold text-gray-800">Nuevo Cliente</h2>
+              <h2 className="text-lg font-semibold text-gray-800">
+                {editingClienteId != null ? "Actualizar cliente" : "Nuevo Cliente"}
+              </h2>
               <button
                 type="button"
-                onClick={() => setCreateModalOpen(false)}
+                onClick={closeClienteModal}
                 className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
               >
                 <FaTimes className="h-5 w-5" />
@@ -449,12 +647,66 @@ export default function GestionClientesPage() {
                 onChange={handleFormChange}
               />
 
-              <InputField
-                label="Cédula"
-                name="CedulaCliente"
-                value={form.CedulaCliente}
+              <SelectField
+                label="Tipo de cliente"
+                name="NombreTipoCliente"
+                value={form.NombreTipoCliente}
+                error={formErrors.NombreTipoCliente}
                 onChange={handleFormChange}
+                options={TIPOS_CLIENTE.map((t) => ({ nombreTipoCliente: t }))}
+                optionValue="nombreTipoCliente"
+                optionLabel="nombreTipoCliente"
+                loading={false}
+                required
               />
+
+              {esIndividuoForm ? (
+                <div className="max-w-md">
+                  <InputField
+                    label="Cédula"
+                    name="CedulaCliente"
+                    value={form.CedulaCliente}
+                    error={formErrors.CedulaCliente}
+                    onChange={handleFormChange}
+                    required
+                    placeholder="000-000000-0000F"
+                    maxLength={16}
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Formato nicaragüense: 000-000000-0000F (13 dígitos y letra mayúscula al final).
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <InputField
+                      label="Número RUC"
+                      name="NumeroRuc"
+                      value={form.NumeroRuc}
+                      error={formErrors.NumeroRuc}
+                      onChange={handleFormChange}
+                      required={rucObligatorioForm}
+                      placeholder={
+                        rucObligatorioForm ? "Obligatorio para Empresa, Institución u ONG" : "Opcional (tipo Otro)"
+                      }
+                    />
+                    <InputField
+                      label="Nombre de contacto"
+                      name="NombreContacto"
+                      value={form.NombreContacto}
+                      error={formErrors.NombreContacto}
+                      onChange={handleFormChange}
+                      required
+                      placeholder="Persona de contacto"
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {rucObligatorioForm
+                      ? "Empresa, Institución u ONG: el RUC es obligatorio. El nombre de contacto también es obligatorio."
+                      : "Tipo Otro: el RUC es opcional; el nombre de contacto es obligatorio."}
+                  </p>
+                </>
+              )}
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <SelectField
@@ -484,19 +736,6 @@ export default function GestionClientesPage() {
                 />
               </div>
 
-              <SelectField
-                label="Tipo de cliente"
-                name="NombreTipoCliente"
-                value={form.NombreTipoCliente}
-                error={formErrors.NombreTipoCliente}
-                onChange={handleFormChange}
-                options={TIPOS_CLIENTE.map((t) => ({ nombreTipoCliente: t }))}
-                optionValue="nombreTipoCliente"
-                optionLabel="nombreTipoCliente"
-                loading={false}
-                required
-              />
-
               <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
                 <input
                   type="checkbox"
@@ -511,14 +750,22 @@ export default function GestionClientesPage() {
               <div>
                 <p className="mb-2 text-sm font-medium text-gray-700">
                   Firma digital del cliente
-                  <span className="ml-0.5 text-red-500">*</span>
+                  {editingClienteId == null && <span className="ml-0.5 text-red-500">*</span>}
                 </p>
+                <p className="mb-2 text-xs text-gray-500">
+                  Área de captura {FIRMA_CANVAS_ANCHO}×{FIRMA_CANVAS_ALTO} px (apaisada, PNG).
+                </p>
+                {editingClienteId != null && (
+                  <p className="mb-2 text-xs text-gray-600">
+                    La firma guardada se conserva. Dibuje de nuevo solo si desea reemplazarla.
+                  </p>
+                )}
                 <SignaturePad
                   resetVersion={signatureResetVersion}
                   disabled={saving}
                   onChange={setFirmaFile}
                 />
-                {!firmaFile && (
+                {editingClienteId == null && !firmaFile && (
                   <p className="mt-1 text-xs text-amber-700">Debe firmar en el recuadro para crear el cliente.</p>
                 )}
               </div>
@@ -526,7 +773,7 @@ export default function GestionClientesPage() {
               <div className="flex justify-end gap-3 border-t pt-4">
                 <button
                   type="button"
-                  onClick={() => setCreateModalOpen(false)}
+                  onClick={closeClienteModal}
                   className="rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300"
                 >
                   Cancelar
@@ -537,13 +784,26 @@ export default function GestionClientesPage() {
                   className="inline-flex items-center gap-2 rounded-md bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {saving && <FaSpinner className="h-4 w-4 animate-spin" />}
-                  Crear Cliente
+                  {editingClienteId != null ? "Guardar cambios" : "Crear Cliente"}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Eliminar cliente"
+        message={deleteTarget ? buildDeleteConfirmMessage(deleteTarget) : ""}
+        confirmText="Aceptar"
+        cancelText="Cancelar"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => {
+          if (!deleteLoading) setDeleteTarget(null);
+        }}
+        loading={deleteLoading}
+      />
 
     </div>
   );
@@ -570,28 +830,82 @@ function DetailRow({ label, value }) {
   );
 }
 
-function FirmaDisplay({ src }) {
-  if (!src || typeof src !== "string") {
-    return <p className="text-sm text-gray-500">Sin firma registrada.</p>;
+/** Interpreta firma: URL, `data:image`, Base64 crudo, o prefijo `DATA:` en mayúsculas (respuesta GET). */
+function parseFirmaContenido(src) {
+  if (!src || typeof src !== "string") return null;
+  let s = src.trim();
+  if (s.length >= 5 && s.slice(0, 5).toUpperCase() === "DATA:") {
+    s = `data:${s.slice(5)}`;
   }
-  const normalized = src.startsWith("DATA:") ? `data:${src.slice(5)}` : src;
-  const isImg =
-    /^data:image\//i.test(normalized) ||
-    normalized.startsWith("http://") ||
-    normalized.startsWith("https://");
-  if (isImg) {
+  if (/^data:image\//i.test(s)) {
+    s = s.replace(/^data:([^;]+);([^,]+),/i, (_, mime, enc) => `data:${mime.toLowerCase()};${enc.toLowerCase()},`);
+    return { kind: "url", url: s };
+  }
+  if (s.startsWith("http://") || s.startsWith("https://")) return { kind: "url", url: s };
+  const compact = s.replace(/\s/g, "");
+  if (/^[A-Za-z0-9+/]+={0,2}$/.test(compact) && compact.length >= 32) {
+    return { kind: "b64", b64: compact };
+  }
+  return { kind: "text", text: s };
+}
+
+function FirmaDisplay({ src }) {
+  const parsed = useMemo(() => parseFirmaContenido(src), [src]);
+  const [mime, setMime] = useState("image/png");
+
+  useEffect(() => {
+    setMime("image/png");
+  }, [src]);
+
+  const boxStyle = {
+    maxWidth: FIRMA_CANVAS_ANCHO,
+    aspectRatio: `${FIRMA_CANVAS_ANCHO} / ${FIRMA_CANVAS_ALTO}`,
+  };
+  const boxClass =
+    "relative mx-auto flex w-full items-center justify-center overflow-hidden rounded border border-gray-200 bg-white";
+
+  if (!parsed) {
     return (
-      <img
-        src={normalized}
-        alt="Firma del cliente"
-        className="max-h-48 max-w-full rounded border border-gray-200 object-contain"
-      />
+      <div className={boxClass} style={boxStyle}>
+        <p className="px-2 text-center text-sm text-gray-500">Sin firma registrada.</p>
+      </div>
     );
   }
+
+  const imgClass = "h-full w-full object-contain";
+
+  if (parsed.kind === "url") {
+    return (
+      <div className={boxClass} style={boxStyle}>
+        <img src={parsed.url} alt="Firma del cliente" width={FIRMA_CANVAS_ANCHO} height={FIRMA_CANVAS_ALTO} className={imgClass} />
+      </div>
+    );
+  }
+
+  if (parsed.kind === "b64") {
+    const dataUrl = `data:${mime};base64,${parsed.b64}`;
+    return (
+      <div className={boxClass} style={boxStyle}>
+        <img
+          src={dataUrl}
+          alt="Firma del cliente (decodificada desde Base64)"
+          width={FIRMA_CANVAS_ANCHO}
+          height={FIRMA_CANVAS_ALTO}
+          className={imgClass}
+          onError={() => {
+            if (mime === "image/png") setMime("image/jpeg");
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
-    <p className="break-all text-xs text-gray-600" title="Contenido de firma (no es imagen incrustada)">
-      Firma almacenada (vista previa no disponible en este formato).
-    </p>
+    <div className={boxClass} style={boxStyle}>
+      <p className="max-h-full overflow-auto px-2 text-center text-xs text-gray-600" title={parsed.text.slice(0, 120)}>
+        No se pudo interpretar la firma como imagen (no es URL ni Base64 de imagen reconocible).
+      </p>
+    </div>
   );
 }
 
@@ -603,7 +917,9 @@ function InputField({
   error,
   onChange,
   required,
+  disabled,
   placeholder,
+  maxLength,
   inputMode,
   autoComplete,
 }) {
@@ -620,10 +936,12 @@ function InputField({
         name={name}
         value={value}
         onChange={onChange}
+        disabled={disabled}
         placeholder={placeholder}
+        maxLength={maxLength}
         inputMode={inputMode}
         autoComplete={autoComplete}
-        className={`input ${error ? "border-red-400 ring-1 ring-red-400" : ""}`}
+        className={`input ${error ? "border-red-400 ring-1 ring-red-400" : ""} ${disabled ? "cursor-not-allowed bg-gray-50 text-gray-500" : ""}`}
       />
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
     </div>

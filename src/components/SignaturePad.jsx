@@ -2,9 +2,17 @@ import { useCallback, useEffect, useRef } from "react";
 
 const STROKE = "#0f172a";
 const BG = "#ffffff";
-/** Resolución interna del PNG (escalada visualmente con CSS). */
-const W = 700;
-const H = 220;
+
+/**
+ * Lienzo de firma en formato **apaisado** (ancho × alto en px del PNG).
+ * Las firmas suelen ser horizontales; un rectángulo estrecho y alto (p. ej. 200×240)
+ * obliga a firmar “en columna” y se ve peor. 560×200 encaja bien en modal y dedo/ratón.
+ */
+export const FIRMA_CANVAS_ANCHO = 560;
+export const FIRMA_CANVAS_ALTO = 200;
+
+const W = FIRMA_CANVAS_ANCHO;
+const H = FIRMA_CANVAS_ALTO;
 
 /**
  * Área de firma con canvas; exporta PNG como `File` para FormData (FirmaCliente).
@@ -29,7 +37,7 @@ export default function SignaturePad({ onChange, resetVersion = 0, disabled }) {
     ctx.fillStyle = BG;
     ctx.fillRect(0, 0, W, H);
     ctx.strokeStyle = STROKE;
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = Math.min(3, Math.max(2, W / 220));
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     hasInk.current = false;
@@ -121,11 +129,11 @@ export default function SignaturePad({ onChange, resetVersion = 0, disabled }) {
 
   return (
     <div className="space-y-2">
-      <div className="relative w-full overflow-hidden rounded-md border-2 border-dashed border-gray-300 bg-white">
+      <div className="relative flex w-full justify-center overflow-hidden rounded-md border-2 border-dashed border-gray-300 bg-white py-2">
         <canvas
           ref={canvasRef}
-          className="h-40 w-full touch-none cursor-crosshair disabled:pointer-events-none disabled:opacity-50"
-          style={{ maxWidth: "100%" }}
+          className="block h-auto w-full max-w-[560px] touch-none cursor-crosshair disabled:pointer-events-none disabled:opacity-50"
+          style={{ aspectRatio: `${W} / ${H}` }}
           onPointerDown={start}
           onPointerMove={move}
           onPointerUp={end}
@@ -137,7 +145,9 @@ export default function SignaturePad({ onChange, resetVersion = 0, disabled }) {
         />
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-gray-500">Firme dentro del recuadro. Se enviará como imagen PNG.</p>
+        <p className="text-xs text-gray-500">
+          Firme en el recuadro apaisado ({W}×{H} px). Se enviará como PNG.
+        </p>
         <button
           type="button"
           onClick={clearInternal}

@@ -77,7 +77,15 @@ async function request(url, { method = "GET", body, formData = false, skipAuth =
     throw new Error(errorMessage);
   }
 
-  const result = await res.json();
+  const text = await res.text();
+  let result = {};
+  if (text?.trim()) {
+    try {
+      result = JSON.parse(text);
+    } catch {
+      result = {};
+    }
+  }
   const newToken = result.data?.token;
   if (newToken) {
     accessToken = newToken;
