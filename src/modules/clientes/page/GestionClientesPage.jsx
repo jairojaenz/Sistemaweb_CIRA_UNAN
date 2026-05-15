@@ -180,6 +180,7 @@ export default function GestionClientesPage() {
     }
     if (name === "NumeroRuc") {
       if (esInd) return "";
+      if (editingClienteId != null) return "";
       if (rucObl) {
         const v = String(value ?? "").trim();
         if (!v) return "El número RUC es obligatorio para Empresa, Institución u ONG";
@@ -270,7 +271,7 @@ export default function GestionClientesPage() {
     if (form.NombreTipoCliente === TIPO_INDIVIDUO) {
       if (validateField("CedulaCliente", form.CedulaCliente, form)) return false;
     } else {
-      if (validateField("NumeroRuc", form.NumeroRuc, form)) return false;
+      if (editingClienteId == null && validateField("NumeroRuc", form.NumeroRuc, form)) return false;
       if (validateField("NombreContacto", form.NombreContacto, form)) return false;
     }
     if (editingClienteId == null && !firmaFile) return false;
@@ -678,32 +679,48 @@ export default function GestionClientesPage() {
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <InputField
-                      label="Número RUC"
-                      name="NumeroRuc"
-                      value={form.NumeroRuc}
-                      error={formErrors.NumeroRuc}
-                      onChange={handleFormChange}
-                      required={rucObligatorioForm}
-                      placeholder={
-                        rucObligatorioForm ? "Obligatorio para Empresa, Institución u ONG" : "Opcional (tipo Otro)"
-                      }
-                    />
-                    <InputField
-                      label="Nombre de contacto"
-                      name="NombreContacto"
-                      value={form.NombreContacto}
-                      error={formErrors.NombreContacto}
-                      onChange={handleFormChange}
-                      required
-                      placeholder="Persona de contacto"
-                    />
-                  </div>
+                  {editingClienteId == null ? (
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <InputField
+                        label="Número RUC"
+                        name="NumeroRuc"
+                        value={form.NumeroRuc}
+                        error={formErrors.NumeroRuc}
+                        onChange={handleFormChange}
+                        required={rucObligatorioForm}
+                        placeholder={
+                          rucObligatorioForm ? "Obligatorio para Empresa, Institución u ONG" : "Opcional (tipo Otro)"
+                        }
+                      />
+                      <InputField
+                        label="Nombre de contacto"
+                        name="NombreContacto"
+                        value={form.NombreContacto}
+                        error={formErrors.NombreContacto}
+                        onChange={handleFormChange}
+                        required
+                        placeholder="Persona de contacto"
+                      />
+                    </div>
+                  ) : (
+                    <div className="max-w-md">
+                      <InputField
+                        label="Nombre de contacto"
+                        name="NombreContacto"
+                        value={form.NombreContacto}
+                        error={formErrors.NombreContacto}
+                        onChange={handleFormChange}
+                        required
+                        placeholder="Persona de contacto"
+                      />
+                    </div>
+                  )}
                   <p className="mt-1 text-xs text-gray-500">
-                    {rucObligatorioForm
-                      ? "Empresa, Institución u ONG: el RUC es obligatorio. El nombre de contacto también es obligatorio."
-                      : "Tipo Otro: el RUC es opcional; el nombre de contacto es obligatorio."}
+                    {editingClienteId != null
+                      ? "El número RUC no se edita aquí (el API de actualización no lo recibe). Puede actualizar el nombre de contacto."
+                      : rucObligatorioForm
+                        ? "Empresa, Institución u ONG: el RUC es obligatorio. El nombre de contacto también es obligatorio."
+                        : "Tipo Otro: el RUC es opcional; el nombre de contacto es obligatorio."}
                   </p>
                 </>
               )}
