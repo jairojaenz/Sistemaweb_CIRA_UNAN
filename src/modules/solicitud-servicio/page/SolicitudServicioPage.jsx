@@ -1,35 +1,85 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
+import { ROUTES } from "../../../router/routes.js";
 import { saveSolicitudServicioLocal } from "../service/solicitudServicioService.js";
+import { mapClienteToSolicitudPrefill, nombreCompletoCliente } from "../utils/mapClienteToSolicitud.js";
+
+function isClienteActivo(c) {
+  return c?.activo !== false;
+}
+
+const initialFormData = {
+  solicitudNo: "",
+  medioRecepcion: "",
+  fechaRecepcion: "",
+  nombreUsuario: "",
+  direccionUsuario: "",
+  ruc: "",
+  cedula: "",
+  correo: "",
+  atencionA: "",
+  contacto1: "",
+  contacto2: "",
+  servicios: {
+    analisis: false,
+    muestreo: false,
+    informeTecnico: false,
+    medicionNeaNd: false,
+  },
+  matriz: "",
+  matrizOtro: "",
+  numMuestras: "",
+  analisisSolicitados: "",
+  coordenadas: "",
+  observacion: "",
+  firmaUsuario: "",
+  solicitudRecibidaPor: "",
+  fechaEnvioProforma: "",
+};
 
 export default function SolicitudServicioPage() {
-  const [formData, setFormData] = useState({
-    solicitudNo: "",
-    medioRecepcion: "",
-    fechaRecepcion: "",
-    nombreUsuario: "",
-    direccionUsuario: "",
-    ruc: "",
-    cedula: "",
-    correo: "",
-    atencionA: "",
-    contacto1: "",
-    contacto2: "",
-    servicios: {
-      analisis: false,
-      muestreo: false,
-      informeTecnico: false,
-      medicionNeaNd: false,
-    },
-    matriz: "",
-    matrizOtro: "",
-    numMuestras: "",
-    analisisSolicitados: "",
-    coordenadas: "",
-    observacion: "",
-    firmaUsuario: "",
-    solicitudRecibidaPor: "",
-    fechaEnvioProforma: "",
-  });
+  const { idCliente: idClienteParam } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const idCliente = idClienteParam ? Number(idClienteParam) : null;
+
+  const [formData, setFormData] = useState({ ...initialFormData });
+  const [avisoClienteInactivo, setAvisoClienteInactivo] = useState(false);
+
+  const clienteDesdeNavegacion = useMemo(() => {
+    if (!idCliente || Number.isNaN(idCliente)) return null;
+    if (location.state?.cliente?.idCliente === idCliente) {
+      return location.state.cliente;
+    }
+    try {
+      const raw = sessionStorage.getItem(`solicitud-cliente-${idCliente}`);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }, [idCliente, location.state]);
+
+  const etiquetaCliente = clienteDesdeNavegacion
+    ? nombreCompletoCliente(clienteDesdeNavegacion)
+    : idCliente
+      ? `Cliente #${idCliente}`
+      : "";
+
+  useEffect(() => {
+    if (!idCliente || Number.isNaN(idCliente) || !clienteDesdeNavegacion) return;
+    if (!isClienteActivo(clienteDesdeNavegacion)) {
+      setAvisoClienteInactivo(true);
+      return;
+    }
+    const prefill = mapClienteToSolicitudPrefill(clienteDesdeNavegacion);
+    setFormData((prev) => ({ ...prev, ...prefill }));
+  }, [idCliente, clienteDesdeNavegacion]);
+
+  function cerrarAvisoInactivo() {
+    setAvisoClienteInactivo(false);
+    navigate(ROUTES.gestionClientes);
+  }
 
   const matrices = [
     "Agua Natural",
@@ -58,7 +108,10 @@ export default function SolicitudServicioPage() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    saveSolicitudServicioLocal(formData);
+    saveSolicitudServicioLocal({
+      ...formData,
+      idCliente: idCliente && !Number.isNaN(idCliente) ? idCliente : undefined,
+    });
   };
 
   return (
@@ -73,6 +126,16 @@ export default function SolicitudServicioPage() {
           onSubmit={handleSubmit}
           className="w-full max-w-5xl space-y-6 rounded-lg border border-gray-200 bg-white p-6 shadow-lg"
         >
+          {idCliente && !Number.isNaN(idCliente) && (
+            <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+              <p className="font-medium">Solicitud vinculada al cliente</p>
+              <p className="mt-0.5">
+                {etiquetaCliente}
+                <span className="ml-2 text-blue-700">(ID: {idCliente})</span>
+              </p>
+            </div>
+          )}
+
           {/* Datos generales */}
           <section>
             <h3 className="text-lg font-semibold text-blue-900 border-b pb-1 mb-3">
@@ -193,6 +256,17 @@ export default function SolicitudServicioPage() {
       <footer className="bg-blue-900 text-white text-center py-2">
         <p>© {new Date().getFullYear()} CIRA - UNAN Managua | Área de Proyección y Extensión</p>
       </footer>
+
+      <ConfirmDialog
+        open={avisoClienteInactivo}
+        title="Usuario inactivo"
+        message={`El usuario "${etiquetaCliente || `Cliente #${idCliente}`}" se encuentra inactivo. Actívelo antes de crear una solicitud de servicio.`}
+        confirmText="Entendido"
+        showCancel={false}
+        confirmClass="bg-amber-600 hover:bg-amber-700"
+        onConfirm={cerrarAvisoInactivo}
+        onCancel={cerrarAvisoInactivo}
+      />
     </div>
   );
 }

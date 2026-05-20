@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPostFormData, apiPutFormData } from "../../../auth/api.js";
+import { apiDelete, apiGet, apiPostFormData, apiPut, apiPutFormData } from "../../../auth/api.js";
 
 function normalizeListResponse(res) {
   if (Array.isArray(res)) return res;
@@ -72,4 +72,8 @@ export async function updateCliente(idCliente, data, firmaFile) {
 
 export async function deleteCliente(idCliente) {
   return await apiDelete(`/api/Clientes/delete-cliente/${idCliente}`);
+}
+
+export async function toggleClienteStatus(idCliente) {
+  return await apiPut(`/api/Clientes/toggle-cliente-status/${idCliente}`);
 }

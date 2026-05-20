@@ -5,6 +5,7 @@ export const ROUTES = {
   home: "/dashboard",
   infoCampo: "/dashboard/info-campo",
   solicitudServicio: "/dashboard/solicitud-servicio",
+  solicitudServicioCliente: (idCliente) => `/dashboard/solicitud-servicio/${idCliente}`,
   planMuestreoPaso: (n) => `/dashboard/plan-muestreo/paso-${n}`,
   gestionUsuarios: "/dashboard/gestion-usuarios",
   gestionClientes: "/dashboard/gestion-clientes",

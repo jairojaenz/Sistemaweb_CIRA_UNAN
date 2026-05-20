@@ -58,6 +58,7 @@ export default function AppRoutes() {
           >
             <Route index element={<DashboardHomePage />} />
             <Route path="info-campo" element={<InfoCampoPage />} />
+            <Route path="solicitud-servicio/:idCliente" element={<SolicitudServicioPage />} />
             <Route path="solicitud-servicio" element={<SolicitudServicioPage />} />
             <Route path="plan-muestreo/paso-1" element={<PlanMuestreoPaso1 />} />
             <Route path="plan-muestreo/paso-2" element={<PlanMuestreoPaso2 />} />

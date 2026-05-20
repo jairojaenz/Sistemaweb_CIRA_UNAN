@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FaEye, FaPen, FaPlus, FaSearch, FaSpinner, FaTimes, FaTrashAlt } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
+import { FaEllipsisV, FaPlus, FaSearch, FaSpinner, FaTimes } from "react-icons/fa";
+import { ROUTES } from "../../../router/routes.js";
 import { useAuth } from "../../../auth/AuthContext.jsx";
 import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import SignaturePad, { FIRMA_CANVAS_ALTO, FIRMA_CANVAS_ANCHO } from "../../../components/SignaturePad.jsx";
@@ -7,7 +9,7 @@ import { useToast } from "../../../components/ToastContext.jsx";
 import { getDepartamentos, getMunicipios } from "../../usuarios/service/usuarioService.js";
 import { CEDULA_NICARAGUA_REGEX, formatCedulaNicaragua } from "../../../utils/cedulaNicaraguaFormat.js";
 import { formatTelefonoLocal } from "../../../utils/phoneFormat.js";
-import { createCliente, deleteCliente, getClientes, updateCliente } from "../service/clienteService.js";
+import { createCliente, getClientes, toggleClienteStatus, updateCliente } from "../service/clienteService.js";
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
@@ -61,22 +63,12 @@ function mapClienteToForm(c) {
   };
 }
 
-function buildDeleteConfirmMessage(c) {
-  const nombre = `${c.nombreCliente || ""} ${c.apellidoCliente || ""}`.trim() || "Sin nombre";
-  const ced = c.cedulaCliente || "—";
-  const mail = c.correoCliente || "—";
-  return (
-    `Va a eliminar de forma permanente al siguiente cliente:\n\n` +
-    `• Nombre: ${nombre}\n` +
-    `• Cédula: ${ced}\n` +
-    `• Correo: ${mail}\n\n` +
-    `Advertencia: esta acción no se puede deshacer. ` +
-    `Si hay datos vinculados (solicitudes, órdenes, etc.), el servidor podría rechazar la eliminación o dejar registros huérfanos.\n\n` +
-    `¿Desea continuar?`
-  );
+function isClienteActivo(c) {
+  return c.activo !== false;
 }
 
 export default function GestionClientesPage() {
+  const navigate = useNavigate();
   const { addToast } = useToast();
   const { user } = useAuth();
 
@@ -91,8 +83,10 @@ export default function GestionClientesPage() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editingClienteId, setEditingClienteId] = useState(null);
   const [detailCliente, setDetailCliente] = useState(null);
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [confirmToggle, setConfirmToggle] = useState(null);
+  const [toggling, setToggling] = useState(null);
+  const [menuClienteId, setMenuClienteId] = useState(null);
+  const [clienteInactivoAviso, setClienteInactivoAviso] = useState(null);
 
   const [form, setForm] = useState({ ...initialForm });
   const [formErrors, setFormErrors] = useState({});
@@ -134,6 +128,29 @@ export default function GestionClientesPage() {
   useEffect(() => {
     loadCatalogs();
   }, [loadCatalogs]);
+
+  useEffect(() => {
+    if (menuClienteId == null) return;
+    const cerrarMenu = () => setMenuClienteId(null);
+    document.addEventListener("click", cerrarMenu);
+    return () => document.removeEventListener("click", cerrarMenu);
+  }, [menuClienteId]);
+
+  function irCrearSolicitud(cliente) {
+    setMenuClienteId(null);
+    if (!isClienteActivo(cliente)) {
+      setClienteInactivoAviso(cliente);
+      return;
+    }
+    const id = cliente.idCliente;
+    if (!id) return;
+    try {
+      sessionStorage.setItem(`solicitud-cliente-${id}`, JSON.stringify(cliente));
+    } catch {
+      /* sessionStorage no disponible */
+    }
+    navigate(ROUTES.solicitudServicioCliente(id), { state: { cliente } });
+  }
 
   const departamentoMap = useMemo(() => {
     const map = {};
@@ -344,21 +361,25 @@ export default function GestionClientesPage() {
     }
   }
 
-  async function handleConfirmDelete() {
-    if (!deleteTarget?.idCliente) return;
-    setDeleteLoading(true);
+  async function handleToggle(cliente) {
+    setToggling(cliente.idCliente);
     try {
-      await deleteCliente(deleteTarget.idCliente);
-      addToast("Cliente eliminado correctamente.", "success");
-      setDeleteTarget(null);
-      if (detailCliente?.idCliente === deleteTarget.idCliente) {
-        setDetailCliente(null);
-      }
-      await loadClientes();
+      await toggleClienteStatus(cliente.idCliente);
+      const estabaActivo = isClienteActivo(cliente);
+      addToast(
+        estabaActivo ? "Cliente desactivado exitosamente" : "Cliente activado exitosamente",
+        "success"
+      );
+      setClientes((prev) =>
+        prev.map((c) =>
+          c.idCliente === cliente.idCliente ? { ...c, activo: !estabaActivo } : c
+        )
+      );
     } catch (err) {
       addToast(err.message, "error");
     } finally {
-      setDeleteLoading(false);
+      setToggling(null);
+      setConfirmToggle(null);
     }
   }
 
@@ -399,13 +420,13 @@ export default function GestionClientesPage() {
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="bg-gray-50 text-xs uppercase text-gray-600">
                 <tr>
-                  <th className="px-3 py-3 font-semibold sm:px-4">Nombre</th>
-                  <th className="px-3 py-3 font-semibold sm:px-4">Correo</th>
-                  <th className="px-3 py-3 font-semibold sm:px-4">Teléfono</th>
-                  <th className="px-3 py-3 font-semibold sm:px-4">Ubicación</th>
-                  <th className="px-3 py-3 font-semibold sm:px-4">Tipo</th>
-                  <th className="px-3 py-3 font-semibold sm:px-4">Estado</th>
-                  <th className="px-3 py-3 font-semibold sm:px-4">Acciones</th>
+                  <th className="px-4 py-3 font-semibold sm:px-6">Nombre</th>
+                  <th className="px-4 py-3 font-semibold sm:px-6">Correo</th>
+                  <th className="px-4 py-3 font-semibold sm:px-6">Teléfono</th>
+                  <th className="px-4 py-3 font-semibold sm:px-6">Ubicación</th>
+                  <th className="px-4 py-3 font-semibold sm:px-6">Tipo</th>
+                  <th className="px-4 py-3 font-semibold sm:px-6">Estado</th>
+                  <th className="px-4 py-3 font-semibold sm:px-6">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -425,61 +446,107 @@ export default function GestionClientesPage() {
                 ) : (
                   filteredClientes.map((c) => (
                     <tr key={c.idCliente} className="hover:bg-gray-50">
-                      <td className="px-3 py-2 font-medium text-gray-900 sm:px-4">{fullName(c)}</td>
-                      <td className="max-w-[200px] truncate px-3 py-2 text-gray-600 sm:px-4">
+                      <td className="px-4 py-3 font-medium text-gray-900 sm:px-6">{fullName(c)}</td>
+                      <td className="max-w-[200px] truncate px-4 py-3 text-gray-600 sm:px-6">
                         {c.correoCliente}
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-gray-600 sm:px-4">
+                      <td className="whitespace-nowrap px-4 py-3 text-gray-600 sm:px-6">
                         {formatTelefonoLocal(c.celularCliente || c.telefonoCliente || "") || "—"}
                       </td>
-                      <td className="max-w-[180px] px-3 py-2 text-gray-600 sm:px-4">
+                      <td className="max-w-[180px] px-4 py-3 text-gray-600 sm:px-6">
                         <span className="line-clamp-2">
                           {[c.municipio, c.departamento].filter(Boolean).join(", ") || "—"}
                         </span>
                       </td>
-                      <td className="px-3 py-2 text-gray-600 sm:px-4">{c.tiposCliente || "—"}</td>
-                      <td className="px-3 py-2 sm:px-4">
+                      <td className="px-4 py-3 text-gray-600 sm:px-6">{c.tiposCliente || "—"}</td>
+                      <td className="px-4 py-3 sm:px-6">
                         <span
                           className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                            c.activo !== false
+                            isClienteActivo(c)
                               ? "bg-green-100 text-green-800"
                               : "bg-red-100 text-red-800"
                           }`}
                         >
                           <span
                             className={`h-1.5 w-1.5 rounded-full ${
-                              c.activo !== false ? "bg-green-500" : "bg-red-500"
+                              isClienteActivo(c) ? "bg-green-500" : "bg-red-500"
                             }`}
                           />
-                          {c.activo !== false ? "Activo" : "Inactivo"}
+                          {isClienteActivo(c) ? "Activo" : "Inhabilitado"}
                         </span>
                       </td>
-                      <td className="px-3 py-2 sm:px-4">
-                        <div className="flex flex-wrap items-center gap-0.5">
-                          <button
-                            type="button"
-                            title="Ver detalle del cliente"
-                            onClick={() => openDetailModal(c)}
-                            className="rounded p-1.5 text-blue-600 hover:bg-blue-100"
-                          >
-                            <FaEye className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            title="Actualizar cliente"
-                            onClick={() => openEditModal(c)}
-                            className="rounded p-1.5 text-amber-700 hover:bg-amber-100"
-                          >
-                            <FaPen className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            title="Eliminar cliente"
-                            onClick={() => setDeleteTarget(c)}
-                            className="rounded p-1.5 text-red-600 hover:bg-red-50"
-                          >
-                            <FaTrashAlt className="h-4 w-4" />
-                          </button>
+                      <td className="px-4 py-3 sm:px-6">
+                        <div className="flex items-center gap-2">
+                          <label className="relative inline-flex cursor-pointer items-center">
+                            <input
+                              type="checkbox"
+                              className="peer sr-only"
+                              checked={isClienteActivo(c)}
+                              disabled={toggling === c.idCliente}
+                              onChange={() => setConfirmToggle(c)}
+                            />
+                            <div className="h-5 w-9 rounded-full bg-gray-300 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-green-500 peer-checked:after:translate-x-full peer-disabled:opacity-50" />
+                          </label>
+
+                          <div className="relative">
+                            <button
+                              type="button"
+                              title="Más acciones"
+                              aria-expanded={menuClienteId === c.idCliente}
+                              aria-haspopup="menu"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMenuClienteId((prev) =>
+                                  prev === c.idCliente ? null : c.idCliente
+                                );
+                              }}
+                              className="rounded p-1.5 text-gray-600 hover:bg-gray-100"
+                            >
+                              <FaEllipsisV className="h-4 w-4" />
+                            </button>
+                            {menuClienteId === c.idCliente && (
+                              <div
+                                role="menu"
+                                onClick={(e) => e.stopPropagation()}
+                                className="absolute right-0 top-full z-20 mt-1 min-w-[10.5rem] rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+                              >
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                                  onClick={() => {
+                                    openEditModal(c);
+                                    setMenuClienteId(null);
+                                  }}
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                                  onClick={() => {
+                                    openDetailModal(c);
+                                    setMenuClienteId(null);
+                                  }}
+                                >
+                                  Ver
+                                </button>
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                                  onClick={() => irCrearSolicitud(c)}
+                                >
+                                  Crear Solicitud
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          {toggling === c.idCliente && (
+                            <FaSpinner className="h-4 w-4 animate-spin text-gray-400" />
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -810,16 +877,28 @@ export default function GestionClientesPage() {
       )}
 
       <ConfirmDialog
-        open={!!deleteTarget}
-        title="Eliminar cliente"
-        message={deleteTarget ? buildDeleteConfirmMessage(deleteTarget) : ""}
-        confirmText="Aceptar"
-        cancelText="Cancelar"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => {
-          if (!deleteLoading) setDeleteTarget(null);
-        }}
-        loading={deleteLoading}
+        open={!!confirmToggle}
+        title="Cambiar Estado"
+        message={`¿Está seguro de que desea ${confirmToggle && isClienteActivo(confirmToggle) ? "desactivar" : "activar"} al cliente "${confirmToggle ? fullName(confirmToggle) : ""}"?`}
+        confirmText={confirmToggle && isClienteActivo(confirmToggle) ? "Desactivar" : "Activar"}
+        confirmClass={
+          confirmToggle && isClienteActivo(confirmToggle)
+            ? "bg-red-600 hover:bg-red-700"
+            : "bg-green-600 hover:bg-green-700"
+        }
+        onConfirm={() => handleToggle(confirmToggle)}
+        onCancel={() => setConfirmToggle(null)}
+      />
+
+      <ConfirmDialog
+        open={!!clienteInactivoAviso}
+        title="Usuario inactivo"
+        message={`El usuario "${clienteInactivoAviso ? fullName(clienteInactivoAviso) : ""}" se encuentra inactivo. Actívelo antes de crear una solicitud de servicio.`}
+        confirmText="Entendido"
+        showCancel={false}
+        confirmClass="bg-amber-600 hover:bg-amber-700"
+        onConfirm={() => setClienteInactivoAviso(null)}
+        onCancel={() => setClienteInactivoAviso(null)}
       />
 
     </div>

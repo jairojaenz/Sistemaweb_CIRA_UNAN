@@ -8,6 +8,7 @@ export default function ConfirmDialog({
   onConfirm,
   onCancel,
   loading = false,
+  showCancel = true,
 }) {
   if (!open) return null;
   return (
@@ -16,14 +17,16 @@ export default function ConfirmDialog({
         <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
         <p className="mt-2 whitespace-pre-line text-sm text-gray-600">{message}</p>
         <div className="mt-5 flex flex-wrap justify-end gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={loading}
-            className="rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {cancelText}
-          </button>
+          {showCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={loading}
+              className="rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {cancelText}
+            </button>
+          )}
           <button
             type="button"
             onClick={onConfirm}
