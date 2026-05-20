@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import { ROUTES } from "../../../router/routes.js";
+import { normalizeClienteFromApi } from "../../clientes/service/clienteService.js";
 import { saveSolicitudServicioLocal } from "../service/solicitudServicioService.js";
 import { mapClienteToSolicitudPrefill, nombreCompletoCliente } from "../utils/mapClienteToSolicitud.js";
 
@@ -49,15 +50,18 @@ export default function SolicitudServicioPage() {
 
   const clienteDesdeNavegacion = useMemo(() => {
     if (!idCliente || Number.isNaN(idCliente)) return null;
+    let raw = null;
     if (location.state?.cliente?.idCliente === idCliente) {
-      return location.state.cliente;
+      raw = location.state.cliente;
+    } else {
+      try {
+        const stored = sessionStorage.getItem(`solicitud-cliente-${idCliente}`);
+        raw = stored ? JSON.parse(stored) : null;
+      } catch {
+        raw = null;
+      }
     }
-    try {
-      const raw = sessionStorage.getItem(`solicitud-cliente-${idCliente}`);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
+    return raw ? normalizeClienteFromApi(raw) : null;
   }, [idCliente, location.state]);
 
   const etiquetaCliente = clienteDesdeNavegacion

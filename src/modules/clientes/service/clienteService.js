@@ -1,5 +1,7 @@
 import { apiDelete, apiGet, apiPostFormData, apiPut, apiPutFormData } from "../../../auth/api.js";
 
+const TIPO_INDIVIDUO = "Individuo";
+
 function normalizeListResponse(res) {
   if (Array.isArray(res)) return res;
   if (Array.isArray(res?.data)) return res.data;
@@ -7,6 +9,62 @@ function normalizeListResponse(res) {
   if (Array.isArray(res?.clientes)) return res.clientes;
   if (Array.isArray(res?.Clientes)) return res.Clientes;
   return [];
+}
+
+function resolveTipoCliente(c) {
+  return c.tiposCliente ?? c.nombreTipoCliente ?? c.NombreTipoCliente ?? TIPO_INDIVIDUO;
+}
+
+function resolveActivo(c) {
+  if (c.activo === false || c.Activo === false) return false;
+  return true;
+}
+
+/**
+ * Unifica la respuesta GET (`camelCase`) y respuestas legacy (`PascalCase`) en un solo shape.
+ * @param {object} raw
+ */
+export function normalizeClienteFromApi(raw) {
+  if (!raw || typeof raw !== "object") return raw;
+  const tipo = resolveTipoCliente(raw);
+  const departamento =
+    raw.departamento ?? raw.nombreDepartamento ?? raw.NombreDepartamento ?? "";
+  const municipio = raw.municipio ?? raw.nombreMunicipio ?? raw.NombreMunicipio ?? "";
+  return {
+    ...raw,
+    idCliente: raw.idCliente ?? raw.IdCliente,
+    nombreCliente: raw.nombreCliente ?? raw.NombreCliente ?? "",
+    apellidoCliente: raw.apellidoCliente ?? raw.ApellidoCliente ?? "",
+    telefonoCliente: raw.telefonoCliente ?? raw.TelefonoCliente ?? "",
+    celularCliente: raw.celularCliente ?? raw.CelularCliente ?? "",
+    correoCliente: raw.correoCliente ?? raw.CorreoCliente ?? "",
+    direccionCliente: raw.direccionCliente ?? raw.DireccionCliente ?? "",
+    cedulaCliente: raw.cedulaCliente ?? raw.CedulaCliente ?? "",
+    numeroRuc: String(raw.numeroRuc ?? raw.NumeroRuc ?? "").trim(),
+    nombreContacto: raw.nombreContacto ?? raw.NombreContacto ?? null,
+    firmaCliente: raw.firmaCliente ?? raw.FirmaCliente ?? "",
+    fechaCreacionCliente: raw.fechaCreacionCliente ?? raw.FechaCreacionCliente ?? null,
+    idUsuario: raw.idUsuario ?? raw.IdUsuario ?? null,
+    departamento,
+    municipio,
+    tiposCliente: tipo,
+    nombreTipoCliente: tipo,
+    nombreDepartamento: departamento,
+    nombreMunicipio: municipio,
+    activo: resolveActivo(raw),
+  };
+}
+
+/**
+ * Cédula o RUC para tablas: si hay `cedulaCliente` se muestra; si no, `numeroRuc`.
+ * @param {object} c
+ */
+export function identificacionCliente(c) {
+  if (!c) return "—";
+  const cedula = String(c.cedulaCliente ?? "").trim();
+  if (cedula) return cedula;
+  const ruc = String(c.numeroRuc ?? "").trim();
+  return ruc || "—";
 }
 
 /**
@@ -36,7 +94,7 @@ function appendClienteFormFields(fd, data, options = {}) {
 
 export async function getClientes() {
   const res = await apiGet("/api/Clientes/clientes");
-  return normalizeListResponse(res);
+  return normalizeListResponse(res).map(normalizeClienteFromApi);
 }
 
 /**

@@ -1,3 +1,4 @@
+import { normalizeClienteFromApi } from "../../clientes/service/clienteService.js";
 import { formatTelefonoLocal } from "../../../utils/phoneFormat.js";
 
 const TIPO_INDIVIDUO = "Individuo";
@@ -9,19 +10,20 @@ const TIPO_INDIVIDUO = "Individuo";
  */
 export function mapClienteToSolicitudPrefill(c) {
   if (!c) return {};
-  const tipo = c.tiposCliente ?? c.nombreTipoCliente ?? TIPO_INDIVIDUO;
+  const cliente = normalizeClienteFromApi(c);
+  const tipo = cliente.tiposCliente ?? TIPO_INDIVIDUO;
   const esInd = tipo === TIPO_INDIVIDUO;
-  const nombre = `${c.nombreCliente || ""} ${c.apellidoCliente || ""}`.trim();
-  const tel = formatTelefonoLocal(c.telefonoCliente ?? "");
-  const cel = formatTelefonoLocal(c.celularCliente ?? "");
+  const nombre = `${cliente.nombreCliente || ""} ${cliente.apellidoCliente || ""}`.trim();
+  const tel = formatTelefonoLocal(cliente.telefonoCliente ?? "");
+  const cel = formatTelefonoLocal(cliente.celularCliente ?? "");
 
   return {
     nombreUsuario: nombre,
-    direccionUsuario: c.direccionCliente ?? "",
-    ruc: esInd ? "" : String(c.numeroRuc ?? c.NumeroRuc ?? "").trim(),
-    cedula: esInd ? (c.cedulaCliente ?? "") : "",
-    correo: c.correoCliente ?? "",
-    atencionA: esInd ? "" : String(c.nombreContacto ?? c.NombreContacto ?? "").trim(),
+    direccionUsuario: cliente.direccionCliente ?? "",
+    ruc: esInd ? "" : cliente.numeroRuc,
+    cedula: esInd ? (cliente.cedulaCliente ?? "") : "",
+    correo: cliente.correoCliente ?? "",
+    atencionA: esInd ? "" : String(cliente.nombreContacto ?? "").trim(),
     contacto1: cel || tel,
     contacto2: cel && tel && cel !== tel ? tel : "",
   };
@@ -29,5 +31,6 @@ export function mapClienteToSolicitudPrefill(c) {
 
 export function nombreCompletoCliente(c) {
   if (!c) return "";
-  return `${c.nombreCliente || ""} ${c.apellidoCliente || ""}`.trim();
+  const cliente = normalizeClienteFromApi(c);
+  return `${cliente.nombreCliente || ""} ${cliente.apellidoCliente || ""}`.trim();
 }

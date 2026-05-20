@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { FaEllipsisV, FaPlus, FaSearch, FaSpinner, FaTimes } from "react-icons/fa";
 import { ROUTES } from "../../../router/routes.js";
@@ -9,13 +10,23 @@ import { useToast } from "../../../components/ToastContext.jsx";
 import { getDepartamentos, getMunicipios } from "../../usuarios/service/usuarioService.js";
 import { CEDULA_NICARAGUA_REGEX, formatCedulaNicaragua } from "../../../utils/cedulaNicaraguaFormat.js";
 import { formatTelefonoLocal } from "../../../utils/phoneFormat.js";
-import { createCliente, getClientes, toggleClienteStatus, updateCliente } from "../service/clienteService.js";
+import {
+  createCliente,
+  getClientes,
+  identificacionCliente,
+  normalizeClienteFromApi,
+  toggleClienteStatus,
+  updateCliente,
+} from "../service/clienteService.js";
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
 const TIPOS_CLIENTE = ["Individuo", "Empresa", "Institución", "ONG", "Otro"];
 
 const TIPO_INDIVIDUO = "Individuo";
+
+/** Altura aproximada del menú de acciones (3 ítems) para decidir si abre arriba o abajo. */
+const ACCIONES_MENU_ALTURA_PX = 132;
 
 /** Tipos jurídicos que identifican con RUC (no cédula de persona natural). */
 const TIPOS_RUC_OBLIGATORIO = new Set(["Empresa", "Institución", "ONG"]);
@@ -85,7 +96,7 @@ export default function GestionClientesPage() {
   const [detailCliente, setDetailCliente] = useState(null);
   const [confirmToggle, setConfirmToggle] = useState(null);
   const [toggling, setToggling] = useState(null);
-  const [menuClienteId, setMenuClienteId] = useState(null);
+  const [accionesMenu, setAccionesMenu] = useState(null);
   const [clienteInactivoAviso, setClienteInactivoAviso] = useState(null);
 
   const [form, setForm] = useState({ ...initialForm });
@@ -130,14 +141,41 @@ export default function GestionClientesPage() {
   }, [loadCatalogs]);
 
   useEffect(() => {
-    if (menuClienteId == null) return;
-    const cerrarMenu = () => setMenuClienteId(null);
+    if (!accionesMenu) return;
+    const cerrarMenu = () => setAccionesMenu(null);
     document.addEventListener("click", cerrarMenu);
-    return () => document.removeEventListener("click", cerrarMenu);
-  }, [menuClienteId]);
+    window.addEventListener("scroll", cerrarMenu, true);
+    window.addEventListener("resize", cerrarMenu);
+    return () => {
+      document.removeEventListener("click", cerrarMenu);
+      window.removeEventListener("scroll", cerrarMenu, true);
+      window.removeEventListener("resize", cerrarMenu);
+    };
+  }, [accionesMenu]);
+
+  function abrirMenuAcciones(e, cliente) {
+    e.stopPropagation();
+    if (accionesMenu?.cliente?.idCliente === cliente.idCliente) {
+      setAccionesMenu(null);
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const espacioAbajo = window.innerHeight - rect.bottom;
+    const placement = espacioAbajo >= ACCIONES_MENU_ALTURA_PX ? "bottom" : "top";
+    setAccionesMenu({
+      cliente,
+      x: rect.right,
+      y: placement === "bottom" ? rect.bottom + 4 : rect.top - 4,
+      placement,
+    });
+  }
+
+  function cerrarMenuAcciones() {
+    setAccionesMenu(null);
+  }
 
   function irCrearSolicitud(cliente) {
-    setMenuClienteId(null);
+    cerrarMenuAcciones();
     if (!isClienteActivo(cliente)) {
       setClienteInactivoAviso(cliente);
       return;
@@ -325,7 +363,7 @@ export default function GestionClientesPage() {
   function openDetailModal(c) {
     setCreateModalOpen(false);
     setEditingClienteId(null);
-    setDetailCliente(c);
+    setDetailCliente(normalizeClienteFromApi(c));
   }
 
   function closeDetailModal() {
@@ -417,10 +455,11 @@ export default function GestionClientesPage() {
           </div>
 
           <div className="overflow-x-auto rounded-lg border border-gray-200">
-            <table className="w-full min-w-[720px] text-left text-sm">
+            <table className="w-full min-w-[860px] text-left text-sm">
               <thead className="bg-gray-50 text-xs uppercase text-gray-600">
                 <tr>
                   <th className="px-4 py-3 font-semibold sm:px-6">Nombre</th>
+                  <th className="px-4 py-3 font-semibold sm:px-6">Cédula / RUC</th>
                   <th className="px-4 py-3 font-semibold sm:px-6">Correo</th>
                   <th className="px-4 py-3 font-semibold sm:px-6">Teléfono</th>
                   <th className="px-4 py-3 font-semibold sm:px-6">Ubicación</th>
@@ -432,14 +471,14 @@ export default function GestionClientesPage() {
               <tbody className="divide-y divide-gray-200">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-10 text-center text-gray-500 sm:px-6">
+                    <td colSpan={8} className="px-4 py-10 text-center text-gray-500 sm:px-6">
                       <FaSpinner className="mx-auto h-6 w-6 animate-spin" />
                       <span className="mt-2 block">Cargando clientes...</span>
                     </td>
                   </tr>
                 ) : filteredClientes.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-10 text-center text-gray-500 sm:px-6">
+                    <td colSpan={8} className="px-4 py-10 text-center text-gray-500 sm:px-6">
                       {search ? "No se encontraron clientes" : "No hay clientes registrados"}
                     </td>
                   </tr>
@@ -447,6 +486,9 @@ export default function GestionClientesPage() {
                   filteredClientes.map((c) => (
                     <tr key={c.idCliente} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium text-gray-900 sm:px-6">{fullName(c)}</td>
+                      <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-gray-600 sm:px-6">
+                        {identificacionCliente(c)}
+                      </td>
                       <td className="max-w-[200px] truncate px-4 py-3 text-gray-600 sm:px-6">
                         {c.correoCliente}
                       </td>
@@ -488,61 +530,16 @@ export default function GestionClientesPage() {
                             <div className="h-5 w-9 rounded-full bg-gray-300 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-green-500 peer-checked:after:translate-x-full peer-disabled:opacity-50" />
                           </label>
 
-                          <div className="relative">
-                            <button
-                              type="button"
-                              title="Más acciones"
-                              aria-expanded={menuClienteId === c.idCliente}
-                              aria-haspopup="menu"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setMenuClienteId((prev) =>
-                                  prev === c.idCliente ? null : c.idCliente
-                                );
-                              }}
-                              className="rounded p-1.5 text-gray-600 hover:bg-gray-100"
-                            >
-                              <FaEllipsisV className="h-4 w-4" />
-                            </button>
-                            {menuClienteId === c.idCliente && (
-                              <div
-                                role="menu"
-                                onClick={(e) => e.stopPropagation()}
-                                className="absolute right-0 top-full z-20 mt-1 min-w-[10.5rem] rounded-md border border-gray-200 bg-white py-1 shadow-lg"
-                              >
-                                <button
-                                  type="button"
-                                  role="menuitem"
-                                  className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-                                  onClick={() => {
-                                    openEditModal(c);
-                                    setMenuClienteId(null);
-                                  }}
-                                >
-                                  Editar
-                                </button>
-                                <button
-                                  type="button"
-                                  role="menuitem"
-                                  className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-                                  onClick={() => {
-                                    openDetailModal(c);
-                                    setMenuClienteId(null);
-                                  }}
-                                >
-                                  Ver
-                                </button>
-                                <button
-                                  type="button"
-                                  role="menuitem"
-                                  className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-                                  onClick={() => irCrearSolicitud(c)}
-                                >
-                                  Crear Solicitud
-                                </button>
-                              </div>
-                            )}
-                          </div>
+                          <button
+                            type="button"
+                            title="Más acciones"
+                            aria-expanded={accionesMenu?.cliente?.idCliente === c.idCliente}
+                            aria-haspopup="menu"
+                            onClick={(e) => abrirMenuAcciones(e, c)}
+                            className="rounded p-1.5 text-gray-600 hover:bg-gray-100"
+                          >
+                            <FaEllipsisV className="h-4 w-4" />
+                          </button>
 
                           {toggling === c.idCliente && (
                             <FaSpinner className="h-4 w-4 animate-spin text-gray-400" />
@@ -556,11 +553,61 @@ export default function GestionClientesPage() {
             </table>
           </div>
         </div>
+
       </main>
 
       <footer className="bg-blue-900 py-2 text-center text-white">
         <p>© {new Date().getFullYear()} CIRA - UNAN Managua | Gestión de Clientes</p>
       </footer>
+
+      {accionesMenu &&
+        createPortal(
+          <div
+            role="menu"
+            onClick={(e) => e.stopPropagation()}
+            className="fixed z-[100] min-w-[10.5rem] rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+            style={{
+              left: accionesMenu.x,
+              top: accionesMenu.y,
+              transform:
+                accionesMenu.placement === "bottom"
+                  ? "translateX(-100%)"
+                  : "translate(-100%, -100%)",
+            }}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+              onClick={() => {
+                openEditModal(accionesMenu.cliente);
+                cerrarMenuAcciones();
+              }}
+            >
+              Editar
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+              onClick={() => {
+                openDetailModal(accionesMenu.cliente);
+                cerrarMenuAcciones();
+              }}
+            >
+              Ver
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+              onClick={() => irCrearSolicitud(accionesMenu.cliente)}
+            >
+              Crear Solicitud
+            </button>
+          </div>,
+          document.body
+        )}
 
       {detailCliente && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -576,56 +623,54 @@ export default function GestionClientesPage() {
               </button>
             </div>
 
-            <div className="space-y-4 p-6">
-              <dl className="space-y-3">
-                <DetailRow label="Nombre" value={detailCliente.nombreCliente} />
-                <DetailRow label="Apellido" value={detailCliente.apellidoCliente} />
-                <DetailRow
-                  label="Teléfono"
-                  value={formatTelefonoLocal(detailCliente.telefonoCliente || "") || "—"}
-                />
-                <DetailRow
-                  label="Celular"
-                  value={formatTelefonoLocal(detailCliente.celularCliente || "") || "—"}
-                />
-                <DetailRow label="Correo" value={detailCliente.correoCliente} />
-                <DetailRow label="Dirección" value={detailCliente.direccionCliente} />
-                <DetailRow label="Tipo de cliente" value={detailCliente.tiposCliente} />
-                {(detailCliente.tiposCliente ?? detailCliente.nombreTipoCliente ?? TIPO_INDIVIDUO) ===
-                TIPO_INDIVIDUO ? (
-                  <DetailRow label="Cédula" value={detailCliente.cedulaCliente} />
-                ) : (
-                  <>
-                    <DetailRow
-                      label="Número RUC"
-                      value={detailCliente.numeroRuc ?? detailCliente.NumeroRuc}
-                    />
-                    <DetailRow
-                      label="Nombre de contacto"
-                      value={detailCliente.nombreContacto ?? detailCliente.NombreContacto}
-                    />
-                  </>
-                )}
-                <DetailRow label="Departamento" value={detailCliente.departamento} />
-                <DetailRow label="Municipio" value={detailCliente.municipio} />
-                <DetailRow
-                  label="Estado"
-                  value={detailCliente.activo !== false ? "Activo" : "Inactivo"}
-                />
-                <DetailRow label="ID cliente" value={detailCliente.idCliente} />
-                <DetailRow label="ID usuario registro" value={detailCliente.idUsuario} />
-                <DetailRow label="Fecha de creación" value={formatFecha(detailCliente.fechaCreacionCliente)} />
-              </dl>
+            <div className="space-y-6 p-6">
+              <section>
+                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+                  Datos del cliente
+                </h3>
+                <dl className="space-y-3">
+                  <DetailRow label="ID cliente" value={detailCliente.idCliente} />
+                  <DetailRow label="Nombre" value={detailCliente.nombreCliente} />
+                  <DetailRow label="Apellido" value={detailCliente.apellidoCliente} />
+                  <DetailRow
+                    label="Telefono"
+                    value={formatTelefonoLocal(detailCliente.telefonoCliente || "") || "-"}
+                  />
+                  <DetailRow
+                    label="Celular"
+                    value={formatTelefonoLocal(detailCliente.celularCliente || "") || "-"}
+                  />
+                  <DetailRow label="Direccion" value={detailCliente.direccionCliente} />
+                  <DetailRow label="Correo" value={detailCliente.correoCliente} />
+                  <DetailRow label="Cedula" value={detailCliente.cedulaCliente} />
+                  <DetailRow label="Numero RUC" value={detailCliente.numeroRuc} />
+                  <DetailRow label="Nombre de contacto" value={detailCliente.nombreContacto} />
+                  <DetailRow label="Tipo de cliente" value={detailCliente.tiposCliente} />
+                  <DetailRow label="Departamento" value={detailCliente.departamento} />
+                  <DetailRow label="Municipio" value={detailCliente.municipio} />
+                  <DetailRow
+                    label="Estado"
+                    value={detailCliente.activo !== false ? "Activo" : "Inactivo"}
+                  />
+                  <DetailRow label="ID usuario" value={detailCliente.idUsuario} />
+                  <DetailRow
+                    label="Fecha de creacion"
+                    value={formatFecha(detailCliente.fechaCreacionCliente)}
+                  />
+                </dl>
+              </section>
 
-              <div className="border-t pt-4">
-                <p className="mb-2 text-sm font-medium text-gray-700">Firma</p>
+              <section className="border-t pt-4">
+                <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
+                  Firma del cliente
+                </h3>
                 <p className="mb-2 text-xs text-gray-500">
                   Si la firma llega en Base64 desde el servidor, se decodifica automáticamente para mostrarla.
                 </p>
                 <div className="flex justify-center rounded-md border border-gray-200 bg-gray-50 p-4">
                   <FirmaDisplay src={detailCliente.firmaCliente} />
                 </div>
-              </div>
+              </section>
 
               <div className="flex justify-end border-t pt-4">
                 <button
