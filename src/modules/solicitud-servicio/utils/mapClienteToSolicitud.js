@@ -17,15 +17,18 @@ export function mapClienteToSolicitudPrefill(c) {
   const tel = formatTelefonoLocal(cliente.telefonoCliente ?? "");
   const cel = formatTelefonoLocal(cliente.celularCliente ?? "");
 
+  const contactoNombre = esInd ? "" : String(cliente.nombreContacto ?? "").trim();
+
   return {
     nombreUsuario: nombre,
     direccionUsuario: cliente.direccionCliente ?? "",
     ruc: esInd ? "" : cliente.numeroRuc,
     cedula: esInd ? (cliente.cedulaCliente ?? "") : "",
     correo: cliente.correoCliente ?? "",
-    atencionA: esInd ? "" : String(cliente.nombreContacto ?? "").trim(),
-    contacto1: cel || tel,
-    contacto2: cel && tel && cel !== tel ? tel : "",
+    contacto1Nombre: contactoNombre,
+    contacto1Telefono: cel || tel,
+    contacto2Nombre: "",
+    contacto2Telefono: cel && tel && cel !== tel ? tel : "",
   };
 }
 

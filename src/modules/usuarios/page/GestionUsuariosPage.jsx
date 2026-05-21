@@ -324,15 +324,6 @@ export default function GestionUsuariosPage() {
                         <FaEdit className="h-4 w-4" />
                       </button>
 
-                      <button
-                        type="button"
-                        title="Eliminar usuario"
-                        onClick={() => setConfirmDelete(user)}
-                        className="rounded p-1.5 text-red-600 hover:bg-red-100"
-                      >
-                        <FaTrash className="h-4 w-4" />
-                      </button>
-
                       {toggling === user.idUsuario && (
                         <FaSpinner className="h-4 w-4 animate-spin text-gray-400" />
                       )}
@@ -515,15 +506,6 @@ export default function GestionUsuariosPage() {
         confirmClass={confirmToggle?.activo ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"}
         onConfirm={() => handleToggle(confirmToggle)}
         onCancel={() => setConfirmToggle(null)}
-      />
-
-      <ConfirmDialog
-        open={!!confirmDelete}
-        title="Eliminar Usuario"
-        message={`Esta acción es irreversible, ¿Desea continuar con la eliminación de "${confirmDelete ? fullName(confirmDelete) : ""}"?`}
-        confirmText="Eliminar"
-        onConfirm={() => handleDelete(confirmDelete)}
-        onCancel={() => setConfirmDelete(null)}
       />
     </div>
   );
