@@ -1,198 +1,885 @@
-import { useState } from "react";
-import { saveSolicitudServicioLocal } from "../service/solicitudServicioService.js";
+'use client';
 
-export default function SolicitudServicioPage() {
+import { useState } from 'react';
+import { ChevronLeft, ChevronRight, Plus, Trash2, FileCheck, Send } from 'lucide-react';
+
+const ServiceRequestForm = () => {
+  const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
-    solicitudNo: "",
-    medioRecepcion: "",
-    fechaRecepcion: "",
-    nombreUsuario: "",
-    direccionUsuario: "",
-    ruc: "",
-    cedula: "",
-    correo: "",
-    atencionA: "",
-    contacto1: "",
-    contacto2: "",
-    servicios: {
-      analisis: false,
-      muestreo: false,
-      informeTecnico: false,
-      medicionNeaNd: false,
-    },
-    matriz: "",
-    matrizOtro: "",
-    numMuestras: "",
-    analisisSolicitados: "",
-    coordenadas: "",
-    observacion: "",
-    firmaUsuario: "",
-    solicitudRecibidaPor: "",
-    fechaEnvioProforma: "",
+    // Step 1 - Solicitante
+    solicitudNo: '',
+    fechaRecepcion: '',
+    medioRecepcion: '',
+    nombreUsuario: '',
+    direccionUsuario: '',
+    ruc: '',
+    cedula: '',
+    correo: '',
+    contacto1Nombre: '',
+    contacto1Telefono: '',
+    contacto2Nombre: '',
+    contacto2Telefono: '',
+
+    // Step 2 - Servicio
+    tipoServicio: '',
+    matriz: '',
+    matrizOtra: '',
+    numeroMuestras: '',
+    analisisSolicitados: [],
+    ubicacionMuestreo: '',
+
+    // Step 3 - Confirmación
+    observaciones: '',
+    firma: '',
+    recibidoPor: '',
+    fechaProforma: '',
+    inicialesAnalista: '',
   });
 
-  const matrices = [
-    "Agua Natural",
-    "Agua Residual",
-    "Sedimento",
-    "Suelo",
-    "Lodo",
-    "Otro",
+  const [errors, setErrors] = useState({});
+
+  // Constants
+  const receptionMethods = [
+    { id: 'phone', label: 'Vía telefónica' },
+    { id: 'email', label: 'Vía correo electrónico' },
+    { id: 'personal', label: 'Personal' },
+    { id: 'whatsapp', label: 'WhatsApp' },
   ];
 
+  const serviceTypes = [
+    { id: 'analisis', label: 'Análisis' },
+    { id: 'muestreo', label: 'Muestreo' },
+    { id: 'informe', label: 'Informe Técnico' },
+    { id: 'medicion', label: 'Medición in situ' },
+  ];
+
+  const matrices = [
+    { id: 'agua-natural', label: 'Agua Natural' },
+    { id: 'agua-residual', label: 'Agua Residual' },
+    { id: 'lodo', label: 'Lodo' },
+    { id: 'sedimento', label: 'Sedimento' },
+    { id: 'suelo', label: 'Suelo' },
+    { id: 'otro', label: 'Otro' },
+  ];
+
+  // Validation
+  const validateStep = (step) => {
+    const newErrors = {};
+
+    if (step === 1) {
+      if (!formData.nombreUsuario?.trim()) newErrors.nombreUsuario = 'Campo requerido';
+      if (!formData.direccionUsuario?.trim()) newErrors.direccionUsuario = 'Campo requerido';
+      if (!formData.correo?.trim()) newErrors.correo = 'Campo requerido';
+    }
+
+    if (step === 2) {
+      if (!formData.tipoServicio) newErrors.tipoServicio = 'Seleccione un servicio';
+      if (!formData.matriz) newErrors.matriz = 'Seleccione una matriz';
+      if (formData.matriz === 'otro' && !formData.matrizOtra?.trim()) {
+        newErrors.matrizOtra = 'Especifique la matriz';
+      }
+    }
+
+    if (step === 3) {
+      if (!formData.firma?.trim()) newErrors.firma = 'Campo requerido';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Handlers
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    if (name.includes(".")) {
-      const [group, field] = name.split(".");
-      setFormData((prev) => ({
-        ...prev,
-        [group]: { ...prev[group], [field]: type === "checkbox" ? checked : value },
-      }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: type === "checkbox" ? checked : value,
-      }));
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
     }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    saveSolicitudServicioLocal(formData);
+  const handleAddAnalysis = () => {
+    setFormData(prev => ({
+      ...prev,
+      analisisSolicitados: [...prev.analisisSolicitados, { tipoAnalisis: '', tecnica: '' }],
+    }));
   };
 
+  const handleRemoveAnalysis = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      analisisSolicitados: prev.analisisSolicitados.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleAnalysisChange = (index, field, value) => {
+    setFormData(prev => {
+      const updated = [...prev.analisisSolicitados];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, analisisSolicitados: updated };
+    });
+  };
+
+  const handleNext = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep(currentStep + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handlePrevious = () => {
+    setCurrentStep(currentStep - 1);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSubmit = () => {
+    if (validateStep(3)) {
+      console.log('Formulario completado:', formData);
+      alert('Solicitud enviada exitosamente. Datos guardados en la consola.');
+    }
+  };
+
+  // Step 1 Component
+  const Step1 = () => (
+    <div className="space-y-10">
+      {/* Title */}
+      <div>
+        <h2 className="text-3xl font-bold text-blue-900 mb-2">Información del Solicitante</h2>
+        <p className="text-[#6a7282]">Complete los datos del cliente, empresa o institución</p>
+      </div>
+
+      {/* Datos principales */}
+      <div>
+        <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
+          <div className="w-1 h-7 bg-blue-900 rounded-full"></div>
+          Datos principales
+        </h3>
+        <p className="text-sm text-[#6a7282] mb-6 ml-4">Información básica de la solicitud</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 ml-4">
+          <div className="relative group">
+            <input
+              type="text"
+              name="solicitudNo"
+              value={formData.solicitudNo}
+              onChange={handleChange}
+              placeholder="Ej: SOL-2024-001"
+              className="w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors border-gray-300 focus:border-blue-900 peer"
+            />
+            <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 transition-all peer-focus:-top-4 peer-focus:text-blue-900 peer-placeholder-shown:top-3">
+              Solicitud No.
+            </label>
+          </div>
+
+          <div className="relative group">
+            <input
+              type="date"
+              name="fechaRecepcion"
+              value={formData.fechaRecepcion}
+              onChange={handleChange}
+              className="w-full px-0 py-3 border-b-2 bg-transparent focus:outline-none transition-colors border-gray-300 focus:border-blue-900"
+            />
+            <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 transition-all group-focus-within:text-blue-900">
+              Fecha de recepción
+            </label>
+          </div>
+        </div>
+      </div>
+
+      {/* Medio de recepción */}
+      <div>
+        <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
+          <div className="w-1 h-7 bg-[#fbbf24] rounded-full"></div>
+          Medio de recepción
+        </h3>
+        <p className="text-sm text-[#6a7282] mb-4 ml-4">Seleccione solo 1</p>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 ml-4">
+          {receptionMethods.map(method => (
+            <button
+              key={method.id}
+              type="button"
+              onClick={() => setFormData(prev => ({ ...prev, medioRecepcion: method.id }))}
+              className={`p-4 rounded-lg border-2 transition-all font-semibold ${formData.medioRecepcion === method.id
+                ? 'border-blue-900 bg-blue-100 shadow-md text-blue-900'
+                : 'border-gray-300 hover:border-blue-900/50 bg-white text-gray-700'
+                }`}
+            >
+              {method.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Información del Usuario */}
+      <div>
+        <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
+          <div className="w-1 h-7 bg-[#10b981] rounded-full"></div>
+          Información del Usuario
+        </h3>
+        <p className="text-sm text-[#6a7282] mb-6 ml-4">Datos del cliente, empresa o institución</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 ml-4">
+          <div className="relative group md:col-span-2">
+            <input
+              type="text"
+              name="nombreUsuario"
+              value={formData.nombreUsuario}
+              onChange={handleChange}
+              placeholder="Nombre completo"
+              className={`w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors ${errors.nombreUsuario ? 'border-red-500' : 'border-gray-300 focus:border-blue-900'
+                } peer`}
+            />
+            <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 transition-all peer-focus:-top-4 peer-focus:text-blue-900">
+              Nombre del usuario <span className="text-red-500">*</span>
+            </label>
+            {errors.nombreUsuario && <p className="text-red-500 text-xs mt-1">{errors.nombreUsuario}</p>}
+          </div>
+
+          <div className="relative group md:col-span-2">
+            <input
+              type="text"
+              name="direccionUsuario"
+              value={formData.direccionUsuario}
+              onChange={handleChange}
+              placeholder="Dirección completa"
+              className={`w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors ${errors.direccionUsuario ? 'border-red-500' : 'border-gray-300 focus:border-blue-900'
+                } peer`}
+            />
+            <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 transition-all peer-focus:-top-4 peer-focus:text-blue-900">
+              Dirección <span className="text-red-500">*</span>
+            </label>
+            {errors.direccionUsuario && <p className="text-red-500 text-xs mt-1">{errors.direccionUsuario}</p>}
+          </div>
+
+          <div className="relative group">
+            <input
+              type="text"
+              name="ruc"
+              value={formData.ruc}
+              onChange={handleChange}
+              placeholder="RUC"
+              className="w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors border-gray-300 focus:border-blue-900 peer"
+            />
+            <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 transition-all peer-focus:-top-4 peer-focus:text-blue-900">
+              No. RUC
+            </label>
+          </div>
+
+          <div className="relative group">
+            <input
+              type="text"
+              name="cedula"
+              value={formData.cedula}
+              onChange={handleChange}
+              placeholder="Cédula"
+              className="w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors border-gray-300 focus:border-blue-900 peer"
+            />
+            <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 transition-all peer-focus:-top-4 peer-focus:text-blue-900">
+              No. de cédula
+            </label>
+          </div>
+
+          <div className="relative group md:col-span-2">
+            <input
+              type="email"
+              name="correo"
+              value={formData.correo}
+              onChange={handleChange}
+              placeholder="correo@ejemplo.com"
+              className={`w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors ${errors.correo ? 'border-red-500' : 'border-gray-300 focus:border-blue-900'
+                } peer`}
+            />
+            <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 transition-all peer-focus:-top-4 peer-focus:text-blue-900">
+              Correo electrónico <span className="text-red-500">*</span>
+            </label>
+            {errors.correo && <p className="text-red-500 text-xs mt-1">{errors.correo}</p>}
+          </div>
+        </div>
+      </div>
+
+      {/* Datos de Contacto */}
+      <div className="bg-gray-50 p-6 rounded-lg">
+        <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
+          <div className="w-1 h-7 bg-blue-900 rounded-full"></div>
+          Datos de Contacto
+        </h3>
+        <p className="text-sm text-[#6a7282] mb-6 ml-4">Información de contacto principal y secundario</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 ml-4">
+          <div className="bg-blue-50 p-5 rounded-lg border-l-4 border-blue-900">
+            <p className="text-sm font-semibold text-blue-900 mb-4">Contacto 1 - Principal</p>
+            <div className="space-y-4">
+              <div className="relative group">
+                <input
+                  type="text"
+                  name="contacto1Nombre"
+                  value={formData.contacto1Nombre}
+                  onChange={handleChange}
+                  placeholder="Nombre del contacto"
+                  className="w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors border-gray-300 focus:border-blue-900 peer"
+                />
+                <label className="absolute left-0 -top-4 text-xs font-semibold text-gray-700 peer-focus:text-blue-900">Nombre</label>
+              </div>
+              <div className="relative group">
+                <input
+                  type="tel"
+                  name="contacto1Telefono"
+                  value={formData.contacto1Telefono}
+                  onChange={handleChange}
+                  placeholder="Teléfono"
+                  className="w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors border-gray-300 focus:border-blue-900 peer"
+                />
+                <label className="absolute left-0 -top-4 text-xs font-semibold text-gray-700 peer-focus:text-blue-900">Teléfono</label>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-blue-50 p-5 rounded-lg border-l-4 border-[#fbbf24]">
+            <p className="text-sm font-semibold text-[#6a7282] mb-4">Contacto 2 - Secundario</p>
+            <div className="space-y-4">
+              <div className="relative group">
+                <input
+                  type="text"
+                  name="contacto2Nombre"
+                  value={formData.contacto2Nombre}
+                  onChange={handleChange}
+                  placeholder="Nombre del contacto"
+                  className="w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors border-gray-300 focus:border-blue-900 peer"
+                />
+                <label className="absolute left-0 -top-4 text-xs font-semibold text-gray-700 peer-focus:text-blue-900">Nombre</label>
+              </div>
+              <div className="relative group">
+                <input
+                  type="tel"
+                  name="contacto2Telefono"
+                  value={formData.contacto2Telefono}
+                  onChange={handleChange}
+                  placeholder="Teléfono"
+                  className="w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors border-gray-300 focus:border-blue-900 peer"
+                />
+                <label className="absolute left-0 -top-4 text-xs font-semibold text-gray-700 peer-focus:text-blue-900">Teléfono</label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Step 2 Component
+  const Step2 = () => (
+    <div className="space-y-10">
+      {/* Title */}
+      <div>
+        <h2 className="text-3xl font-bold text-blue-900 mb-2">Servicio Solicitado</h2>
+        <p className="text-[#6a7282]">Seleccione el tipo de servicio y especifique los detalles</p>
+      </div>
+
+      {/* Service Type Selection */}
+      <div className="bg-gray-50 p-6 rounded-lg">
+        <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
+          <div className="w-1 h-7 bg-blue-900 rounded-full"></div>
+          Servicio Solicitado <span className="text-red-500">*</span>
+        </h3>
+        <p className="text-sm text-[#6a7282] mb-4 ml-4">Seleccione solo 1</p>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 ml-4">
+          {serviceTypes.map(service => (
+            <button
+              key={service.id}
+              type="button"
+              onClick={() => setFormData(prev => ({ ...prev, tipoServicio: service.id }))}
+              className={`p-4 rounded-lg border-2 transition-all font-semibold ${formData.tipoServicio === service.id
+                ? 'border-blue-900 bg-blue-100 shadow-md text-blue-900'
+                : 'border-gray-300 hover:border-blue-900/50 bg-white text-gray-700'
+                }`}
+            >
+              {service.label}
+            </button>
+          ))}
+        </div>
+        {errors.tipoServicio && <p className="text-red-500 text-xs mt-2 ml-4">{errors.tipoServicio}</p>}
+      </div>
+
+      {/* Matrix Selection */}
+      <div className="bg-gray-50 p-6 rounded-lg">
+        <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
+          <div className="w-1 h-7 bg-[#fbbf24] rounded-full"></div>
+          Matriz <span className="text-red-500">*</span>
+        </h3>
+        <p className="text-sm text-[#6a7282] mb-4 ml-4">Seleccione solo 1</p>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 ml-4">
+          {matrices.map(matrix => (
+            <button
+              key={matrix.id}
+              type="button"
+              onClick={() => setFormData(prev => ({ ...prev, matriz: matrix.id }))}
+              className={`p-4 rounded-lg border-2 transition-all font-semibold ${formData.matriz === matrix.id
+                ? 'border-blue-900 bg-blue-100 shadow-md text-blue-900'
+                : 'border-gray-300 hover:border-blue-900/50 bg-white text-gray-700'
+                }`}
+            >
+              {matrix.label}
+            </button>
+          ))}
+        </div>
+        {errors.matriz && <p className="text-red-500 text-xs mt-2 ml-4">{errors.matriz}</p>}
+
+        {formData.matriz === 'otro' && (
+          <div className="mt-6 ml-4 relative group">
+            <input
+              type="text"
+              name="matrizOtra"
+              value={formData.matrizOtra}
+              onChange={handleChange}
+              placeholder="Especifique la matriz"
+              className={`w-full md:w-96 px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none ${errors.matrizOtra ? 'border-red-500' : 'border-gray-300 focus:border-blue-900'
+                } peer`}
+            />
+            <label className="absolute left-0 -top-6 text-sm font-semibold text-gray-700 peer-focus:text-blue-900">
+              Especifique la matriz
+            </label>
+            {errors.matrizOtra && <p className="text-red-500 text-xs mt-1">{errors.matrizOtra}</p>}
+          </div>
+        )}
+      </div>
+
+      {/* Number of Samples */}
+      <div>
+        <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
+          <div className="w-1 h-7 bg-[#10b981] rounded-full"></div>
+          Muestras
+        </h3>
+        <p className="text-sm text-[#6a7282] mb-6 ml-4">Especifique la cantidad de muestras</p>
+
+        <div className="ml-4 relative group max-w-xs">
+          <input
+            type="number"
+            name="numeroMuestras"
+            value={formData.numeroMuestras}
+            onChange={handleChange}
+            placeholder="0"
+            className="w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none border-gray-300 focus:border-blue-900 peer text-center font-semibold text-lg"
+          />
+          <label className="absolute left-0 -top-6 text-sm font-semibold text-gray-700 peer-focus:text-blue-900">
+            No. de muestras
+          </label>
+        </div>
+      </div>
+
+      {/* Analysis Requested */}
+      <div className="bg-gray-50 p-6 rounded-lg">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
+              <div className="w-1 h-7 bg-blue-900 rounded-full"></div>
+              Análisis Solicitados
+            </h3>
+            <p className="text-sm text-[#6a7282] ml-4">Agregue los análisis requeridos</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleAddAnalysis}
+            className="flex items-center gap-2 px-6 py-2.5 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all shadow-md hover:shadow-lg font-semibold"
+          >
+            <Plus className="w-4 h-4" />
+            Agregar
+          </button>
+        </div>
+
+        {formData.analisisSolicitados.length > 0 ? (
+          <div className="bg-white border-2 border-gray-200 rounded-lg overflow-hidden ml-4 mt-6">
+            <table className="w-full">
+              <thead className="bg-blue-900 text-white">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-bold uppercase">Tipo de Análisis</th>
+                  <th className="px-4 py-3 text-left text-xs font-bold uppercase">Técnica</th>
+                  <th className="px-4 py-3 text-center text-xs font-bold uppercase">Acción</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {formData.analisisSolicitados.map((analysis, index) => (
+                  <tr key={index} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <input
+                        type="text"
+                        placeholder="Ej: Sólidos Suspendidos Totales"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-transparent"
+                        value={analysis.tipoAnalisis}
+                        onChange={(e) => handleAnalysisChange(index, 'tipoAnalisis', e.target.value)}
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <input
+                        type="text"
+                        placeholder="Ej: Gravimetría"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-transparent"
+                        value={analysis.tecnica}
+                        onChange={(e) => handleAnalysisChange(index, 'tecnica', e.target.value)}
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveAnalysis(index)}
+                        className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded transition-all"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="ml-4 mt-6 p-6 bg-blue-50 border-2 border-blue-200 rounded-lg text-center">
+            <p className="text-sm text-[#6a7282]">No hay análisis agregados. Haga clic en "Agregar" para añadir uno.</p>
+          </div>
+        )}
+      </div>
+
+      {/* Sampling Location */}
+      <div>
+        <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
+          <div className="w-1 h-7 bg-[#fbbf24] rounded-full"></div>
+          Ubicación de Muestreo
+        </h3>
+        <p className="text-sm text-[#6a7282] mb-6 ml-4">Dirección y/o coordenadas de los puntos</p>
+
+        <div className="ml-4">
+          <textarea
+            name="ubicacionMuestreo"
+            value={formData.ubicacionMuestreo}
+            onChange={handleChange}
+            placeholder="Especifique la ubicación exacta donde se realizará el muestreo..."
+            className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg bg-transparent focus:outline-none focus:border-blue-900 transition-colors resize-none"
+            rows={4}
+          />
+          <p className="mt-2 text-xs text-[#6a7282]">Incluya coordenadas GPS si están disponibles (formato: Latitud, Longitud)</p>
+        </div>
+      </div>
+
+      {/* Summary */}
+      {(formData.tipoServicio || formData.matriz || formData.analisisSolicitados.length > 0) && (
+        <div className="bg-blue-50 border-l-4 border-blue-900 p-6 rounded-lg">
+          <p className="text-sm text-gray-700 font-semibold">
+            Resumen: <span className="text-blue-900 font-bold">{formData.tipoServicio || 'No especificado'}</span> |
+            <span className="text-blue-900 font-bold"> {formData.matriz || 'No especificada'}</span> |
+            <span className="text-blue-900 font-bold"> {formData.analisisSolicitados.length} análisis agregado(s)</span>
+          </p>
+        </div>
+      )}
+    </div>
+  );
+
+  // Step 3 Component
+  const Step3 = () => (
+    <div className="space-y-10">
+      {/* Success Icon */}
+      <div className="flex justify-center mb-4">
+        <div className="w-24 h-24 bg-gradient-to-br from-green-100 to-green-200 rounded-full flex items-center justify-center shadow-lg">
+          <FileCheck className="w-12 h-12 text-green-600" />
+        </div>
+      </div>
+
+      {/* Title */}
+      <div className="text-center">
+        <h2 className="text-3xl font-bold text-blue-900 mb-2">Observaciones y Confirmación</h2>
+        <p className="text-[#6a7282]">Revise su solicitud y agregue comentarios adicionales</p>
+      </div>
+
+      {/* Observations */}
+      <div className="bg-gray-50 p-6 rounded-lg">
+        <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
+          <div className="w-1 h-7 bg-[#fbbf24] rounded-full"></div>
+          Observaciones
+        </h3>
+        <p className="text-sm text-[#6a7282] mb-6 ml-4">Opcional</p>
+
+        <div className="ml-4">
+          <textarea
+            name="observaciones"
+            value={formData.observaciones}
+            onChange={handleChange}
+            placeholder="Agregue cualquier observación, comentario o requerimiento especial para esta solicitud..."
+            className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg bg-transparent focus:outline-none focus:border-blue-900 transition-colors resize-none"
+            rows={4}
+          />
+        </div>
+      </div>
+
+      {/* Summary Section */}
+      <div className="bg-blue-50 border-l-4 border-blue-900 p-6 rounded-lg">
+        <h3 className="text-lg font-bold text-blue-900 mb-4">Resumen de su Solicitud</h3>
+
+        <div className="space-y-4 text-sm">
+          <div>
+            <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">INFORMACIÓN DEL SOLICITANTE</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-gray-500 text-xs mb-1">Solicitud No.</p>
+                <p className="font-semibold text-gray-800">{formData.solicitudNo || 'No especificado'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500 text-xs mb-1">Correo</p>
+                <p className="font-semibold text-gray-800">{formData.correo || 'No especificado'}</p>
+              </div>
+              <div className="md:col-span-2">
+                <p className="text-gray-500 text-xs mb-1">Nombre</p>
+                <p className="font-semibold text-gray-800">{formData.nombreUsuario || 'No especificado'}</p>
+              </div>
+            </div>
+          </div>
+
+          <hr className="border-gray-300" />
+
+          <div>
+            <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">SERVICIO SOLICITADO</h4>
+            <div>
+              <p className="text-gray-500 text-xs mb-1">Tipo de servicio</p>
+              <p className="font-semibold text-gray-800">{formData.tipoServicio || 'No especificado'}</p>
+            </div>
+            <div className="mt-3">
+              <p className="text-gray-500 text-xs mb-1">Matriz</p>
+              <p className="font-semibold text-gray-800">{formData.matriz || 'No especificada'}</p>
+            </div>
+
+            {formData.analisisSolicitados.length > 0 && (
+              <div className="mt-4">
+                <p className="text-gray-500 text-xs mb-2">Análisis solicitados:</p>
+                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Tipo de Análisis</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Técnica</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {formData.analisisSolicitados.map((analysis, index) => (
+                        <tr key={index}>
+                          <td className="px-3 py-2 text-gray-700">{analysis.tipoAnalisis || '—'}</td>
+                          <td className="px-3 py-2 text-gray-700">{analysis.tecnica || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Digital Signature */}
+      <div>
+        <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
+          <div className="w-1 h-7 bg-[#10b981] rounded-full"></div>
+          Verificación Final
+        </h3>
+        <p className="text-sm text-[#6a7282] mb-6 ml-4">Complete la información de verificación</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 ml-4">
+          <div className="relative group">
+            <input
+              type="text"
+              name="firma"
+              value={formData.firma}
+              onChange={handleChange}
+              placeholder="Nombre completo como firma digital"
+              className={`w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors ${errors.firma ? 'border-red-500' : 'border-gray-300 focus:border-blue-900'
+                } peer`}
+            />
+            <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 transition-all peer-focus:-top-4 peer-focus:text-blue-900">
+              Firma del usuario
+            </label>
+            {errors.firma && <p className="text-red-500 text-xs mt-1">{errors.firma}</p>}
+          </div>
+
+          <div className="relative group">
+            <input
+              type="text"
+              name="recibidoPor"
+              value={formData.recibidoPor}
+              onChange={handleChange}
+              placeholder="Nombre del funcionario"
+              className="w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors border-gray-300 focus:border-blue-900 peer"
+            />
+            <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 transition-all peer-focus:-top-4 peer-focus:text-blue-900">
+              Solicitud recibida por
+            </label>
+          </div>
+
+          <div className="relative group">
+            <input
+              type="date"
+              name="fechaProforma"
+              value={formData.fechaProforma}
+              onChange={handleChange}
+              className="w-full px-0 py-3 border-b-2 bg-transparent focus:outline-none transition-colors border-gray-300 focus:border-blue-900"
+            />
+            <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 transition-all group-focus-within:text-blue-900">
+              Fecha de envío de la proforma
+            </label>
+          </div>
+
+          <div className="relative group">
+            <input
+              type="text"
+              name="inicialesAnalista"
+              value={formData.inicialesAnalista}
+              onChange={handleChange}
+              placeholder="Ej: ABC"
+              className="w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors border-gray-300 focus:border-blue-900 peer uppercase"
+            />
+            <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 transition-all peer-focus:-top-4 peer-focus:text-blue-900">
+              Iniciales del Analista
+            </label>
+          </div>
+        </div>
+
+        <p className="mt-4 ml-4 text-xs text-[#6a7282]">Al ingresar su firma acepta los términos y condiciones del servicio</p>
+      </div>
+
+      {/* Success Message */}
+      <div className="bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-lg border-2 border-green-200">
+        <div className="flex items-start gap-4">
+          <div>
+            <p className="text-sm font-bold text-green-800 mb-1">¡Casi listo!</p>
+            <p className="text-sm text-gray-700">Verifique que toda la información sea correcta y haga clic en "Guarda" para completar su solicitud de servicio.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col bg-white text-gray-800">
-      <div className="bg-yellow-400 py-2 text-center font-semibold text-blue-900">
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+      {/* Header  
+      <header className="bg-blue-900 text-white py-4">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between px-4">
+          <div className="text-center md:text-left flex-1">
+            <h2 className="text-xl font-bold">SOLICITUD DE SERVICIOS</h2>
+            <p className="text-sm">UNAN-MANAGUA / CIRA — FOR-CIRA-APE-04</p>
+          </div>
+        </div>
+      </header> */}
+
+      {/* Subheader */}
+      <div className="bg-yellow-400 text-blue-900 text-center py-2 font-semibold">
         ÁREA DE PROYECCIÓN Y EXTENSIÓN
       </div>
 
-      {/* Formulario */}
-      <main className="flex flex-grow justify-center bg-white py-8 px-4">
-        <form
-          onSubmit={handleSubmit}
-          className="w-full max-w-5xl space-y-6 rounded-lg border border-gray-200 bg-white p-6 shadow-lg"
-        >
-          {/* Datos generales */}
-          <section>
-            <h3 className="text-lg font-semibold text-blue-900 border-b pb-1 mb-3">
-              Datos Generales
-              </h3>
-            <div className="grid md:grid-cols-3 gap-4">
-              <input name="solicitudNo" value={formData.solicitudNo} onChange={handleChange} placeholder="Solicitud No." className="input" />
-              <select name="medioRecepcion" value={formData.medioRecepcion} onChange={handleChange} className="input">
-                <option value="">Medio de recepción</option>
-                <option value="Vía telefónica">Vía telefónica</option>
-                <option value="Vía correo electrónico">Vía correo electrónico</option>
-                <option value="Personal">Personal</option>
-                <option value="WhatsApp">WhatsApp</option>
-              </select>
-              <input type="date" name="fechaRecepcion" value={formData.fechaRecepcion} onChange={handleChange} className="input" />
-            </div>
-          </section>
-
-          {/* Usuario */}
-          <section>
-            <h3 className="text-lg font-semibold text-blue-900 border-b pb-1 mb-3">
-              Información del Usuario
-              </h3>
-            <div className="grid md:grid-cols-3 gap-4">
-              <input name="nombreUsuario" value={formData.nombreUsuario} onChange={handleChange} placeholder="Nombre del usuario (empresa o institución)" className="input" />
-              <input name="direccionUsuario" value={formData.direccionUsuario} onChange={handleChange} placeholder="Dirección del usuario" className="input" />
-              <input name="ruc" value={formData.ruc} onChange={handleChange} placeholder="No. RUC" className="input" />
-              <input name="cedula" value={formData.cedula} onChange={handleChange} placeholder="No. de cédula" className="input" />
-              <input name="correo" type="email" value={formData.correo} onChange={handleChange} placeholder="Correo electrónico" className="input" />
-              <input name="atencionA" value={formData.atencionA} onChange={handleChange} placeholder="Con atención a (nombre)" className="input" />
-              <input name="contacto1" value={formData.contacto1} onChange={handleChange} placeholder="No. de contacto 1" className="input" />
-              <input name="contacto2" value={formData.contacto2} onChange={handleChange} placeholder="No. de contacto 2" className="input" />
-            </div>
-          </section>
-
-          {/* Servicio solicitado */}
-          <section>
-            <h3 className="text-lg font-semibold text-blue-900 border-b pb-1 mb-3">
-              Servicio Solicitado
-              </h3>
-            <div className="grid md:grid-cols-4 gap-4">
-              {Object.entries(formData.servicios).map(([key, value]) => (
-                <label key={key} className="flex items-center gap-2">
-                  <input type="checkbox" name={`servicios.${key}`} checked={value} onChange={handleChange} />
-                  {key
-                    .replace(/([A-Z])/g, " $1")
-                    .replace(/^./, (str) => str.toUpperCase())}
-                </label>
-              ))}
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-4 mt-4">
-              <select name="matriz" value={formData.matriz} onChange={handleChange} className="input">
-                <option value="">Seleccione matriz</option>
-                {matrices.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-
-              {formData.matriz === "Otro" && (
-                <input
-                  name="matrizOtro"
-                  value={formData.matrizOtro}
-                  onChange={handleChange}
-                  placeholder="Especifique otra matriz"
-                  className="input"
-                />
-              )}
-
-              <input
-                name="numMuestras"
-                type="number"
-                value={formData.numMuestras}
-                onChange={handleChange}
-                placeholder="No. de muestras"
-                className="input"
-              />
-            </div>
-          </section>
-
-          {/* Detalles */}
-          <section>
-            <h3 className="text-lg font-semibold text-blue-900 border-b pb-1 mb-3">
-              Detalles de la Solicitud
-              </h3>
-            <textarea name="analisisSolicitados" value={formData.analisisSolicitados} onChange={handleChange} placeholder="Análisis solicitados" className="input" rows={3} />
-            <textarea name="coordenadas" value={formData.coordenadas} onChange={handleChange} placeholder="Dirección y/o coordenadas de los puntos de muestreo" className="input" rows={3} />
-            <textarea name="observacion" value={formData.observacion} onChange={handleChange} placeholder="Observación" className="input" rows={3} />
-          </section>
-
-          {/* Firmas */}
-          <section>
-            <h3 className="text-lg font-semibold text-blue-900 border-b pb-1 mb-3">
-              Firma y Recepción
-              </h3>
-            <div className="grid md:grid-cols-3 gap-4">
-              <input name="firmaUsuario" value={formData.firmaUsuario} onChange={handleChange} placeholder="Firma del usuario" className="input" />
-              <input name="solicitudRecibidaPor" value={formData.solicitudRecibidaPor} onChange={handleChange} placeholder="Solicitud recibida por" className="input" />
-              <input type="date" name="fechaEnvioProforma" value={formData.fechaEnvioProforma} onChange={handleChange} className="input" />
-            </div>
-          </section>
-
-          {/* Botón */}
-          <div className="text-center pt-4">
-            <button
-              type="submit"
-              className="bg-blue-900 text-white px-6 py-2 rounded-md font-semibold hover:bg-blue-800 transition"
-            >
-              Guardar Solicitud
-            </button>
+      <div className="max-w-5xl mx-auto px-6 py-12">
+        {/* Step Indicator - Top */}
+        <div className="mb-12">
+          <div className="flex justify-between items-center">
+            {[1, 2, 3].map((step, index) => (
+              <div key={step} className="flex flex-col items-center flex-1">
+                <div
+                  className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg transition-all duration-300 shadow-md ${step < currentStep
+                    ? 'bg-yellow-400 text-white'
+                    : step === currentStep
+                      ? 'bg-blue-900 text-white ring-4 ring-blue-200'
+                      : 'bg-gray-200 text-gray-500'
+                    }`}
+                >
+                  {step < currentStep ? '✓' : step}
+                </div>
+                <p className={`text-sm font-semibold mt-3 text-center ${step === currentStep ? 'text-blue-900' : 'text-gray-600'}`}>
+                  Paso {step}
+                </p>
+               
+              </div>
+            ))}
           </div>
-        </form>
-      </main>
+        </div>
 
-      {/* Footer */}
-      <footer className="bg-blue-900 text-white text-center py-2">
-        <p>© {new Date().getFullYear()} CIRA - UNAN Managua | Área de Proyección y Extensión</p>
-      </footer>
+        {/* Form Container */}
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+          <div className="p-8 md:p-10">
+            {currentStep === 1 && <Step1 />}
+            {currentStep === 2 && <Step2 />}
+            {currentStep === 3 && <Step3 />}
+        </div> 
+          {/* Dots Indicator */}
+          <div className="bg-gray-50 px-8 md:px-10 py-6 border-t border-gray-200 flex justify-center items-center gap-3">
+            {[1, 2, 3].map((step, index) => (
+              <div key={step} className="flex items-center gap-3">
+                <div
+                  className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                    step < currentStep
+                      ? 'bg-yellow-400 w-3 h-3'
+                      : step === currentStep
+                        ? 'bg-blue-900 w-3 h-3'
+                        : 'bg-gray-300'
+                  }`}
+                ></div>
+                {index < 2 && (
+                  <div
+                    className={`h-0.5 w-6 transition-all duration-300 ${
+                      step < currentStep ? 'bg-yellow-400' : 'bg-gray-300'
+                    }`}
+                  ></div>
+                )}
+              </div>
+            ))}
+          
+        </div>
+            {/* Navigation Buttons */}
+            <div className="bg-gray-50 px-8 md:px-10 py-6 border-t border-gray-200 flex justify-between items-center">
+              <button
+                type="button"
+                onClick={handlePrevious}
+                disabled={currentStep === 1}
+                className={`flex items-center gap-2 px-6 py-2 border-2 rounded-lg font-semibold transition-all ${currentStep === 1
+                  ? 'text-gray-400 border-gray-300 cursor-not-allowed'
+                  : 'text-blue-900 border-blue-900 hover:bg-blue-50'
+                  }`}
+              >
+                <ChevronLeft className="w-5 h-5" />
+                Anterior
+              </button>
+
+              <div className="text-sm font-semibold text-gray-600">
+                Paso {currentStep} de 3
+              </div>
+
+              {currentStep < 3 ? (
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className="flex items-center gap-2 px-6 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition-all shadow-md hover:shadow-lg font-semibold"
+                >
+                  Siguiente
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all shadow-md hover:shadow-lg font-semibold"
+                >
+                  Guardar
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+        {/* Footer */}
+        <div className="mt-10 text-center text-sm text-gray-500">
+          <p>© 2026 UNAN Managua - CIRA | Sistema de Gestión de Ingreso de Muestras Ambientales SGIMA</p>
+        </div>
+      </div>
     </div>
   );
-}
+};
+
+export default ServiceRequestForm;

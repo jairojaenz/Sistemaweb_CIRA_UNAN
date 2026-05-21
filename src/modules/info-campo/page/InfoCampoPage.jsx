@@ -422,7 +422,7 @@ export default function FormWizard() {
               {/* Muestreo */}
               <div>
                 <h3 className="text-lg font-bold text-primary mb-1 flex items-center gap-3">
-                  <div className="w-1 h-7 bg-secondary rounded-full"></div>
+                  <div className="w-1 h-7 bg-primary rounded-full"></div>
                   Muestreo
                 </h3>
                 <p className="text-sm text-gray-500 mb-6 ml-4">Información técnica del proceso de muestreo</p>
@@ -1227,6 +1227,10 @@ export default function FormWizard() {
               </button>
             )}
           </div>
+        </div>
+         {/* Footer */}
+        <div className="mt-10 text-center text-sm text-gray-500">
+          <p>© 2026 UNAN Managua - CIRA | Sistema de Gestión de Ingreso de Muestras Ambientales SGIMA</p>
         </div>
       </div>
     </div>

@@ -66,10 +66,13 @@ export default function DashboardHomePage() {
             Dashboard Ejecutivo
           </h1>
           <p className="text-sm text-gray-500">
-            Bienvenido, <span className="font-semibold text-blue-700">{user?.nombreUsuario || "Usuario"}</span> — Panel de indicadores estratégicos CIRA
+            Bienvenido, <span className="font-semibold text-blue-700">{user?.nombre} {user?.apellido || "Usuario"}</span> — Panel de indicadores estratégicos CIRA
           </p>
+          
         </div>
       </div>
+
+    
 
       {/* Global Filters */}
       <div className="flex flex-wrap items-end gap-4 rounded-xl bg-white p-4 shadow-sm">
