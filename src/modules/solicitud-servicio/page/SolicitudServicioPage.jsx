@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileCheck, Plus, Trash2 } from "lucide-react";
 import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
+import { useToast } from "../../../components/ToastContext.jsx";
+import WizardStepIndicator from "../../../components/WizardStepIndicator.jsx";
 import { ROUTES } from "../../../router/routes.js";
 import { normalizeClienteFromApi } from "../../clientes/service/clienteService.js";
 import { saveSolicitudServicioLocal } from "../service/solicitudServicioService.js";
@@ -11,43 +13,41 @@ function isClienteActivo(c) {
   return c?.activo !== false;
 }
 
+const initialFormData = {
+  solicitudNo: "",
+  fechaRecepcion: "",
+  medioRecepcion: "",
+  nombreUsuario: "",
+  direccionUsuario: "",
+  ruc: "",
+  cedula: "",
+  correo: "",
+  contacto1Nombre: "",
+  contacto1Telefono: "",
+  contacto2Nombre: "",
+  contacto2Telefono: "",
+  tipoServicio: "",
+  matriz: "",
+  matrizOtra: "",
+  numeroMuestras: "",
+  analisisSolicitados: [],
+  ubicacionMuestreo: "",
+  observaciones: "",
+  firma: "",
+  recibidoPor: "",
+  fechaProforma: "",
+  inicialesAnalista: "",
+};
+
 export default function SolicitudServicioPage() {
+  const { addToast } = useToast();
   const { idCliente: idClienteParam } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   const idCliente = idClienteParam ? Number(idClienteParam) : null;
 
   const [currentStep, setCurrentStep] = useState(1);
-  const [formData, setFormData] = useState({
-    // Step 1 - Solicitante
-    solicitudNo: '',
-    fechaRecepcion: '',
-    medioRecepcion: '',
-    nombreUsuario: '',
-    direccionUsuario: '',
-    ruc: '',
-    cedula: '',
-    correo: '',
-    contacto1Nombre: '',
-    contacto1Telefono: '',
-    contacto2Nombre: '',
-    contacto2Telefono: '',
-
-    // Step 2 - Servicio
-    tipoServicio: '',
-    matriz: '',
-    matrizOtra: '',
-    numeroMuestras: '',
-    analisisSolicitados: [],
-    ubicacionMuestreo: '',
-
-    // Step 3 - Confirmación
-    observaciones: '',
-    firma: '',
-    recibidoPor: '',
-    fechaProforma: '',
-    inicialesAnalista: '',
-  });
+  const [formData, setFormData] = useState({ ...initialFormData });
 
   const [errors, setErrors] = useState({});
   const [avisoClienteInactivo, setAvisoClienteInactivo] = useState(false);
@@ -187,16 +187,20 @@ export default function SolicitudServicioPage() {
   };
 
   const handleSubmit = () => {
-    if (validateStep(3)) {
-      saveSolicitudServicioLocal({
-        ...formData,
-        idCliente: idCliente && !Number.isNaN(idCliente) ? idCliente : undefined,
-      });
+    if (!validateStep(3)) return;
+    const ok = saveSolicitudServicioLocal({
+      ...formData,
+      idCliente: idCliente && !Number.isNaN(idCliente) ? idCliente : undefined,
+    });
+    if (ok) {
+      addToast("Solicitud guardada correctamente.", "success");
+    } else {
+      addToast("No se pudo guardar la solicitud.", "error");
     }
   };
 
-  // Step 1 Component
-  const Step1 = () => (
+  // Contenido por paso (funciones de render, no componentes, para no remontar al escribir)
+  const renderStep1 = () => (
     <div className="space-y-10">
       {/* Title */}
       <div>
@@ -424,7 +428,7 @@ export default function SolicitudServicioPage() {
   );
 
   // Step 2 Component
-  const Step2 = () => (
+  const renderStep2 = () => (
     <div className="space-y-10">
       {/* Title */}
       <div>
@@ -631,8 +635,7 @@ export default function SolicitudServicioPage() {
     </div>
   );
 
-  // Step 3 Component
-  const Step3 = () => (
+  const renderStep3 = () => (
     <div className="space-y-10">
       {/* Success Icon */}
       <div className="flex justify-center mb-4">
@@ -830,29 +833,7 @@ export default function SolicitudServicioPage() {
       </div>
 
       <div className="max-w-5xl mx-auto px-6 py-12">
-        {/* Step Indicator - Top */}
-        <div className="mb-12">
-          <div className="flex justify-between items-center">
-            {[1, 2, 3].map((step, index) => (
-              <div key={step} className="flex flex-col items-center flex-1">
-                <div
-                  className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg transition-all duration-300 shadow-md ${step < currentStep
-                    ? 'bg-yellow-400 text-white'
-                    : step === currentStep
-                      ? 'bg-blue-900 text-white ring-4 ring-blue-200'
-                      : 'bg-gray-200 text-gray-500'
-                    }`}
-                >
-                  {step < currentStep ? '✓' : step}
-                </div>
-                <p className={`text-sm font-semibold mt-3 text-center ${step === currentStep ? 'text-blue-900' : 'text-gray-600'}`}>
-                  Paso {step}
-                </p>
-               
-              </div>
-            ))}
-          </div>
-        </div>
+        <WizardStepIndicator currentStep={currentStep} />
 
         {/* Form Container */}
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
@@ -866,76 +847,75 @@ export default function SolicitudServicioPage() {
                 </p>
               </div>
             )}
-            {currentStep === 1 && <Step1 />}
-            {currentStep === 2 && <Step2 />}
-            {currentStep === 3 && <Step3 />}
+            {currentStep === 1 && renderStep1()}
+            {currentStep === 2 && renderStep2()}
+            {currentStep === 3 && renderStep3()}
           </div>
-          {/* Dots Indicator */}
+
           <div className="bg-gray-50 px-8 md:px-10 py-6 border-t border-gray-200 flex justify-center items-center gap-3">
             {[1, 2, 3].map((step, index) => (
               <div key={step} className="flex items-center gap-3">
                 <div
-                  className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                  className={`h-2.5 w-2.5 rounded-full transition-all duration-300 ${
                     step < currentStep
-                      ? 'bg-yellow-400 w-3 h-3'
+                      ? "h-3 w-3 bg-yellow-400"
                       : step === currentStep
-                        ? 'bg-blue-900 w-3 h-3'
-                        : 'bg-gray-300'
+                        ? "h-3 w-3 bg-blue-900"
+                        : "bg-gray-300"
                   }`}
-                ></div>
+                />
                 {index < 2 && (
                   <div
                     className={`h-0.5 w-6 transition-all duration-300 ${
-                      step < currentStep ? 'bg-yellow-400' : 'bg-gray-300'
+                      step < currentStep ? "bg-yellow-400" : "bg-gray-300"
                     }`}
-                  ></div>
+                  />
                 )}
               </div>
             ))}
-          
-        </div>
-            {/* Navigation Buttons */}
-            <div className="bg-gray-50 px-8 md:px-10 py-6 border-t border-gray-200 flex justify-between items-center">
-              <button
-                type="button"
-                onClick={handlePrevious}
-                disabled={currentStep === 1}
-                className={`flex items-center gap-2 px-6 py-2 border-2 rounded-lg font-semibold transition-all ${currentStep === 1
-                  ? 'text-gray-400 border-gray-300 cursor-not-allowed'
-                  : 'text-blue-900 border-blue-900 hover:bg-blue-50'
-                  }`}
-              >
-                <ChevronLeft className="w-5 h-5" />
-                Anterior
-              </button>
-
-              <div className="text-sm font-semibold text-gray-600">
-                Paso {currentStep} de 3
-              </div>
-
-              {currentStep < 3 ? (
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  className="flex items-center gap-2 px-6 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition-all shadow-md hover:shadow-lg font-semibold"
-                >
-                  Siguiente
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all shadow-md hover:shadow-lg font-semibold"
-                >
-                  Guardar
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              )}
-            </div>
           </div>
 
-        {/* Footer */}
+          <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-8 py-6 md:px-10">
+            <button
+              type="button"
+              onClick={handlePrevious}
+              disabled={currentStep === 1}
+              className={`flex items-center gap-2 rounded-lg border-2 px-6 py-2 font-semibold transition-all ${
+                currentStep === 1
+                  ? "cursor-not-allowed border-gray-300 text-gray-400"
+                  : "border-blue-900 text-blue-900 hover:bg-blue-50"
+              }`}
+            >
+              <ChevronLeft className="h-5 w-5" />
+              Anterior
+            </button>
+
+            <div className="text-sm font-semibold text-gray-600">
+              Paso {currentStep} de 3
+            </div>
+
+            {currentStep < 3 ? (
+              <button
+                type="button"
+                onClick={handleNext}
+                className="flex items-center gap-2 rounded-lg bg-blue-900 px-6 py-2 font-semibold text-white shadow-md transition-all hover:bg-blue-800 hover:shadow-lg"
+              >
+                Siguiente
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                className="flex items-center gap-2 rounded-lg bg-green-600 px-6 py-2 font-semibold text-white shadow-md transition-all hover:bg-green-700 hover:shadow-lg"
+              >
+                Guardar
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            )}
+          </div>
+        </div>
+
         <div className="mt-10 text-center text-sm text-gray-500">
           <p>© 2026 UNAN Managua - CIRA | Sistema de Gestión de Ingreso de Muestras Ambientales SGIMA</p>
         </div>

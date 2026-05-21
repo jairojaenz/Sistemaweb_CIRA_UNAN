@@ -17,7 +17,9 @@ export function mapClienteToSolicitudPrefill(c) {
   const tel = formatTelefonoLocal(cliente.telefonoCliente ?? "");
   const cel = formatTelefonoLocal(cliente.celularCliente ?? "");
 
-  const contactoNombre = esInd ? "" : String(cliente.nombreContacto ?? "").trim();
+  const contactoNombre = esInd
+    ? nombre
+    : String(cliente.nombreContacto ?? "").trim();
 
   return {
     nombreUsuario: nombre,

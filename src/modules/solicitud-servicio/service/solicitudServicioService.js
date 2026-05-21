@@ -3,8 +3,8 @@ const STORAGE_KEY = "solicitud_servicio_last_v1";
 export function saveSolicitudServicioLocal(payload) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    alert("Solicitud guardada (simulado).");
+    return true;
   } catch {
-    alert("No se pudo guardar localmente.");
+    return false;
   }
 }

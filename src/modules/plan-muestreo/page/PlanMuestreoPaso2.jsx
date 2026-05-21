@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaTrashAlt } from "react-icons/fa";
-import PlanMuestreoStepper from "./PlanMuestreoStepper.jsx";
+import PlanMuestreoLayout from "./PlanMuestreoLayout.jsx";
 import { loadDraft, saveDraft } from "../service/planMuestreoDraftStorage.js";
 import { ROUTES } from "../../../router/routes.js";
 
@@ -90,11 +90,13 @@ export default function PlanMuestreoPaso2() {
   };
 
   return (
-    <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col bg-white text-gray-800">
-      <main className="flex flex-grow justify-center bg-white py-8 px-4">
-        <div className="w-full max-w-7xl space-y-6 rounded-lg border border-gray-200 bg-white p-6 shadow-lg">
-          <PlanMuestreoStepper step={2} />
-
+    <PlanMuestreoLayout
+      step={2}
+      wide
+      onPrevious={() => navigate(ROUTES.planMuestreoPaso(1))}
+      onNext={() => navigate(ROUTES.planMuestreoPaso(3))}
+    >
+      <div className="space-y-6">
           <div className="border border-gray-200 rounded-md">
             <div className="bg-gray-100 px-4 py-2 font-semibold text-gray-700">
               TIPO DE MUESTREO
@@ -323,33 +325,11 @@ export default function PlanMuestreoPaso2() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-2">
-            <button
-              type="button"
-              className="rounded-lg border border-gray-300 bg-white px-6 py-2 font-semibold text-gray-800 hover:bg-gray-50"
-              onClick={() => navigate(ROUTES.planMuestreoPaso(1))}
-            >
-              Atrás
-            </button>
-            <button
-              type="button"
-              className="rounded-lg bg-blue-900 px-6 py-2 font-semibold text-white hover:bg-blue-800"
-              onClick={() => navigate(ROUTES.planMuestreoPaso(3))}
-            >
-              Siguiente
-            </button>
-          </div>
-
-          <div className="text-xs text-gray-600">
-            Estado actual: <span className="font-semibold">{tipoLabel}</span>
-          </div>
+        <div className="text-xs text-gray-600">
+          Estado actual: <span className="font-semibold">{tipoLabel}</span>
         </div>
-      </main>
-
-      <footer className="bg-blue-900 py-2 text-center text-white">
-        <p>© {new Date().getFullYear()} CIRA - UNAN Managua | Plan de Muestreo</p>
-      </footer>
-    </div>
+      </div>
+    </PlanMuestreoLayout>
   );
 }
 
