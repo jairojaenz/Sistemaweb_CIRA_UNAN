@@ -93,6 +93,7 @@ export default function DashboardLayout() {
     if (p.includes("/gestion-usuarios")) return "Gestión de Usuarios";
     if (p.includes("/gestion-clientes")) return "Gestión de Clientes";
     if (p.includes("/gestion-laboratorios")) return "Gestión de Laboratorios";
+    if (p.includes("/catalogos/servicios")) return "Catálogo de Servicios";
     return "INFORMACIÓN DE CAMPO DE MUESTRAS";
   }
 

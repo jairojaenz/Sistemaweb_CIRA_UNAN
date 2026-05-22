@@ -228,7 +228,7 @@ function closeDetailModal() {
         <button
           type="button"
           onClick={openCreateModal}
-          className="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
+          className="inline-flex items-center gap-2 rounded-lg bg-blue-900 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
         >
           <FaPlus className="h-4 w-4" />
           Nuevo Laboratorio
@@ -236,7 +236,7 @@ function closeDetailModal() {
       </div>
 
       <div className="relative">
-        <FaSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <FaSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-900" />
 
         <input
           type="text"
@@ -381,7 +381,7 @@ function closeDetailModal() {
                             laboratorio
                           )
                         }
-                        className="rounded p-1.5 text-slate-600 hover:bg-slate-100">
+                        className="rounded p-1.5 text-blue-900 hover:bg-slate-100">
                          <FaEye className="h-4 w-4" />
                          </button>
 
@@ -477,6 +477,7 @@ function closeDetailModal() {
           </div>
         </div>
       )}
+
       {detailLaboratorio && (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
     <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-xl">
