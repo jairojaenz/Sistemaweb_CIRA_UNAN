@@ -1,4 +1,4 @@
-export default function MetodosRecepcionPage() {
+export default function MediosRecepcionPage() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4 sm:p-6">
       <h1 className="text-xl font-semibold text-gray-800">Métodos de Recepción</h1>

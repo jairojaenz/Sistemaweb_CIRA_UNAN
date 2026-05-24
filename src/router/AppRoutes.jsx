@@ -10,6 +10,9 @@ const InfoCampoPage = lazy(() => import("../modules/info-campo/page/InfoCampoPag
 const SolicitudServicioPage = lazy(() =>
   import("../modules/solicitud-servicio/page/SolicitudServicioPage.jsx")
 );
+const ListaSolicitudServicioPage = lazy(() =>
+  import("../modules/solicitud-servicio/page/ListaSolicitudServicioPage.jsx")
+);
 const PlanMuestreoPaso1 = lazy(() => import("../modules/plan-muestreo/page/PlanMuestreoPaso1.jsx"));
 const PlanMuestreoPaso2 = lazy(() => import("../modules/plan-muestreo/page/PlanMuestreoPaso2.jsx"));
 const PlanMuestreoPaso3 = lazy(() => import("../modules/plan-muestreo/page/PlanMuestreoPaso3.jsx"));
@@ -20,7 +23,7 @@ const CargosPage = lazy(() => import("../modules/catalogos/page/CargosPage.jsx")
 const DepartamentosPage = lazy(() => import("../modules/catalogos/page/DepartamentosPage.jsx"));
 const FuentesPage = lazy(() => import("../modules/catalogos/page/FuentesPage.jsx"));
 const MatrizPage = lazy(() => import("../modules/catalogos/page/MatrizPage.jsx"));
-const MetodosRecepcionPage = lazy(() => import("../modules/catalogos/page/MetodosRecepcionPage.jsx"));
+const MediosRecepcionPage = lazy(() => import("../modules/catalogos/page/MediosRecepcionPage.jsx"));
 const MunicipiosPage = lazy(() => import("../modules/catalogos/page/MunicipiosPage.jsx"));
 const PreservantesPage = lazy(() => import("../modules/catalogos/page/PreservantesPage.jsx"));
 const ServiciosPage = lazy(() => import("../modules/catalogos/page/ServiciosPage.jsx"));
@@ -58,8 +61,8 @@ export default function AppRoutes() {
           >
             <Route index element={<DashboardHomePage />} />
             <Route path="info-campo" element={<InfoCampoPage />} />
+            <Route path="solicitud-servicio" element={<ListaSolicitudServicioPage />} />
             <Route path="solicitud-servicio/:idCliente" element={<SolicitudServicioPage />} />
-            <Route path="solicitud-servicio" element={<SolicitudServicioPage />} />
             <Route path="plan-muestreo/paso-1" element={<PlanMuestreoPaso1 />} />
             <Route path="plan-muestreo/paso-2" element={<PlanMuestreoPaso2 />} />
             <Route path="plan-muestreo/paso-3" element={<PlanMuestreoPaso3 />} />
@@ -70,7 +73,7 @@ export default function AppRoutes() {
             <Route path="catalogos/departamentos" element={<DepartamentosPage />} />
             <Route path="catalogos/fuentes" element={<FuentesPage />} />
             <Route path="catalogos/matriz" element={<MatrizPage />} />
-            <Route path="catalogos/metodos-recepcion" element={<MetodosRecepcionPage />} />
+            <Route path="catalogos/medios-recepcion" element={<MediosRecepcionPage />} />
             <Route path="catalogos/municipios" element={<MunicipiosPage />} />
             <Route path="catalogos/preservantes" element={<PreservantesPage />} />
             <Route path="catalogos/servicios" element={<ServiciosPage />} />

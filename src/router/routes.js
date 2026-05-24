@@ -15,7 +15,7 @@ export const ROUTES = {
   catalogosDepartamentos: "/dashboard/catalogos/departamentos",
   catalogosFuentes: "/dashboard/catalogos/fuentes",
   catalogosMatriz: "/dashboard/catalogos/matriz",
-  catalogosMetodosRecepcion: "/dashboard/catalogos/metodos-recepcion",
+  catalogosMediosRecepcion: "/dashboard/catalogos/medios-recepcion",
   catalogosMunicipios: "/dashboard/catalogos/municipios",
   catalogosPreservantes: "/dashboard/catalogos/preservantes",
   catalogosServicios: "/dashboard/catalogos/servicios",

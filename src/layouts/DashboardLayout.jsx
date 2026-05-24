@@ -74,7 +74,7 @@ export default function DashboardLayout() {
     { label: "Departamentos", to: ROUTES.catalogosDepartamentos },
     { label: "Fuentes", to: ROUTES.catalogosFuentes },
     { label: "Matriz", to: ROUTES.catalogosMatriz },
-    { label: "Métodos de recepción", to: ROUTES.catalogosMetodosRecepcion },
+    { label: "Médios de recepción", to: ROUTES.catalogosMediosRecepcion },
     { label: "Municipios", to: ROUTES.catalogosMunicipios },
     { label: "Preservantes", to: ROUTES.catalogosPreservantes },
     { label: "Servicios", to: ROUTES.catalogosServicios },
@@ -94,6 +94,7 @@ export default function DashboardLayout() {
     if (p.includes("/gestion-clientes")) return "Gestión de Clientes";
     if (p.includes("/gestion-laboratorios")) return "Gestión de Laboratorios";
     if (p.includes("/catalogos/servicios")) return "Catálogo de Servicios";
+    if (p.includes("/catalogos/medios-recepcion")) return "Catálogo de Médios de Recepción";
     return "INFORMACIÓN DE CAMPO DE MUESTRAS";
   }
 
