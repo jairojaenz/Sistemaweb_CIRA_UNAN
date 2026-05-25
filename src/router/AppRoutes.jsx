@@ -32,6 +32,9 @@ const GruposAnalisisPage = lazy(() => import("../modules/catalogos/page/GruposAn
 const TecnicasAnalisisPage = lazy(() => import("../modules/catalogos/page/TecnicasAnalisisPage.jsx"));
 const TiposMuestreoPage = lazy(() => import("../modules/catalogos/page/TiposMuestreoPage.jsx"));
 const EquiposMuestreoPage = lazy(() => import("../modules/catalogos/page/EquiposMuestreoPage.jsx"));
+const FormatosOrdenServicioPage = lazy(() =>
+  import("../modules/formatos-orden-servicio/page/FormatosOrdenServicioPage.jsx")
+);
 
 function RouteFallback() {
   return (
@@ -69,6 +72,7 @@ export default function AppRoutes() {
             <Route path="gestion-usuarios" element={<GestionUsuariosPage />} />
             <Route path="gestion-clientes" element={<GestionClientesPage />} />
             <Route path="gestion-laboratorios" element={<GestionLaboratoriosPage />} />
+            <Route path="formatos-orden-servicio" element={<FormatosOrdenServicioPage />} />
             <Route path="catalogos/cargos" element={<CargosPage />} />
             <Route path="catalogos/departamentos" element={<DepartamentosPage />} />
             <Route path="catalogos/fuentes" element={<FuentesPage />} />

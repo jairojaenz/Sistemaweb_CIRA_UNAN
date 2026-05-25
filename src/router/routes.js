@@ -10,6 +10,7 @@ export const ROUTES = {
   gestionUsuarios: "/dashboard/gestion-usuarios",
   gestionClientes: "/dashboard/gestion-clientes",
   gestionLaboratorios: "/dashboard/gestion-laboratorios",
+  formatosOrdenServicio: "/dashboard/formatos-orden-servicio",
   catalogos: "/dashboard/catalogos",
   catalogosCargos: "/dashboard/catalogos/cargos",
   catalogosDepartamentos: "/dashboard/catalogos/departamentos",
