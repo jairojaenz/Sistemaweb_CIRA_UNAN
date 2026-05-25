@@ -6,7 +6,6 @@ import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 
 import {
   createMedioRecepcion,
-  deleteMedioRecepcion,
   getMediosRecepcion,
   toggleMedioRecepcionStatus,
   updateMedioRecepcion,
@@ -168,22 +167,7 @@ function closeDetailModal() {
     }
   }// 
 
-  async function handleDelete(medio) {
-    try {
-      await deleteMedioRecepcion(
-        medio.idMedioRecepcion
-      );
-      addToast(
-        "Medio de recepción eliminado exitosamente",
-        "success"
-      );
-      await loadMediosRecepcion();
-    } catch (err) {
-      addToast(err.message, "error");
-    } finally {
-      setConfirmDelete(null);
-    }
-  }// Cambiar estado de activo/inactivo del medio de recepción
+ // Cambiar estado de activo/inactivo del medio de recepción
 
   async function handleToggleStatus(medio) {
     setTogglingId(medio.idMedioRecepcion);

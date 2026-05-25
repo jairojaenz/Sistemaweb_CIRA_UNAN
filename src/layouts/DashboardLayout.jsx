@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-do
 import {
   FaBars,
   FaChevronDown,
+  FaClipboardCheck,
   FaClipboardList,
   FaFolder,
   FaFlask,
@@ -93,6 +94,7 @@ export default function DashboardLayout() {
     if (p.includes("/gestion-usuarios")) return "Gestión de Usuarios";
     if (p.includes("/gestion-clientes")) return "Gestión de Clientes";
     if (p.includes("/gestion-laboratorios")) return "Gestión de Laboratorios";
+    if (p.includes("/formatos-orden-servicio")) return "Órdenes de Servicio";
     if (p.includes("/catalogos/servicios")) return "Catálogo de Servicios";
     if (p.includes("/catalogos/medios-recepcion")) return "Catálogo de Médios de Recepción";
     return "INFORMACIÓN DE CAMPO DE MUESTRAS";
@@ -187,6 +189,20 @@ export default function DashboardLayout() {
             <FaTasks className="h-5 w-5 flex-shrink-0 opacity-90" />
             {sidebarOpen && <span className="truncate">Plan de Muestreo</span>}
           </Link>
+
+          <NavLink
+            to={ROUTES.formatosOrdenServicio}
+            title={!sidebarOpen ? "Órdenes de Servicio" : undefined}
+            className={({ isActive }) =>
+              [
+                navLinkClass({ isActive }),
+                sidebarOpen ? "gap-3 px-4" : "justify-center px-0",
+              ].join(" ")
+            }
+          >
+            <FaClipboardCheck className="h-5 w-5 flex-shrink-0 opacity-90" />
+            {sidebarOpen && <span className="truncate">Órdenes de Servicio</span>}
+          </NavLink>
 
           <div>
             <button
