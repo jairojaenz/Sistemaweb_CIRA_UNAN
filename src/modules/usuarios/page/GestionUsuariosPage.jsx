@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { FaPlus, FaEdit, FaTrash, FaTimes, FaSpinner, FaSearch } from "react-icons/fa";
+import { FaPlus, FaEdit, FaEye, FaTrash, FaTimes, FaSpinner, FaSearch } from "react-icons/fa";
 import { useToast } from "../../../components/ToastContext";
 import { formatTelefonoLocal } from "../../../utils/phoneFormat.js";
 import ConfirmDialog from "../../../components/ConfirmDialog";
@@ -45,6 +45,7 @@ export default function GestionUsuariosPage() {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [confirmToggle, setConfirmToggle] = useState(null);
   const [toggling, setToggling] = useState(null);
+  const [detailUser, setDetailUser] = useState(null);
 
   const loadUsers = useCallback(async () => {
     try {
@@ -229,6 +230,14 @@ export default function GestionUsuariosPage() {
     }
   }
 
+  function openDetailModal(user) {
+    setDetailUser(user);
+  }
+
+  function closeDetailModal() {
+    setDetailUser(null);
+  }
+
   const fullName = (u) => `${u.nombreUsuario || ""} ${u.apellidoUsuario || ""}`.trim();
 
   return (
@@ -319,9 +328,18 @@ export default function GestionUsuariosPage() {
                         type="button"
                         title="Editar usuario"
                         onClick={() => openEditModal(user)}
-                        className="rounded p-1.5 text-blue-600 hover:bg-blue-100"
+                        className="rounded p-1.5 text-blue-900 hover:bg-blue-100"
                       >
                         <FaEdit className="h-4 w-4" />
+                      </button>
+
+                      <button
+                        type="button"
+                        title="Ver detalle del usuario"
+                        onClick={() => openDetailModal(user)}
+                        className="rounded p-1.5  text-slate-600 hover:bg-blue-100"
+                      >
+                        <FaEye className="h-4 w-4" />
                       </button>
 
                       {toggling === user.idUsuario && (
@@ -498,6 +516,50 @@ export default function GestionUsuariosPage() {
         </div>
       )}
 
+      {detailUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <h2 className="text-lg font-semibold text-gray-800">Detalle del Usuario</h2>
+              <button
+                type="button"
+                onClick={closeDetailModal}
+                className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <FaTimes className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 p-6">
+              <dl className="space-y-3">
+                <DetailRow label="Nombre completo" value={fullName(detailUser)} />
+                <DetailRow label="Correo" value={detailUser.correoUsuario} />
+                <DetailRow label="Cédula" value={detailUser.cedulaUsuario} />
+                <DetailRow label="Celular" value={formatTelefonoLocal(detailUser.celularUsuario || "") || "—"} />
+                <DetailRow label="Cargo" value={detailUser.cargo} />
+                <DetailRow label="Departamento" value={detailUser.departamento} />
+                <DetailRow label="Municipio" value={detailUser.municipio} />
+                <DetailRow label="Laboratorio" value={detailUser.laboratorio} />
+                <DetailRow
+                  label="Estado"
+                  value={detailUser.activo ? "Activo" : "Inhabilitado"}
+                />
+              </dl>
+
+              <div className="flex justify-end border-t pt-4">
+                <button
+                  type="button"
+                  onClick={closeDetailModal}
+                  className="rounded-md bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ConfirmDialog
         open={!!confirmToggle}
         title="Cambiar Estado"
@@ -542,6 +604,16 @@ function InputField({
         className={`input ${error ? "border-red-400 ring-1 ring-red-400" : ""}`}
       />
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+    </div>
+  );
+}
+
+function DetailRow({ label, value }) {
+  const display = value === null || value === undefined || value === "" ? "—" : String(value);
+  return (
+    <div className="grid grid-cols-1 gap-1 border-b border-gray-100 pb-3 sm:grid-cols-3 sm:gap-2">
+      <dt className="text-sm font-medium text-gray-600">{label}</dt>
+      <dd className="text-sm text-gray-900 sm:col-span-2">{display}</dd>
     </div>
   );
 }
