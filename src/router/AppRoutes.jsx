@@ -35,8 +35,6 @@ const EquiposMuestreoPage = lazy(() => import("../modules/catalogos/page/Equipos
 const FormatosOrdenServicioPage = lazy(() =>
   import("../modules/formatos-orden-servicio/page/FormatosOrdenServicioPage.jsx")
 );
-const ProformaPage = lazy(() => import("../modules/proforma/page/ProformaPage.jsx"));
-const NuevaProformaPage = lazy(() => import("../modules/proforma/page/NuevaProformaPage.jsx"));
 
 function RouteFallback() {
   return (
@@ -75,9 +73,6 @@ export default function AppRoutes() {
             <Route path="gestion-clientes" element={<GestionClientesPage />} />
             <Route path="gestion-laboratorios" element={<GestionLaboratoriosPage />} />
             <Route path="formatos-orden-servicio" element={<FormatosOrdenServicioPage />} />
-            <Route path="proformas" element={<ProformaPage />} />
-            <Route path="proformas/nueva" element={<NuevaProformaPage />} />
-            <Route path="proformas/nueva/:idSolicitud" element={<NuevaProformaPage />} />
             <Route path="catalogos/cargos" element={<CargosPage />} />
             <Route path="catalogos/departamentos" element={<DepartamentosPage />} />
             <Route path="catalogos/fuentes" element={<FuentesPage />} />

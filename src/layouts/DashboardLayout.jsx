@@ -5,7 +5,6 @@ import {
   FaChevronDown,
   FaClipboardCheck,
   FaClipboardList,
-  FaFileInvoiceDollar,
   FaFolder,
   FaFlask,
   FaHome,
@@ -98,7 +97,6 @@ export default function DashboardLayout() {
     if (p.includes("/formatos-orden-servicio")) return "Órdenes de Servicio";
     if (p.includes("/catalogos/servicios")) return "Catálogo de Servicios";
     if (p.includes("/catalogos/medios-recepcion")) return "Catálogo de Médios de Recepción";
-    if (p.includes("/dashboard/proformas")) return "Proformas";
     return "INFORMACIÓN DE CAMPO DE MUESTRAS";
   }
 
@@ -204,20 +202,6 @@ export default function DashboardLayout() {
           >
             <FaClipboardCheck className="h-5 w-5 flex-shrink-0 opacity-90" />
             {sidebarOpen && <span className="truncate">Órdenes de Servicio</span>}
-          </NavLink>
-
-          <NavLink
-            to={ROUTES.proformas}
-            title={!sidebarOpen ? "Proformas" : undefined}
-            className={({ isActive }) =>
-              [
-                navLinkClass({ isActive }),
-                sidebarOpen ? "gap-3 px-4" : "justify-center px-0",
-              ].join(" ")
-            }
-          >
-            <FaFileInvoiceDollar className="h-5 w-5 flex-shrink-0 opacity-90" />
-            {sidebarOpen && <span className="truncate">Proformas</span>}
           </NavLink>
 
           <div>
