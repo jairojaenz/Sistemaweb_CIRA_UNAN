@@ -4,22 +4,27 @@ import {
   useMemo,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 
 import {
-  FaEdit,
-  FaEye,
+  FaEllipsisV,
   FaSearch,
   FaSpinner,
   FaTimes,
 } from "react-icons/fa";
 
+import { useNavigate } from "react-router-dom";
 import { useToast } from "../../../components/ToastContext.jsx";
+import { ROUTES } from "../../../router/routes.js";
 
 import {
   getSolicitudes,
 } from "../service/solicitudServicioService.js";
 
+const ACCIONES_MENU_ALTURA_PX = 132;
+
 export default function ListaSolicitudServicioPage() {
+  const navigate = useNavigate();
   const { addToast } = useToast();
 
   const [solicitudes, setSolicitudes] =
@@ -85,6 +90,8 @@ export default function ListaSolicitudServicioPage() {
     });
   }, [search, solicitudes]);
 
+  const [accionesMenu, setAccionesMenu] = useState(null);
+
   function openDetailModal(solicitud) {
     setDetailSolicitud(solicitud);
   }
@@ -93,6 +100,39 @@ export default function ListaSolicitudServicioPage() {
     setDetailSolicitud(null);
   }
 
+  function abrirMenuAcciones(e, solicitud) {
+    e.stopPropagation();
+    if (accionesMenu?.solicitud?.idFormatoSolicitud === solicitud.idFormatoSolicitud) {
+      setAccionesMenu(null);
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const espacioAbajo = window.innerHeight - rect.bottom;
+    const placement = espacioAbajo >= ACCIONES_MENU_ALTURA_PX ? "bottom" : "top";
+    setAccionesMenu({
+      solicitud,
+      x: rect.right,
+      y: placement === "bottom" ? rect.bottom + 4 : rect.top - 4,
+      placement,
+    });
+  }
+
+  function cerrarMenuAcciones() {
+    setAccionesMenu(null);
+  }
+
+  useEffect(() => {
+    if (!accionesMenu) return;
+    const cerrar = () => setAccionesMenu(null);
+    document.addEventListener("click", cerrar);
+    window.addEventListener("scroll", cerrar, true);
+    window.addEventListener("resize", cerrar);
+    return () => {
+      document.removeEventListener("click", cerrar);
+      window.removeEventListener("scroll", cerrar, true);
+      window.removeEventListener("resize", cerrar);
+    };
+  }, [accionesMenu]);
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-4 sm:p-6">
@@ -162,22 +202,22 @@ export default function ListaSolicitudServicioPage() {
           <tbody className="divide-y divide-gray-200">
             {loading ? (
               <tr>
-                <td
-                  colSpan={7}
-                  className="px-4 py-10 text-center text-gray-500"
-                >
-                  <FaSpinner className="mx-auto h-6 w-6 animate-spin" />
+                  <td
+                    colSpan={8}
+                    className="px-4 py-10 text-center text-gray-500"
+                  >
+                    <FaSpinner className="mx-auto h-6 w-6 animate-spin" />
 
-                  <span className="mt-2 block">
-                    Cargando solicitudes...
-                  </span>
-                </td>
-              </tr>
-            ) : filteredSolicitudes.length ===
-              0 ? (
-              <tr>
-                <td
-                  colSpan={7}
+                    <span className="mt-2 block">
+                      Cargando solicitudes...
+                    </span>
+                  </td>
+                </tr>
+              ) : filteredSolicitudes.length ===
+                0 ? (
+                <tr>
+                  <td
+                    colSpan={8}
                   className="px-4 py-10 text-center text-gray-500"
                 >
                   {search
@@ -250,36 +290,16 @@ export default function ListaSolicitudServicioPage() {
                     </td>
 
                     <td className="px-4 py-3 sm:px-6">
-                      <div className="flex items-center gap-2">
-                        <label className="relative inline-flex cursor-pointer items-center">
-                          <input
-                            type="checkbox"
-                            className="peer sr-only"
-                          />
-                          <div className="h-5 w-9 rounded-full bg-gray-300 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-green-700 peer-checked:after:translate-x-full peer-disabled:opacity-50" />
-                        </label>
-
-                        <button
-                          type="button"
-                          title="Editar"
-                          className="rounded p-1.5 text-blue-900 hover:bg-blue-100"
-                        >
-                          <FaEdit className="h-4 w-4" />
-                        </button>
-
-                        <button
-                          type="button"
-                          title="Ver detalle"
-                          onClick={() =>
-                            openDetailModal(
-                              solicitud
-                            )
-                          }
-                          className="rounded p-1.5 text-blue-900 hover:bg-slate-100"
-                        >
-                          <FaEye className="h-4 w-4" />
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        title="Más acciones"
+                        aria-expanded={accionesMenu?.solicitud?.idFormatoSolicitud === solicitud.idFormatoSolicitud}
+                        aria-haspopup="menu"
+                        onClick={(e) => abrirMenuAcciones(e, solicitud)}
+                        className="rounded p-1.5 text-gray-600 hover:bg-gray-100"
+                      >
+                        <FaEllipsisV className="h-4 w-4" />
+                      </button>
                     </td>
                   </tr>
                 )
@@ -289,7 +309,57 @@ export default function ListaSolicitudServicioPage() {
         </table>
       </div>
 
-      
+      {accionesMenu &&
+        createPortal(
+          <div
+            role="menu"
+            onClick={(e) => e.stopPropagation()}
+            className="fixed z-[100] min-w-[10.5rem] rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+            style={{
+              left: accionesMenu.x,
+              top: accionesMenu.y,
+              transform:
+                accionesMenu.placement === "bottom"
+                  ? "translateX(-100%)"
+                  : "translate(-100%, -100%)",
+            }}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+              onClick={() => {
+                openDetailModal(accionesMenu.solicitud);
+                cerrarMenuAcciones();
+              }}
+            >
+              Ver detalle
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+              onClick={() => {
+                const id = accionesMenu.solicitud.idFormatoSolicitud;
+                cerrarMenuAcciones();
+                navigate(ROUTES.nuevaProformaFromSolicitud(id));
+              }}
+            >
+              Crear Proforma
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+              onClick={() => {
+                cerrarMenuAcciones();
+              }}
+            >
+              Editar
+            </button>
+          </div>,
+          document.body
+        )}
 
       {detailSolicitud && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
