@@ -28,9 +28,9 @@ export async function updateMedioRecepcion(id, data) {
   );
 }// El endpoint para actualizar un medio de recepción existente.
 
-export async function deleteMedioRecepcion(id) {
+/* export async function deleteMedioRecepcion(id) {
   return await apiDelete(`/api/catalogos/medios-recepcion/${id}`);
-}// El endpoint para eliminar un medio de recepción por ID.
+}*/ // El endpoint para eliminar un medio de recepción por ID.
 
 export async function toggleMedioRecepcionStatus(id) {
   return await apiPut(

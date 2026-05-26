@@ -89,7 +89,7 @@ export default function DashboardLayout() {
   function getPageTitle(p) {
     if (p === "/dashboard" || p === "/dashboard/") return "Bienvenido al Sistema de Gestión de Información de Campo de Muestras";
     if (p.includes("/info-campo")) return "Información de Campo de Muestras";
-    if (p.includes("/solicitud-servicio")) return "Solicitud de Servicios";
+    if (p.includes("/solicitud-servicio")) return "Lista de Solicitud de Servicios";
     if (p.includes("/plan-muestreo")) return "Plan de Muestreo";
     if (p.includes("/gestion-usuarios")) return "Gestión de Usuarios";
     if (p.includes("/gestion-clientes")) return "Gestión de Clientes";
@@ -97,6 +97,8 @@ export default function DashboardLayout() {
     if (p.includes("/formatos-orden-servicio")) return "Órdenes de Servicio";
     if (p.includes("/catalogos/servicios")) return "Catálogo de Servicios";
     if (p.includes("/catalogos/medios-recepcion")) return "Catálogo de Médios de Recepción";
+    if (p.includes("/catalogos/matriz")) return "Catálogo de Matriz";
+    if (p.includes("/catalogos/preservantes")) return "Catálogo de Preservantes";
     return "INFORMACIÓN DE CAMPO DE MUESTRAS";
   }
 

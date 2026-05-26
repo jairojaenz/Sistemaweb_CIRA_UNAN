@@ -29,9 +29,9 @@ export async function updateLaboratorio(id, data) {
   );
 }// El endpoint para actualizar un laboratorio existente.
 
-export async function deleteLaboratorio(id) {
+/* export async function deleteLaboratorio(id) {
   return await apiDelete(`/api/catalogos/laboratorios/${id}`);
-}// El endpoint para eliminar un laboratorio por ID.
+}*/ // El endpoint para eliminar un laboratorio por ID.
 
 export async function toggleLaboratorioStatus(id) {
   return await apiPut(

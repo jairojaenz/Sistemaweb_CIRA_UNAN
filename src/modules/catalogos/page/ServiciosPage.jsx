@@ -6,7 +6,6 @@ import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 
 import {
   createServicio,
-  deleteServicio,
   getServicios,
   toggleServicioStatus,
   updateServicio,

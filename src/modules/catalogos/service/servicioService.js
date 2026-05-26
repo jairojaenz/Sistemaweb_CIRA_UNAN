@@ -28,9 +28,9 @@ export async function updateServicio(id, data) {
   );
 }// El endpoint para actualizar un servicio existente.
 
-export async function deleteServicio(id) {
+/* export async function deleteServicio(id) {
   return await apiDelete(`/api/catalogos/servicios/${id}`);
-}// El endpoint para eliminar un servicio por ID.
+}*/ // El endpoint para eliminar un servicio por ID.
 
 export async function toggleServicioStatus(id) {
   return await apiPut(

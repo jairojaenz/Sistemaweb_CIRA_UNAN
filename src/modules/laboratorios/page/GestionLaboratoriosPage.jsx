@@ -6,7 +6,6 @@ import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 
 import {
   createLaboratorio,
-  deleteLaboratorio,
   getLaboratorios,
   toggleLaboratorioStatus,
   updateLaboratorio,
