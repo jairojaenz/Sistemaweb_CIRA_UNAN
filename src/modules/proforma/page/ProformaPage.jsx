@@ -10,6 +10,9 @@ import {
   FaSpinner,
   FaTimes,
 } from "react-icons/fa";
+import DatePicker from "react-date-picker";
+import "react-date-picker/dist/DatePicker.css";
+import "react-calendar/dist/Calendar.css";
 import { useAuth } from "../../../auth/AuthContext";
 import { useToast } from "../../../components/ToastContext";
 import { ROUTES } from "../../../router/routes";
@@ -100,13 +103,17 @@ export default function ProformaPage() {
     setDetailProforma(null);
   }
 
+  function toDateOrNull(value) {
+    return value ? new Date(value + "T00:00:00") : null;
+  }
+
   function openEditModal(p) {
     setEditProforma(p);
     setEditForm({
-      fechaProforma: p.fechaProforma || "",
-      fechaEntregaEnvases: p.fechaEntregaEnvases || "",
+      fechaProforma: toDateOrNull(p.fechaProforma),
+      fechaEntregaEnvases: toDateOrNull(p.fechaEntregaEnvases),
       compararResultadosNorma: p.compararResultadosNorma || "",
-      fechaMuestreoProforma: p.fechaMuestreoProforma || "",
+      fechaMuestreoProforma: toDateOrNull(p.fechaMuestreoProforma),
       sumaProforma: p.sumaProforma ?? 0,
       descuentoProforma: p.descuentoProforma ?? 0,
       subTotalProforma: p.subTotalProforma ?? 0,
@@ -125,6 +132,12 @@ export default function ProformaPage() {
   function closeEditModal() {
     setEditProforma(null);
     setEditFormErrors({});
+  }
+
+  function handleDateChange(field) {
+    return (date) => {
+      setEditForm((prev) => ({ ...prev, [field]: date }));
+    };
   }
 
   function handleFormChange(e) {
@@ -148,7 +161,17 @@ export default function ProformaPage() {
     if (!validateForm()) return;
     setSaving(true);
     try {
-      await updateProforma(editProforma.idProforma, editForm);
+      const toDateString = (d) =>
+        d instanceof Date ? d.toISOString().split("T")[0] : "";
+
+      const payload = {
+        ...editForm,
+        fechaProforma: toDateString(editForm.fechaProforma),
+        fechaEntregaEnvases: toDateString(editForm.fechaEntregaEnvases),
+        fechaMuestreoProforma: toDateString(editForm.fechaMuestreoProforma),
+      };
+
+      await updateProforma(editProforma.idProforma, payload);
       addToast("Proforma actualizada exitosamente", "success");
       closeEditModal();
       await loadProformas();
@@ -330,6 +353,33 @@ export default function ProformaPage() {
                 </div>
               </div>
 
+              {/* Matrices */}
+              {detailProforma.matrices?.length > 0 && (
+                <div className="rounded-lg border border-gray-200 bg-slate-50 p-4">
+                  <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    Matrices
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-gray-200 text-xs uppercase text-gray-600">
+                        <tr>
+                          <th className="px-3 py-2 font-semibold">Matriz</th>
+                          <th className="px-3 py-2 font-semibold text-right">N° Muestras</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200 bg-white">
+                        {detailProforma.matrices.map((m) => (
+                          <tr key={m.idMatriz}>
+                            <td className="px-3 py-2 font-medium text-gray-800">{m.nombreMatriz}</td>
+                            <td className="px-3 py-2 text-right">{m.numMuestras}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
               {/* Totals */}
               <div className="flex justify-end">
                 <div className="w-full max-w-xs space-y-1 text-sm">
@@ -410,33 +460,15 @@ export default function ProformaPage() {
             <form onSubmit={handleEditSubmit} className="space-y-5 p-6">
               <div className="grid gap-4 sm:grid-cols-3">
                 <FieldGroup label="Fecha Proforma" error={editFormErrors.fechaProforma}>
-                  <input
-                    type="date"
-                    name="fechaProforma"
-                    value={editForm.fechaProforma}
-                    onChange={handleFormChange}
-                    className="input"
-                  />
+                  <DatePicker disabled onChange={handleDateChange("fechaProforma")} value={editForm.fechaProforma} className="date-picker-input" />
                 </FieldGroup>
 
                 <FieldGroup label="Fecha Entrega Envases">
-                  <input
-                    type="date"
-                    name="fechaEntregaEnvases"
-                    value={editForm.fechaEntregaEnvases}
-                    onChange={handleFormChange}
-                    className="input"
-                  />
+                  <DatePicker onChange={handleDateChange("fechaEntregaEnvases")} value={editForm.fechaEntregaEnvases} className="date-picker-input" />
                 </FieldGroup>
 
                 <FieldGroup label="Fecha Muestreo">
-                  <input
-                    type="date"
-                    name="fechaMuestreoProforma"
-                    value={editForm.fechaMuestreoProforma}
-                    onChange={handleFormChange}
-                    className="input"
-                  />
+                  <DatePicker onChange={handleDateChange("fechaMuestreoProforma")} value={editForm.fechaMuestreoProforma} className="date-picker-input" />
                 </FieldGroup>
 
                 <FieldGroup label="Estado" error={editFormErrors.estado}>
@@ -484,6 +516,33 @@ export default function ProformaPage() {
                   </FieldGroup>
                 </div>
               </div>
+
+              {/* Matrices — read-only */}
+              {editProforma.matrices?.length > 0 && (
+                <div className="rounded-lg border border-gray-200 bg-slate-50 p-4">
+                  <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    Matrices
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-gray-200 text-xs uppercase text-gray-600">
+                        <tr>
+                          <th className="px-3 py-2 font-semibold">Matriz</th>
+                          <th className="px-3 py-2 font-semibold text-right">N° Muestras</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200 bg-white">
+                        {editProforma.matrices.map((m) => (
+                          <tr key={m.idMatriz}>
+                            <td className="px-3 py-2 font-medium text-gray-800">{m.nombreMatriz}</td>
+                            <td className="px-3 py-2 text-right">{m.numMuestras}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               <div className="rounded-lg border border-gray-200 bg-slate-50 p-4">
                 <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Montos</h3>
