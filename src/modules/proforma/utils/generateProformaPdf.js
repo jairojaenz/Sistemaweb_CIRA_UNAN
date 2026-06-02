@@ -9,15 +9,23 @@ function loadImage(src) {
     const img = new Image();
     img.crossOrigin = "Anonymous";
     img.onload = () => {
+      const MAX = 800;
+      let w = img.width;
+      let h = img.height;
+      if (w > MAX || h > MAX) {
+        const ratio = Math.min(MAX / w, MAX / h);
+        w = Math.round(w * ratio);
+        h = Math.round(h * ratio);
+      }
       const canvas = document.createElement("canvas");
-      canvas.width = img.width;
-      canvas.height = img.height;
+      canvas.width = w;
+      canvas.height = h;
       const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(img, 0, 0, w, h);
       resolve({
         dataUrl: canvas.toDataURL("image/png"),
-        width: img.width,
-        height: img.height,
+        width: w,
+        height: h,
       });
     };
     img.onerror = () => resolve(null);
