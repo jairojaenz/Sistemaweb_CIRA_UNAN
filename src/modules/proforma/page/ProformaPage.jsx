@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  FaDownload,
   FaEdit,
   FaEye,
   FaFileInvoiceDollar,
@@ -17,6 +18,7 @@ import { useAuth } from "../../../auth/AuthContext";
 import { useToast } from "../../../components/ToastContext";
 import { ROUTES } from "../../../router/routes";
 import { getProformas, updateProforma } from "../service/proformaService";
+import { generateProformaPdf } from "../utils/generateProformaPdf";
 
 const initialEditForm = {
   fechaProforma: "",
@@ -48,6 +50,7 @@ export default function ProformaPage() {
   const [editForm, setEditForm] = useState({ ...initialEditForm });
   const [editFormErrors, setEditFormErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(null);
 
   const loadProformas = useCallback(async () => {
     try {
@@ -156,6 +159,17 @@ export default function ProformaPage() {
     return Object.keys(errors).length === 0;
   }
 
+  async function handleDownloadPdf(proforma) {
+    setGeneratingPdf(proforma.idProforma);
+    try {
+      await generateProformaPdf(proforma);
+    } catch (err) {
+      addToast(err?.message || "Error al generar PDF", "error");
+    } finally {
+      setGeneratingPdf(null);
+    }
+  }
+
   async function handleEditSubmit(e) {
     e.preventDefault();
     if (!validateForm()) return;
@@ -253,26 +267,39 @@ export default function ProformaPage() {
                       {p.detalles?.length ?? 0} análisis
                     </span>
                   </td>
-                  <td className="px-4 py-3 sm:px-6">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        title="Ver detalle"
-                        onClick={() => openDetailModal(p)}
-                        className="rounded p-1.5 text-blue-900 hover:bg-blue-100"
-                      >
-                        <FaEye className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        title="Editar"
-                        onClick={() => openEditModal(p)}
-                        className="rounded p-1.5 text-blue-900 hover:bg-blue-100"
-                      >
-                        <FaEdit className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
+                    <td className="px-4 py-3 sm:px-6">
+                     <div className="flex items-center gap-2">
+                       <button
+                         type="button"
+                         title="Descargar PDF"
+                         onClick={() => handleDownloadPdf(p)}
+                         disabled={generatingPdf === p.idProforma}
+                         className="rounded p-1.5 text-blue-900 hover:bg-blue-100 disabled:opacity-50"
+                       >
+                         {generatingPdf === p.idProforma ? (
+                           <FaSpinner className="h-4 w-4 animate-spin" />
+                         ) : (
+                           <FaDownload className="h-4 w-4" />
+                         )}
+                       </button>
+                       <button
+                         type="button"
+                         title="Ver detalle"
+                         onClick={() => openDetailModal(p)}
+                         className="rounded p-1.5 text-blue-900 hover:bg-blue-100"
+                       >
+                         <FaEye className="h-4 w-4" />
+                       </button>
+                       <button
+                         type="button"
+                         title="Editar"
+                         onClick={() => openEditModal(p)}
+                         className="rounded p-1.5 text-blue-900 hover:bg-blue-100"
+                       >
+                         <FaEdit className="h-4 w-4" />
+                       </button>
+                     </div>
+                   </td>
                 </tr>
               ))
             )}
@@ -309,7 +336,6 @@ export default function ProformaPage() {
                 <DetailRow label="Fecha Entrega" value={detailProforma.fechaEntregaEnvases} />
                 <DetailRow label="Fecha Muestreo" value={detailProforma.fechaMuestreoProforma} />
                 <DetailRow label="Estado" value={detailProforma.estado} />
-                <DetailRow label="Fuente / Matriz" value={detailProforma.fuentesMatriz} />
                 <DetailRow label="Tipo Muestreo" value={detailProforma.tiposMuestreo} />
                 <div className="sm:col-span-2">
                   <DetailRow label="Norma de comparación" value={detailProforma.compararResultadosNorma} />
@@ -482,16 +508,6 @@ export default function ProformaPage() {
                     <option value="Aprobada">Aprobada</option>
                     <option value="Rechazada">Rechazada</option>
                   </select>
-                </FieldGroup>
-
-                <FieldGroup label="Fuente / Matriz">
-                  <input
-                    type="text"
-                    name="nombreFuente"
-                    value={editForm.nombreFuente}
-                    onChange={handleFormChange}
-                    className="input"
-                  />
                 </FieldGroup>
 
                 <FieldGroup label="Tipo de Muestreo">
