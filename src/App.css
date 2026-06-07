@@ -74,6 +74,14 @@
 */
 
 
+.date-picker-input {
+  @apply w-full;
+}
+
+.react-date-picker__wrapper {
+  @apply border border-gray-300 rounded-md p-2 bg-white;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 /* Remove number input spinners */

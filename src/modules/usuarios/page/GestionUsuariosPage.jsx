@@ -3,6 +3,8 @@ import { FaPlus, FaEdit, FaEye, FaTrash, FaTimes, FaSpinner, FaSearch } from "re
 import { useToast } from "../../../components/ToastContext";
 import { formatTelefonoLocal } from "../../../utils/phoneFormat.js";
 import ConfirmDialog from "../../../components/ConfirmDialog";
+import SignaturePad from "../../../components/SignaturePad.jsx";
+import FirmaDisplay from "../../../components/FirmaDisplay.jsx";
 import {
   getUsuarios, createUsuario, updateUsuario, deleteUsuario, toggleUsuarioStatus,
   getCargos, getDepartamentos, getMunicipios, getLaboratorios,
@@ -41,6 +43,9 @@ export default function GestionUsuariosPage() {
   const [form, setForm] = useState({ ...initialForm });
   const [formErrors, setFormErrors] = useState({});
   const [saving, setSaving] = useState(false);
+
+  const [firmaFile, setFirmaFile] = useState(null);
+  const [signatureResetVersion, setSignatureResetVersion] = useState(0);
 
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [confirmToggle, setConfirmToggle] = useState(null);
@@ -133,6 +138,14 @@ export default function GestionUsuariosPage() {
     }
   }
 
+  function closeModal() {
+    setModalOpen(false);
+    setEditingUser(null);
+    setFirmaFile(null);
+    setSignatureResetVersion((v) => v + 1);
+    setFormErrors({});
+  }
+
   function isFormValid() {
     const fields = editingUser
       ? ["NombreUsuario", "ApellidoUsuario", "CorreoUsuario", "Cargo", "NombreDep", "NombreMunic", "Laboratorio"]
@@ -143,6 +156,7 @@ export default function GestionUsuariosPage() {
       const err = validateField(f, val);
       if (err) return false;
     }
+    if (!editingUser && !firmaFile) return false;
     return true;
   }
 
@@ -150,6 +164,8 @@ export default function GestionUsuariosPage() {
     setEditingUser(null);
     setForm({ ...initialForm });
     setFormErrors({});
+    setFirmaFile(null);
+    setSignatureResetVersion((v) => v + 1);
     setModalOpen(true);
   }
 
@@ -169,6 +185,8 @@ export default function GestionUsuariosPage() {
       CedulaUsuario: user.cedulaUsuario || "",
     });
     setFormErrors({});
+    setFirmaFile(null);
+    setSignatureResetVersion((v) => v + 1);
     setModalOpen(true);
   }
 
@@ -178,13 +196,13 @@ export default function GestionUsuariosPage() {
     setSaving(true);
     try {
       if (editingUser) {
-        await updateUsuario(editingUser.idUsuario, form);
+        await updateUsuario(editingUser.idUsuario, form, firmaFile);
         addToast("Usuario actualizado exitosamente", "success");
       } else {
-        await createUsuario(form);
+        await createUsuario(form, firmaFile);
         addToast("Usuario creado exitosamente", "success");
       }
-      setModalOpen(false);
+      closeModal();
       await loadUsers();
     } catch (err) {
       addToast(err.message, "error");
@@ -363,7 +381,7 @@ export default function GestionUsuariosPage() {
               </h2>
               <button
                 type="button"
-                onClick={() => setModalOpen(false)}
+                onClick={closeModal}
                 className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
               >
                 <FaTimes className="h-5 w-5" />
@@ -494,10 +512,33 @@ export default function GestionUsuariosPage() {
                 />
               </div>
 
+              <div>
+                <p className="mb-2 text-sm font-medium text-gray-700">
+                  Firma digital del usuario
+                  {!editingUser && <span className="ml-0.5 text-red-500">*</span>}
+                </p>
+                <p className="mb-2 text-xs text-gray-500">
+                  Área de captura. Firme en el recuadro apaisado. Se enviará como PNG.
+                </p>
+                {editingUser && (
+                  <p className="mb-2 text-xs text-gray-600">
+                    La firma guardada se conserva. Dibuje de nuevo solo si desea reemplazarla.
+                  </p>
+                )}
+                <SignaturePad
+                  resetVersion={signatureResetVersion}
+                  disabled={saving}
+                  onChange={setFirmaFile}
+                />
+                {!editingUser && !firmaFile && (
+                  <p className="mt-1 text-xs text-amber-700">Debe firmar en el recuadro para crear el usuario.</p>
+                )}
+              </div>
+
               <div className="flex justify-end gap-3 border-t pt-4">
                 <button
                   type="button"
-                  onClick={() => setModalOpen(false)}
+                  onClick={closeModal}
                   className="rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300"
                 >
                   Cancelar
@@ -545,6 +586,15 @@ export default function GestionUsuariosPage() {
                   value={detailUser.activo ? "Activo" : "Inhabilitado"}
                 />
               </dl>
+
+              <div className="border-t pt-4">
+                <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">
+                  Firma del usuario
+                </h3>
+                <div className="flex justify-center rounded-md border border-gray-200 bg-gray-50 p-4">
+                  <FirmaDisplay src={detailUser.firmaUsuario} alt="Firma del usuario" />
+                </div>
+              </div>
 
               <div className="flex justify-end border-t pt-4">
                 <button

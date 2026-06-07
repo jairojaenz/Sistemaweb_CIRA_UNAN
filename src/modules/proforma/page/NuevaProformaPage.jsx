@@ -1,16 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FaArrowLeft, FaFileInvoiceDollar, FaSave, FaSpinner } from "react-icons/fa";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import DatePicker from "react-date-picker";
+import "react-date-picker/dist/DatePicker.css";
+import "react-calendar/dist/Calendar.css";
 import { useAuth } from "../../../auth/AuthContext";
 import { useToast } from "../../../components/ToastContext";
 import { ROUTES } from "../../../router/routes";
 import { createProforma, getSolicitudById, getTiposMuestreo } from "../service/proformaService";
+import { getTecnicasAnalisis } from "../../catalogos/service/tecnicasAnalisisService";
 
 const initialForm = {
-  fechaProforma: "",
-  fechaEntregaEnvases: "",
+  fechaProforma: new Date(),
+  fechaEntregaEnvases: null,
   compararResultadosNorma: "",
-  fechaMuestreoProforma: "",
+  fechaMuestreoProforma: null,
   sumaProforma: 0,
   descuentoProforma: 0,
   observacionProforma: "",
@@ -27,6 +31,8 @@ export default function NuevaProformaPage() {
   const [solicitudLoading, setSolicitudLoading] = useState(!!idSolicitud);
   const [tiposMuestreo, setTiposMuestreo] = useState([]);
   const [tiposLoading, setTiposLoading] = useState(true);
+  const [tecnicasList, setTecnicasList] = useState([]);
+  const [detallesTecnicas, setDetallesTecnicas] = useState({});
   const [form, setForm] = useState({ ...initialForm });
   const [formErrors, setFormErrors] = useState({});
   const [saving, setSaving] = useState(false);
@@ -47,13 +53,29 @@ export default function NuevaProformaPage() {
     loadTipos();
   }, [loadTipos]);
 
+  const loadTecnicas = useCallback(async () => {
+    try {
+      const data = await getTecnicasAnalisis();
+      setTecnicasList(data.filter((t) => t.activo !== false));
+    } catch {
+      addToast("Error al cargar técnicas de análisis", "error");
+    }
+  }, [addToast]);
+
+  useEffect(() => {
+    loadTecnicas();
+  }, [loadTecnicas]);
+
   const loadSolicitud = useCallback(async () => {
     if (!idSolicitud) return;
     try {
       setSolicitudLoading(true);
       const data = await getSolicitudById(idSolicitud);
       setSolicitud(data);
-      const suma = (data.detalles ?? []).reduce((acc, d) => acc + Number(d.precioAnalisis ?? 0), 0);
+      const suma = (data.detalles ?? []).reduce(
+        (acc, d) => acc + Number(d.precioAnalisis ?? 0) * Number(d.cantidad ?? 1),
+        0,
+      );
       setForm((prev) => ({
         ...prev,
         sumaProforma: suma,
@@ -86,6 +108,16 @@ export default function NuevaProformaPage() {
     }));
   }
 
+  function handleTecnicaChange(idAnalisis, idTecnicaAnalisis) {
+    setDetallesTecnicas((prev) => ({ ...prev, [idAnalisis]: idTecnicaAnalisis }));
+  }
+
+  function handleDateChange(field) {
+    return (date) => {
+      setForm((prev) => ({ ...prev, [field]: date }));
+    };
+  }
+
   function validate() {
     const errors = {};
     if (!form.fechaProforma) errors.fechaProforma = "Requerido";
@@ -98,13 +130,25 @@ export default function NuevaProformaPage() {
     if (!validate()) return;
     setSaving(true);
     try {
+      const toDateString = (d) =>
+        d instanceof Date ? d.toISOString().split("T")[0] : "";
+
       const payload = {
         ...form,
+        fechaProforma: toDateString(form.fechaProforma),
+        fechaEntregaEnvases: toDateString(form.fechaEntregaEnvases),
+        fechaMuestreoProforma: toDateString(form.fechaMuestreoProforma),
         subTotalProforma: calculated.subTotal,
         ivaProforma: calculated.iva,
         totalProforma: calculated.total,
         idFormatoSolicitud: idSolicitud ? Number(idSolicitud) : 0,
         idUsuario: user?.idUsuario ?? user?.id ?? 0,
+        detallesTecnicas: Object.entries(detallesTecnicas)
+          .filter(([, idTecnica]) => idTecnica)
+          .map(([idAnalisis, idTecnica]) => ({
+            idAnalisis: Number(idAnalisis),
+            idTecnicaAnalisis: idTecnica,
+          })),
       };
       await createProforma(payload);
       addToast("Proforma creada exitosamente", "success");
@@ -167,6 +211,7 @@ export default function NuevaProformaPage() {
             <ReadOnlyField label="Usuario" value={solicitud.usuario} />
             <ReadOnlyField label="Medio recepción" value={solicitud.mediosRecepcion} />
             <ReadOnlyField label="Contacto" value={solicitud.num1ContactoSolicitud} />
+            <ReadOnlyField label="Correo" value={solicitud.correoCliente} />
           </div>
 
           {/* Detalles table */}
@@ -177,25 +222,49 @@ export default function NuevaProformaPage() {
                   <tr>
                     <th className="px-3 py-2 font-semibold">Análisis</th>
                     <th className="px-3 py-2 font-semibold">Abrev.</th>
-                    <th className="px-3 py-2 font-semibold">Grupo</th>
-                    <th className="px-3 py-2 font-semibold text-right">Precio</th>
+                    <th className="px-3 py-2 font-semibold text-right">Cantidad</th>
+                    <th className="px-3 py-2 font-semibold">Técnica</th>
+                    <th className="px-3 py-2 font-semibold text-right">Precio Unit.</th>
+                    <th className="px-3 py-2 font-semibold text-right">Total</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
-                  {solicitud.detalles.map((d, i) => (
-                    <tr key={d.idDetalleSolicitud ?? i}>
-                      <td className="px-3 py-2 font-medium text-gray-800">{d.nombreAnalisis}</td>
-                      <td className="px-3 py-2 text-gray-600">{d.abreviacionAnalisis || "—"}</td>
-                      <td className="px-3 py-2 text-gray-600">{d.nombreGrupoAnalisis || "—"}</td>
-                      <td className="px-3 py-2 text-right">
-                        C${Number(d.precioAnalisis).toLocaleString("es-NI", { minimumFractionDigits: 2 })}
-                      </td>
-                    </tr>
-                  ))}
+                  {solicitud.detalles.map((d, i) => {
+                    const cantidad = Number(d.cantidad ?? 1);
+                    const precioUnit = Number(d.precioAnalisis ?? 0);
+                    const totalLinea = cantidad * precioUnit;
+                    return (
+                      <tr key={d.idDetalleSolicitud ?? i}>
+                        <td className="px-3 py-2 font-medium text-gray-800">{d.nombreAnalisis}</td>
+                        <td className="px-3 py-2 text-gray-600">{d.abreviacionAnalisis || "—"}</td>
+                        <td className="px-3 py-2 text-right">{cantidad}</td>
+                        <td className="px-3 py-2">
+                          <select
+                            value={detallesTecnicas[d.idAnalisis] ?? ""}
+                            onChange={(e) => handleTecnicaChange(d.idAnalisis, Number(e.target.value))}
+                            className="select w-44"
+                          >
+                            <option value="">Seleccione...</option>
+                            {tecnicasList.map((t) => (
+                              <option key={t.idTecnicaAnalisis} value={t.idTecnicaAnalisis}>
+                                {t.nombreTecnica}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          C${precioUnit.toLocaleString("es-NI", { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          C${totalLinea.toLocaleString("es-NI", { minimumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
                 <tfoot className="bg-gray-100 text-sm font-semibold text-gray-800">
                   <tr>
-                    <td colSpan={3} className="px-3 py-2 text-right">Total análisis</td>
+                    <td colSpan={5} className="px-3 py-2 text-right">Total análisis</td>
                     <td className="px-3 py-2 text-right">
                       C${Number(form.sumaProforma).toLocaleString("es-NI", { minimumFractionDigits: 2 })}
                     </td>
@@ -221,15 +290,15 @@ export default function NuevaProformaPage() {
           </h3>
           <div className="grid gap-4 sm:grid-cols-3">
             <FieldGroup label="Fecha Proforma" error={formErrors.fechaProforma}>
-              <input type="date" name="fechaProforma" value={form.fechaProforma} onChange={handleChange} className="input" />
+              <DatePicker onChange={handleDateChange("fechaProforma")} value={form.fechaProforma} className="date-picker-input" />
             </FieldGroup>
 
             <FieldGroup label="Fecha Entrega Envases">
-              <input type="date" name="fechaEntregaEnvases" value={form.fechaEntregaEnvases} onChange={handleChange} className="input" />
+              <DatePicker onChange={handleDateChange("fechaEntregaEnvases")} value={form.fechaEntregaEnvases} className="date-picker-input" />
             </FieldGroup>
 
             <FieldGroup label="Fecha Muestreo">
-              <input type="date" name="fechaMuestreoProforma" value={form.fechaMuestreoProforma} onChange={handleChange} className="input" />
+              <DatePicker onChange={handleDateChange("fechaMuestreoProforma")} value={form.fechaMuestreoProforma} className="date-picker-input" />
             </FieldGroup>
 
             <FieldGroup label="Tipo de Muestreo">

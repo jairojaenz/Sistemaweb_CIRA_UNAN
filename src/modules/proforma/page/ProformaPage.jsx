@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  FaDownload,
   FaEdit,
   FaEye,
   FaFileInvoiceDollar,
@@ -10,10 +11,14 @@ import {
   FaSpinner,
   FaTimes,
 } from "react-icons/fa";
+import DatePicker from "react-date-picker";
+import "react-date-picker/dist/DatePicker.css";
+import "react-calendar/dist/Calendar.css";
 import { useAuth } from "../../../auth/AuthContext";
 import { useToast } from "../../../components/ToastContext";
 import { ROUTES } from "../../../router/routes";
 import { getProformas, updateProforma } from "../service/proformaService";
+import { generateProformaPdf } from "../utils/generateProformaPdf";
 
 const initialEditForm = {
   fechaProforma: "",
@@ -45,6 +50,7 @@ export default function ProformaPage() {
   const [editForm, setEditForm] = useState({ ...initialEditForm });
   const [editFormErrors, setEditFormErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(null);
 
   const loadProformas = useCallback(async () => {
     try {
@@ -100,13 +106,17 @@ export default function ProformaPage() {
     setDetailProforma(null);
   }
 
+  function toDateOrNull(value) {
+    return value ? new Date(value + "T00:00:00") : null;
+  }
+
   function openEditModal(p) {
     setEditProforma(p);
     setEditForm({
-      fechaProforma: p.fechaProforma || "",
-      fechaEntregaEnvases: p.fechaEntregaEnvases || "",
+      fechaProforma: toDateOrNull(p.fechaProforma),
+      fechaEntregaEnvases: toDateOrNull(p.fechaEntregaEnvases),
       compararResultadosNorma: p.compararResultadosNorma || "",
-      fechaMuestreoProforma: p.fechaMuestreoProforma || "",
+      fechaMuestreoProforma: toDateOrNull(p.fechaMuestreoProforma),
       sumaProforma: p.sumaProforma ?? 0,
       descuentoProforma: p.descuentoProforma ?? 0,
       subTotalProforma: p.subTotalProforma ?? 0,
@@ -127,6 +137,12 @@ export default function ProformaPage() {
     setEditFormErrors({});
   }
 
+  function handleDateChange(field) {
+    return (date) => {
+      setEditForm((prev) => ({ ...prev, [field]: date }));
+    };
+  }
+
   function handleFormChange(e) {
     const { name, value, type } = e.target;
     setEditForm((prev) => ({
@@ -143,12 +159,33 @@ export default function ProformaPage() {
     return Object.keys(errors).length === 0;
   }
 
+  async function handleDownloadPdf(proforma) {
+    setGeneratingPdf(proforma.idProforma);
+    try {
+      await generateProformaPdf(proforma);
+    } catch (err) {
+      addToast(err?.message || "Error al generar PDF", "error");
+    } finally {
+      setGeneratingPdf(null);
+    }
+  }
+
   async function handleEditSubmit(e) {
     e.preventDefault();
     if (!validateForm()) return;
     setSaving(true);
     try {
-      await updateProforma(editProforma.idProforma, editForm);
+      const toDateString = (d) =>
+        d instanceof Date ? d.toISOString().split("T")[0] : "";
+
+      const payload = {
+        ...editForm,
+        fechaProforma: toDateString(editForm.fechaProforma),
+        fechaEntregaEnvases: toDateString(editForm.fechaEntregaEnvases),
+        fechaMuestreoProforma: toDateString(editForm.fechaMuestreoProforma),
+      };
+
+      await updateProforma(editProforma.idProforma, payload);
       addToast("Proforma actualizada exitosamente", "success");
       closeEditModal();
       await loadProformas();
@@ -230,26 +267,39 @@ export default function ProformaPage() {
                       {p.detalles?.length ?? 0} análisis
                     </span>
                   </td>
-                  <td className="px-4 py-3 sm:px-6">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        title="Ver detalle"
-                        onClick={() => openDetailModal(p)}
-                        className="rounded p-1.5 text-blue-900 hover:bg-blue-100"
-                      >
-                        <FaEye className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        title="Editar"
-                        onClick={() => openEditModal(p)}
-                        className="rounded p-1.5 text-blue-900 hover:bg-blue-100"
-                      >
-                        <FaEdit className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
+                    <td className="px-4 py-3 sm:px-6">
+                     <div className="flex items-center gap-2">
+                       <button
+                         type="button"
+                         title="Descargar PDF"
+                         onClick={() => handleDownloadPdf(p)}
+                         disabled={generatingPdf === p.idProforma}
+                         className="rounded p-1.5 text-blue-900 hover:bg-blue-100 disabled:opacity-50"
+                       >
+                         {generatingPdf === p.idProforma ? (
+                           <FaSpinner className="h-4 w-4 animate-spin" />
+                         ) : (
+                           <FaDownload className="h-4 w-4" />
+                         )}
+                       </button>
+                       <button
+                         type="button"
+                         title="Ver detalle"
+                         onClick={() => openDetailModal(p)}
+                         className="rounded p-1.5 text-blue-900 hover:bg-blue-100"
+                       >
+                         <FaEye className="h-4 w-4" />
+                       </button>
+                       <button
+                         type="button"
+                         title="Editar"
+                         onClick={() => openEditModal(p)}
+                         className="rounded p-1.5 text-blue-900 hover:bg-blue-100"
+                       >
+                         <FaEdit className="h-4 w-4" />
+                       </button>
+                     </div>
+                   </td>
                 </tr>
               ))
             )}
@@ -286,7 +336,6 @@ export default function ProformaPage() {
                 <DetailRow label="Fecha Entrega" value={detailProforma.fechaEntregaEnvases} />
                 <DetailRow label="Fecha Muestreo" value={detailProforma.fechaMuestreoProforma} />
                 <DetailRow label="Estado" value={detailProforma.estado} />
-                <DetailRow label="Fuente / Matriz" value={detailProforma.fuentesMatriz} />
                 <DetailRow label="Tipo Muestreo" value={detailProforma.tiposMuestreo} />
                 <div className="sm:col-span-2">
                   <DetailRow label="Norma de comparación" value={detailProforma.compararResultadosNorma} />
@@ -329,6 +378,33 @@ export default function ProformaPage() {
                   </table>
                 </div>
               </div>
+
+              {/* Matrices */}
+              {detailProforma.matrices?.length > 0 && (
+                <div className="rounded-lg border border-gray-200 bg-slate-50 p-4">
+                  <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    Matrices
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-gray-200 text-xs uppercase text-gray-600">
+                        <tr>
+                          <th className="px-3 py-2 font-semibold">Matriz</th>
+                          <th className="px-3 py-2 font-semibold text-right">N° Muestras</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200 bg-white">
+                        {detailProforma.matrices.map((m) => (
+                          <tr key={m.idMatriz}>
+                            <td className="px-3 py-2 font-medium text-gray-800">{m.nombreMatriz}</td>
+                            <td className="px-3 py-2 text-right">{m.numMuestras}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               {/* Totals */}
               <div className="flex justify-end">
@@ -410,33 +486,15 @@ export default function ProformaPage() {
             <form onSubmit={handleEditSubmit} className="space-y-5 p-6">
               <div className="grid gap-4 sm:grid-cols-3">
                 <FieldGroup label="Fecha Proforma" error={editFormErrors.fechaProforma}>
-                  <input
-                    type="date"
-                    name="fechaProforma"
-                    value={editForm.fechaProforma}
-                    onChange={handleFormChange}
-                    className="input"
-                  />
+                  <DatePicker disabled onChange={handleDateChange("fechaProforma")} value={editForm.fechaProforma} className="date-picker-input" />
                 </FieldGroup>
 
                 <FieldGroup label="Fecha Entrega Envases">
-                  <input
-                    type="date"
-                    name="fechaEntregaEnvases"
-                    value={editForm.fechaEntregaEnvases}
-                    onChange={handleFormChange}
-                    className="input"
-                  />
+                  <DatePicker onChange={handleDateChange("fechaEntregaEnvases")} value={editForm.fechaEntregaEnvases} className="date-picker-input" />
                 </FieldGroup>
 
                 <FieldGroup label="Fecha Muestreo">
-                  <input
-                    type="date"
-                    name="fechaMuestreoProforma"
-                    value={editForm.fechaMuestreoProforma}
-                    onChange={handleFormChange}
-                    className="input"
-                  />
+                  <DatePicker onChange={handleDateChange("fechaMuestreoProforma")} value={editForm.fechaMuestreoProforma} className="date-picker-input" />
                 </FieldGroup>
 
                 <FieldGroup label="Estado" error={editFormErrors.estado}>
@@ -450,16 +508,6 @@ export default function ProformaPage() {
                     <option value="Aprobada">Aprobada</option>
                     <option value="Rechazada">Rechazada</option>
                   </select>
-                </FieldGroup>
-
-                <FieldGroup label="Fuente / Matriz">
-                  <input
-                    type="text"
-                    name="nombreFuente"
-                    value={editForm.nombreFuente}
-                    onChange={handleFormChange}
-                    className="input"
-                  />
                 </FieldGroup>
 
                 <FieldGroup label="Tipo de Muestreo">
@@ -484,6 +532,33 @@ export default function ProformaPage() {
                   </FieldGroup>
                 </div>
               </div>
+
+              {/* Matrices — read-only */}
+              {editProforma.matrices?.length > 0 && (
+                <div className="rounded-lg border border-gray-200 bg-slate-50 p-4">
+                  <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    Matrices
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-gray-200 text-xs uppercase text-gray-600">
+                        <tr>
+                          <th className="px-3 py-2 font-semibold">Matriz</th>
+                          <th className="px-3 py-2 font-semibold text-right">N° Muestras</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200 bg-white">
+                        {editProforma.matrices.map((m) => (
+                          <tr key={m.idMatriz}>
+                            <td className="px-3 py-2 font-medium text-gray-800">{m.nombreMatriz}</td>
+                            <td className="px-3 py-2 text-right">{m.numMuestras}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               <div className="rounded-lg border border-gray-200 bg-slate-50 p-4">
                 <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Montos</h3>

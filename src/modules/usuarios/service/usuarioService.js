@@ -29,7 +29,7 @@ export async function getLaboratorios() {
   return await apiGet("/api/catalogos/laboratorios");
 }
 
-export async function createUsuario(data) {
+export async function createUsuario(data, firmaFile) {
   const fd = new FormData();
   fd.append("NombreUsuario", data.NombreUsuario);
   fd.append("ApellidoUsuario", data.ApellidoUsuario);
@@ -41,10 +41,11 @@ export async function createUsuario(data) {
   fd.append("Laboratorio", data.Laboratorio);
   if (data.CelularUsuario) fd.append("CelularUsuario", data.CelularUsuario);
   if (data.CedulaUsuario) fd.append("CedulaUsuario", data.CedulaUsuario);
+  if (firmaFile) fd.append("FirmaUsuario", firmaFile);
   return await apiPostFormData("/api/User/create-user", fd);
 }
 
-export async function updateUsuario(id, data) {
+export async function updateUsuario(id, data, firmaFile) {
   const fd = new FormData();
   fd.append("NombreUsuario", data.NombreUsuario);
   fd.append("ApellidoUsuario", data.ApellidoUsuario);
@@ -56,6 +57,7 @@ export async function updateUsuario(id, data) {
   if (data.CelularUsuario) fd.append("CelularUsuario", data.CelularUsuario);
   if (data.CedulaUsuario) fd.append("CedulaUsuario", data.CedulaUsuario);
   if (data.PasswordNueva) fd.append("PasswordNueva", data.PasswordNueva);
+  if (firmaFile) fd.append("FirmaUsuario", firmaFile);
   return await apiPutFormData(`/api/User/update-user/${id}`, fd);
 }
 
