@@ -429,24 +429,29 @@ export default function ListaSolicitudServicioPage() {
                 </h3>
 
                 <div className="space-y-3">
-                  {detailSolicitud.detallesSolicitud?.map(
+                  {detailSolicitud.detalles?.map(
                     (
-                      detalle,
+                      detalles,
                       index
                     ) => (
                       <div
-                        key={`${detalle.analisis}-${index}`}
+                        key={`${detalles.nombreAnalisis}-${index}`}
                         className="rounded-lg border border-gray-200 bg-white p-3"
                       >
                         <p className="text-sm font-medium text-gray-800">
                           {
-                            detalle.analisis
+                            detalles.nombreAnalisis
                           }
                         </p>
 
                         <p className="text-sm text-gray-600">
                           {
-                            detalle.grupoAnalisis
+                            detalles.abreviacionAnalisis
+                          }
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {
+                            detalles.precioAnalisis
                           }
                         </p>
                       </div>

@@ -12,7 +12,7 @@ export async function getPreservantes() {
 
 export async function getPreservanteById(id) {
   return await apiGet(`/api/catalogos/preservantes/${id}`);
-}//| El endpoint para obtener un preservante por ID.
+}// El endpoint para obtener un preservante por ID.
 
 export async function createPreservante(data) {
   return await apiPost(

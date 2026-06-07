@@ -12,7 +12,7 @@ export async function getMediosRecepcion() {
 
 export async function getMedioRecepcionById(id) {
   return await apiGet(`/api/catalogos/medios-recepcion/${id}`);
-}//| El endpoint para obtener un medio de recepción por ID.
+}// El endpoint para obtener un medio de recepción por ID.
 
 export async function createMedioRecepcion(data) {
   return await apiPost(

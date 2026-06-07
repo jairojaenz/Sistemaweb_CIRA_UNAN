@@ -165,24 +165,7 @@ function closeDetailModal() {
     } finally {
       setSaving(false);
     }
-  }// 
-
-  async function handleDelete(preservante) {
-    try {
-      await deletePreservante(
-        preservante.idPreservante
-      );
-      addToast(
-        "Preservante eliminado exitosamente",
-        "success"
-      );
-      await loadPreservantes();
-    } catch (err) {
-      addToast(err.message, "error");
-    } finally {
-      setConfirmDelete(null);
-    }
-  }// Cambiar estado de activo/inactivo del preservante
+  }
 
   async function handleToggleStatus(preservante) {
     setTogglingId(preservante.idPreservante);

@@ -165,9 +165,7 @@ function closeDetailModal() {
     } finally {
       setSaving(false);
     }
-  }// 
-
- // Cambiar estado de activo/inactivo del medio de recepción
+  }
 
   async function handleToggleStatus(medio) {
     setTogglingId(medio.idMedioRecepcion);

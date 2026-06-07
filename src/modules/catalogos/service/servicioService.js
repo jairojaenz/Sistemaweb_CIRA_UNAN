@@ -12,7 +12,7 @@ export async function getServicios() {
 
 export async function getServicioById(id) {
   return await apiGet(`/api/catalogos/servicios/${id}`);
-}//| El endpoint para obtener un servicio por ID.
+}// El endpoint para obtener un servicio por ID.
 
 export async function createServicio(data) {
   return await apiPost(

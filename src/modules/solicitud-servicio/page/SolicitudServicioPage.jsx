@@ -509,7 +509,7 @@ export default function SolicitudServicioPage() {
       {/* Number of Samples */}
       <div>
         <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
-          <div className="w-1 h-7 bg-[#10b981] rounded-full"></div>
+          <div className="w-1 h-7 bg-yellow-500 rounded-full"></div>
           Muestras
         </h3>
         <p className="text-sm text-[#6a7282] mb-6 ml-4">Especifique la cantidad de muestras</p>
@@ -542,7 +542,7 @@ export default function SolicitudServicioPage() {
           <button
             type="button"
             onClick={handleAddAnalysis}
-            className="flex items-center gap-2 px-6 py-2.5 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-all shadow-md hover:shadow-lg font-semibold"
+            className="flex items-center gap-2 px-6 py-2.5 bg-blue-900 text-white rounded-lg hover:bg-blue-950 transition-all shadow-md hover:shadow-lg font-semibold"
           >
             <Plus className="w-4 h-4" />
             Agregar

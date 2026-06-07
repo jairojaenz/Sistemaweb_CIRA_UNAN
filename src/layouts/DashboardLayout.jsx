@@ -90,6 +90,7 @@ export default function DashboardLayout() {
   function getPageTitle(p) {
     if (p === "/dashboard" || p === "/dashboard/") return "Bienvenido al Sistema de Gestión de Información de Campo de Muestras";
     if (p.includes("/info-campo")) return "Información de Campo de Muestras";
+    if (/\/dashboard\/solicitud-servicio\/\d+/.test(p)) return "Crear Solicitud de Servicio";
     if (p.includes("/solicitud-servicio")) return "Lista de Solicitud de Servicios";
     if (p.includes("/plan-muestreo")) return "Plan de Muestreo";
     if (p.includes("/gestion-usuarios")) return "Gestión de Usuarios";
@@ -101,6 +102,7 @@ export default function DashboardLayout() {
     if (p.includes("/catalogos/matriz")) return "Catálogo de Matriz";
     if (p.includes("/catalogos/preservantes")) return "Catálogo de Preservantes";
     if (p.includes("/dashboard/proformas")) return "Proformas";
+    if (p.includes("/catalogos/cargos")) return "Catálogo de Cargos";
     return "INFORMACIÓN DE CAMPO DE MUESTRAS";
   }
 
@@ -176,7 +178,7 @@ export default function DashboardLayout() {
             }
           >
             <FaClipboardList className="h-5 w-5 flex-shrink-0 opacity-90" />
-            {sidebarOpen && <span className="truncate">Solicitud de Servicios</span>}
+            {sidebarOpen && <span className="truncate">Solicitudes de Servicios</span>}
           </NavLink>
 
           <Link

@@ -165,25 +165,8 @@ function closeDetailModal() {
     } finally {
       setSaving(false);
     }
-  }// 
-
-  async function handleDelete(servicio) {
-    try {
-      await deleteServicio(
-        servicio.idServicio
-      );
-      addToast(
-        "Servicio eliminado exitosamente",
-        "success"
-      );
-      await loadServicios();
-    } catch (err) {
-      addToast(err.message, "error");
-    } finally {
-      setConfirmDelete(null);
-    }
-  }// Cambiar estado de activo/inactivo del servicio
-
+  }
+  
   async function handleToggleStatus(servicio) {
     setTogglingId(servicio.idServicio);
     try {
