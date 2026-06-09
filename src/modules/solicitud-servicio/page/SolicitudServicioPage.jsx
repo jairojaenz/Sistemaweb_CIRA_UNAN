@@ -10,6 +10,7 @@ import { saveSolicitudServicioLocal } from "../service/solicitudServicioService.
 import { mapClienteToSolicitudPrefill, nombreCompletoCliente } from "../utils/mapClienteToSolicitud.js";
 import { getMediosRecepcion } from "../../catalogos/service/medioRecepcionService.js";
 import { getServicios } from "../../catalogos/service/servicioService.js";
+import { getMatrices } from "../../catalogos/service/matrizService.js";
 
 function isClienteActivo(c) {
   return c?.activo !== false;
@@ -29,9 +30,9 @@ const initialFormData = {
   contacto2Nombre: "",
   contacto2Telefono: "",
   tipoServicio: [],
-  matriz: "",
+  matriz: [],
   matrizOtra: "",
-  numeroMuestras: "",
+  numeroMuestras: 0,
   analisisSolicitados: [],
   ubicacionMuestreo: "",
   observaciones: "",
@@ -160,18 +161,57 @@ export default function SolicitudServicioPage() {
     return () => { mounted = false; };
   }, []);
 
-  const matrices = [
-    { id: 'agua-natural', label: 'Agua Natural' },
-    { id: 'agua-residual', label: 'Agua Residual' },
-    { id: 'lodo', label: 'Lodo' },
-    { id: 'sedimento', label: 'Sedimento' },
-    { id: 'suelo', label: 'Suelo' },
-  ];
+  // Matrices (desde API)
+  const [matrices, setMatrices] = useState([]);
+  const [loadingMatrices, setLoadingMatrices] = useState(false);
+  const [errorMatrices, setErrorMatrices] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadMatrices() {
+      setLoadingMatrices(true);
+      setErrorMatrices(null);
+      try {
+        const data = await getMatrices();
+        if (!mounted) return;
+        const list = Array.isArray(data) ? data : [];
+        const normalized = list.map((m) => ({
+          id: m.idMatriz ?? m.id ?? m.value ?? m.codigo ?? m.nombreMatriz ?? m.nombre ?? m.label,
+          label: m.nombreMatriz ?? m.nombre ?? m.label ?? String(m.idMatriz ?? m.id ?? ""),
+        }));
+        setMatrices(normalized);
+      } catch (err) {
+        if (!mounted) return;
+        setErrorMatrices('No se pudo cargar las matrices');
+      } finally {
+        if (!mounted) return;
+        setLoadingMatrices(false);
+      }
+    }
+    loadMatrices();
+    return () => { mounted = false; };
+  }, []);
+
+  // Auto-sync numeroMuestras with sum of matriz[].numMuestras
+  useEffect(() => {
+    const total = Array.isArray(formData.matriz)
+      ? formData.matriz.reduce((sum, m) => sum + (m.numMuestras || 0), 0)
+      : 0;
+    setFormData(prev => ({ ...prev, numeroMuestras: total }));
+  }, [formData.matriz]);
 
   function selectedServiceLabels() {
     const ids = Array.isArray(formData.tipoServicio) ? formData.tipoServicio : (formData.tipoServicio ? [formData.tipoServicio] : []);
     if (!ids || ids.length === 0) return 'No especificado';
     return ids.map(id => (serviceTypes.find(s => s.id === id)?.label || id)).join(', ');
+  }
+  function selectedMatrixLabels() {
+    const entries = Array.isArray(formData.matriz) ? formData.matriz : (formData.matriz ? [formData.matriz] : []);
+    if (!entries || entries.length === 0) return 'No especificada';
+    return entries.map(e => {
+      const label = matrices.find(m => m.id === e.idMatriz)?.label || e.idMatriz;
+      return `${label} (${e.numMuestras})`;
+    }).join(', ');
   }
 
   // Validation
@@ -186,10 +226,7 @@ export default function SolicitudServicioPage() {
 
     if (step === 2) {
       if (!formData.tipoServicio || (Array.isArray(formData.tipoServicio) && formData.tipoServicio.length === 0)) newErrors.tipoServicio = 'Seleccione al menos un servicio';
-      if (!formData.matriz) newErrors.matriz = 'Seleccione una matriz';
-      if (formData.matriz === 'otro' && !formData.matrizOtra?.trim()) {
-        newErrors.matrizOtra = 'Especifique la matriz';
-      }
+      if (!formData.matriz || !Array.isArray(formData.matriz) || formData.matriz.length === 0) newErrors.matriz = 'Seleccione al menos una matriz';
     }
 
     if (step === 3) {
@@ -575,42 +612,110 @@ export default function SolicitudServicioPage() {
           <div className="w-1 h-7 bg-accent rounded-full"></div>
           Matriz <span className="text-red-500">*</span>
         </h3>
-        <p className="text-sm text-[#6a7282] mb-4 ml-4">Seleccione solo 1</p>
+        <p className="text-sm text-[#6a7282] mb-4 ml-4">Seleccione y asigne muestras por matriz</p>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 ml-4">
-          {matrices.map(matrix => (
-            <button
-              key={matrix.id}
-              type="button"
-              onClick={() => setFormData(prev => ({ ...prev, matriz: matrix.id }))}
-              className={`p-4 rounded-lg border-2 transition-all font-semibold ${formData.matriz === matrix.id
-                ? 'border-blue-900 bg-blue-100 shadow-md text-blue-900'
-                : 'border-gray-300 hover:border-blue-900/50 bg-white text-gray-700'
-                }`}
-            >
-              {matrix.label}
-            </button>
-          ))}
+          {loadingMatrices ? (
+            [1,2,3,4].map(i => (
+              <div key={i} className="p-4 rounded-lg border-2 bg-white text-gray-400">Cargando...</div>
+            ))
+          ) : matrices.length > 0 ? (
+            matrices.map(matrix => {
+              const entry = (formData.matriz || []).find(m => m.idMatriz === matrix.id);
+              const count = entry?.numMuestras ?? 0;
+              const isActive = count > 0;
+              return (
+                <div
+                  key={matrix.id}
+                  onClick={() => {
+                    const id = matrix.id;
+                    setFormData(prev => {
+                      const arr = Array.isArray(prev.matriz) ? [...prev.matriz] : [];
+                      const idx = arr.findIndex(x => x.idMatriz === id);
+                      if (idx >= 0) {
+                        arr[idx] = { ...arr[idx], numMuestras: arr[idx].numMuestras + 1 };
+                      } else {
+                        arr.push({ idMatriz: id, numMuestras: 1 });
+                      }
+                      return { ...prev, matriz: arr };
+                    });
+                  }}
+                  className={`relative p-4 rounded-xl border-2 transition-all text-left cursor-pointer ${
+                    isActive ? 'border-blue-900 bg-blue-50 shadow-sm' : 'border-gray-300 bg-white hover:border-blue-900/50'
+                  }`}
+                >
+                  {count > 0 && (
+                    <div className="absolute right-3 top-3">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">{count}</span>
+                    </div>
+                  )}
+                  <div className="flex h-16 items-center justify-center">
+                    <span className="font-semibold text-gray-800">{matrix.label}</span>
+                  </div>
+                  {count > 0 && (
+                    <div className="mt-4 flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const id = matrix.id;
+                          setFormData(prev => {
+                            const arr = Array.isArray(prev.matriz) ? [...prev.matriz] : [];
+                            const idx = arr.findIndex(x => x.idMatriz === id);
+                            if (idx >= 0) {
+                              const current = arr[idx].numMuestras;
+                              if (current <= 1) {
+                                arr.splice(idx, 1);
+                              } else {
+                                arr[idx] = { ...arr[idx], numMuestras: current - 1 };
+                              }
+                            }
+                            return { ...prev, matriz: arr };
+                          });
+                        }}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-100"
+                      >
+                        -
+                      </button>
+                      <div className="min-w-8 rounded-full bg-slate-100 px-3 py-1 text-center text-sm font-semibold text-slate-700">{count}</div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const id = matrix.id;
+                          setFormData(prev => {
+                            const arr = Array.isArray(prev.matriz) ? [...prev.matriz] : [];
+                            const idx = arr.findIndex(x => x.idMatriz === id);
+                            if (idx >= 0) {
+                              arr[idx] = { ...arr[idx], numMuestras: arr[idx].numMuestras + 1 };
+                            } else {
+                              arr.push({ idMatriz: id, numMuestras: 1 });
+                            }
+                            return { ...prev, matriz: arr };
+                          });
+                        }}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-100"
+                      >
+                        +
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <div className="col-span-2 md:col-span-3">
+              <p className="text-sm text-[#6a7282]">No hay matrices disponibles.</p>
+            </div>
+          )}
         </div>
-        {errors.matriz && <p className="text-red-500 text-xs mt-2 ml-4">{errors.matriz}</p>}
 
-        {formData.matriz === 'otro' && (
-          <div className="mt-6 ml-4 relative group">
-            <input
-              type="text"
-              name="matrizOtra"
-              value={formData.matrizOtra}
-              onChange={handleChange}
-              placeholder="Especifique la matriz"
-              className={`w-full md:w-96 px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none ${errors.matrizOtra ? 'border-red-500' : 'border-gray-300 focus:border-blue-900'
-                } peer`}
-            />
-            <label className="absolute left-0 -top-6 text-sm font-semibold text-gray-700 peer-focus:text-blue-900">
-              Especifique la matriz
-            </label>
-            {errors.matrizOtra && <p className="text-red-500 text-xs mt-1">{errors.matrizOtra}</p>}
-          </div>
-        )}
+        <div className="mt-3 ml-4">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Total de muestras: {formData.numeroMuestras}</span>
+        </div>
+
+        {errorMatrices && <p className="text-red-500 text-xs mt-2 ml-4">{errorMatrices}</p>}
+        {errors.matriz && <p className="text-red-500 text-xs mt-2 ml-4">{errors.matriz}</p>}
       </div>
 
       {/* Number of Samples */}
@@ -626,12 +731,12 @@ export default function SolicitudServicioPage() {
             type="number"
             name="numeroMuestras"
             value={formData.numeroMuestras}
-            onChange={handleChange}
+            readOnly
             placeholder="0"
-            className="w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none border-gray-300 focus:border-blue-900 peer text-center font-semibold text-lg"
+            className="w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none border-gray-300 peer text-center font-semibold text-lg text-blue-900 cursor-not-allowed"
           />
-          <label className="absolute left-0 -top-6 text-sm font-semibold text-gray-700 peer-focus:text-blue-900">
-            No. de muestras
+          <label className="absolute left-0 -top-6 text-sm font-semibold text-gray-700">
+            No. de muestras (Automático)
           </label>
         </div>
       </div>
@@ -730,11 +835,13 @@ export default function SolicitudServicioPage() {
       </div>
 
       {/* Summary */}
-      {((Array.isArray(formData.tipoServicio) ? formData.tipoServicio.length > 0 : !!formData.tipoServicio) || formData.matriz || formData.analisisSolicitados.length > 0) && (
+      {( (Array.isArray(formData.tipoServicio) ? formData.tipoServicio.length > 0 : !!formData.tipoServicio)
+        || (Array.isArray(formData.matriz) ? formData.matriz.length > 0 : !!formData.matriz)
+        || formData.analisisSolicitados.length > 0) && (
         <div className="bg-blue-50 border-l-4 border-blue-900 p-6 rounded-lg">
           <p className="text-sm text-gray-700 font-semibold">
             Resumen: <span className="text-blue-900 font-bold">{selectedServiceLabels()}</span> |
-            <span className="text-blue-900 font-bold"> {formData.matriz || 'No especificada'}</span> |
+            <span className="text-blue-900 font-bold"> {selectedMatrixLabels()}</span> |
             <span className="text-blue-900 font-bold"> {formData.analisisSolicitados.length} análisis agregado(s)</span>
           </p>
         </div>
@@ -810,7 +917,7 @@ export default function SolicitudServicioPage() {
             </div>
             <div className="mt-3">
               <p className="text-gray-500 text-xs mb-1">Matriz</p>
-              <p className="font-semibold text-gray-800">{formData.matriz || 'No especificada'}</p>
+              <p className="font-semibold text-gray-800">{selectedMatrixLabels()}</p>
             </div>
 
             {formData.analisisSolicitados.length > 0 && (
