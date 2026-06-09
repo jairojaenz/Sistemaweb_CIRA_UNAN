@@ -9,6 +9,7 @@ import { normalizeClienteFromApi } from "../../clientes/service/clienteService.j
 import { saveSolicitudServicioLocal } from "../service/solicitudServicioService.js";
 import { mapClienteToSolicitudPrefill, nombreCompletoCliente } from "../utils/mapClienteToSolicitud.js";
 import { getMediosRecepcion } from "../../catalogos/service/medioRecepcionService.js";
+import { getServicios } from "../../catalogos/service/servicioService.js";
 
 function isClienteActivo(c) {
   return c?.activo !== false;
@@ -27,7 +28,7 @@ const initialFormData = {
   contacto1Telefono: "",
   contacto2Nombre: "",
   contacto2Telefono: "",
-  tipoServicio: "",
+  tipoServicio: [],
   matriz: "",
   matrizOtra: "",
   numeroMuestras: "",
@@ -82,7 +83,12 @@ export default function SolicitudServicioPage() {
       return;
     }
     const prefill = mapClienteToSolicitudPrefill(clienteDesdeNavegacion);
-    setFormData((prev) => ({ ...prev, ...prefill }));
+    // Normalize tipoServicio from prefill to an array if needed
+    const normalizedPrefill = { ...prefill };
+    if (normalizedPrefill?.tipoServicio && !Array.isArray(normalizedPrefill.tipoServicio)) {
+      normalizedPrefill.tipoServicio = [normalizedPrefill.tipoServicio];
+    }
+    setFormData((prev) => ({ ...prev, ...normalizedPrefill }));
   }, [idCliente, clienteDesdeNavegacion]);
 
   function cerrarAvisoInactivo() {
@@ -123,13 +129,36 @@ export default function SolicitudServicioPage() {
     };
   }, []);
 
-  const serviceTypes = [
-    { id: 'analisis', label: 'Análisis' },
-    { id: 'muestreo', label: 'Muestreo' },
-    { id: 'informe', label: 'Informe Técnico' },
-    { id: 'medicion', label: 'Medición NEA/ND' },
-    { id: 'transporte', label: 'Transporte' },
-  ];
+  // Tipos de servicio (desde API)
+  const [serviceTypes, setServiceTypes] = useState([]);
+  const [loadingServiceTypes, setLoadingServiceTypes] = useState(false);
+  const [serviceTypesError, setServiceTypesError] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadServicios() {
+      setLoadingServiceTypes(true);
+      setServiceTypesError(null);
+      try {
+        const data = await getServicios();
+        if (!mounted) return;
+        const list = Array.isArray(data) ? data : [];
+        const normalized = list.map((s) => ({
+          id: s.idServicio ?? s.id ?? s.value ?? s.codigo ?? s.nombreServicio ?? s.nombre ?? s.label,
+          label: s.nombreServicio ?? s.nombre ?? s.label ?? String(s.idServicio ?? s.id ?? ""),
+        }));
+        setServiceTypes(normalized);
+      } catch (err) {
+        if (!mounted) return;
+        setServiceTypesError("No se pudo cargar los tipos de servicio");
+      } finally {
+        if (!mounted) return;
+        setLoadingServiceTypes(false);
+      }
+    }
+    loadServicios();
+    return () => { mounted = false; };
+  }, []);
 
   const matrices = [
     { id: 'agua-natural', label: 'Agua Natural' },
@@ -138,6 +167,12 @@ export default function SolicitudServicioPage() {
     { id: 'sedimento', label: 'Sedimento' },
     { id: 'suelo', label: 'Suelo' },
   ];
+
+  function selectedServiceLabels() {
+    const ids = Array.isArray(formData.tipoServicio) ? formData.tipoServicio : (formData.tipoServicio ? [formData.tipoServicio] : []);
+    if (!ids || ids.length === 0) return 'No especificado';
+    return ids.map(id => (serviceTypes.find(s => s.id === id)?.label || id)).join(', ');
+  }
 
   // Validation
   const validateStep = (step) => {
@@ -150,7 +185,7 @@ export default function SolicitudServicioPage() {
     }
 
     if (step === 2) {
-      if (!formData.tipoServicio) newErrors.tipoServicio = 'Seleccione un servicio';
+      if (!formData.tipoServicio || (Array.isArray(formData.tipoServicio) && formData.tipoServicio.length === 0)) newErrors.tipoServicio = 'Seleccione al menos un servicio';
       if (!formData.matriz) newErrors.matriz = 'Seleccione una matriz';
       if (formData.matriz === 'otro' && !formData.matrizOtra?.trim()) {
         newErrors.matrizOtra = 'Especifique la matriz';
@@ -489,20 +524,48 @@ export default function SolicitudServicioPage() {
         <p className="text-sm text-[#6a7282] mb-4 ml-4">Seleccione solo 1</p>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 ml-4">
-          {serviceTypes.map(service => (
-            <button
-              key={service.id}
-              type="button"
-              onClick={() => setFormData(prev => ({ ...prev, tipoServicio: service.id }))}
-              className={`p-4 rounded-lg border-2 transition-all font-semibold ${formData.tipoServicio === service.id
-                ? 'border-blue-900 bg-blue-100 shadow-md text-blue-900'
-                : 'border-gray-300 hover:border-blue-900/50 bg-white text-gray-700'
-                }`}
-            >
-              {service.label}
-            </button>
-          ))}
+          {loadingServiceTypes ? (
+            [1, 2, 3, 4].map((i) => (
+              <button
+                key={i}
+                type="button"
+                disabled
+                className="p-4 rounded-lg border-2 transition-all font-semibold border-gray-300 bg-white text-gray-400"
+              >
+                Cargando...
+              </button>
+            ))
+          ) : serviceTypes.length > 0 ? (
+            serviceTypes.map((service) => {
+              const isSelected = Array.isArray(formData.tipoServicio)
+                ? formData.tipoServicio.includes(service.id)
+                : formData.tipoServicio === service.id;
+              return (
+                <button
+                  key={service.id}
+                  type="button"
+                  onClick={() => setFormData(prev => {
+                    const current = Array.isArray(prev.tipoServicio) ? prev.tipoServicio : (prev.tipoServicio ? [prev.tipoServicio] : []);
+                    const exists = current.includes(service.id);
+                    const next = exists ? current.filter(i => i !== service.id) : [...current, service.id];
+                    return { ...prev, tipoServicio: next };
+                  })}
+                  className={`p-4 rounded-lg border-2 transition-all font-semibold ${isSelected
+                    ? 'border-blue-900 bg-blue-100 shadow-md text-blue-900'
+                    : 'border-gray-300 hover:border-blue-900/50 bg-white text-gray-700'
+                    }`}
+                >
+                  {service.label}
+                </button>
+              );
+            })
+          ) : (
+            <div className="col-span-2 md:col-span-4">
+              <p className="text-sm text-[#6a7282]">No hay tipos de servicio disponibles.</p>
+            </div>
+          )}
         </div>
+        {serviceTypesError && <p className="text-red-500 text-xs mt-2 ml-4">{serviceTypesError}</p>}
         {errors.tipoServicio && <p className="text-red-500 text-xs mt-2 ml-4">{errors.tipoServicio}</p>}
       </div>
 
@@ -667,10 +730,10 @@ export default function SolicitudServicioPage() {
       </div>
 
       {/* Summary */}
-      {(formData.tipoServicio || formData.matriz || formData.analisisSolicitados.length > 0) && (
+      {((Array.isArray(formData.tipoServicio) ? formData.tipoServicio.length > 0 : !!formData.tipoServicio) || formData.matriz || formData.analisisSolicitados.length > 0) && (
         <div className="bg-blue-50 border-l-4 border-blue-900 p-6 rounded-lg">
           <p className="text-sm text-gray-700 font-semibold">
-            Resumen: <span className="text-blue-900 font-bold">{formData.tipoServicio || 'No especificado'}</span> |
+            Resumen: <span className="text-blue-900 font-bold">{selectedServiceLabels()}</span> |
             <span className="text-blue-900 font-bold"> {formData.matriz || 'No especificada'}</span> |
             <span className="text-blue-900 font-bold"> {formData.analisisSolicitados.length} análisis agregado(s)</span>
           </p>
@@ -743,7 +806,7 @@ export default function SolicitudServicioPage() {
             <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">SERVICIO SOLICITADO</h4>
             <div>
               <p className="text-gray-500 text-xs mb-1">Tipo de servicio</p>
-              <p className="font-semibold text-gray-800">{formData.tipoServicio || 'No especificado'}</p>
+              <p className="font-semibold text-gray-800">{selectedServiceLabels()}</p>
             </div>
             <div className="mt-3">
               <p className="text-gray-500 text-xs mb-1">Matriz</p>
