@@ -11,6 +11,8 @@ export const ROUTES = {
   gestionClientes: "/dashboard/gestion-clientes",
   gestionLaboratorios: "/dashboard/gestion-laboratorios",
   formatosOrdenServicio: "/dashboard/formatos-orden-servicio",
+  formatosOrdenServicioNueva: "/dashboard/formatos-orden-servicio/nueva",
+  formatosOrdenServicioEditar: (id) => `/dashboard/formatos-orden-servicio/${id}/editar`,
   proformas: "/dashboard/proformas",
   nuevaProforma: "/dashboard/proformas/nueva",
   nuevaProformaFromSolicitud: (idSolicitud) => `/dashboard/proformas/nueva/${idSolicitud}`,

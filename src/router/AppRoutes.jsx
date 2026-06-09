@@ -75,6 +75,8 @@ export default function AppRoutes() {
             <Route path="gestion-clientes" element={<GestionClientesPage />} />
             <Route path="gestion-laboratorios" element={<GestionLaboratoriosPage />} />
             <Route path="formatos-orden-servicio" element={<FormatosOrdenServicioPage />} />
+            <Route path="formatos-orden-servicio/nueva" element={<FormatosOrdenServicioPage />} />
+            <Route path="formatos-orden-servicio/:id/editar" element={<FormatosOrdenServicioPage />} />
             <Route path="proformas" element={<ProformaPage />} />
             <Route path="proformas/nueva" element={<NuevaProformaPage />} />
             <Route path="proformas/nueva/:idSolicitud" element={<NuevaProformaPage />} />
