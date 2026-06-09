@@ -96,6 +96,8 @@ export default function DashboardLayout() {
     if (p.includes("/gestion-usuarios")) return "Gestión de Usuarios";
     if (p.includes("/gestion-clientes")) return "Gestión de Clientes";
     if (p.includes("/gestion-laboratorios")) return "Gestión de Laboratorios";
+    if (p.includes("/formatos-orden-servicio/nueva")) return "Nueva Orden de Servicio";
+    if (p.includes("/formatos-orden-servicio") && p.includes("/editar")) return "Editar Orden de Servicio";
     if (p.includes("/formatos-orden-servicio")) return "Órdenes de Servicio";
     if (p.includes("/catalogos/servicios")) return "Catálogo de Servicios";
     if (p.includes("/catalogos/medios-recepcion")) return "Catálogo de Médios de Recepción";
@@ -346,7 +348,7 @@ export default function DashboardLayout() {
       />
       </aside>
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-white">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-gray-100">
         <header className="flex-shrink-0 border-b border-blue-800 bg-blue-900 px-3 py-3 shadow-sm sm:px-4 md:px-6">
           <div className="mx-auto flex w-full max-w-full items-center gap-2 sm:gap-4">
             <div className="flex min-w-0 flex-shrink-0 items-start gap-2 sm:gap-3">
@@ -399,7 +401,7 @@ export default function DashboardLayout() {
           </div>
         </header>
 
-        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-white">
+        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-gray-100">
           <Outlet />
         </main>
       </div>

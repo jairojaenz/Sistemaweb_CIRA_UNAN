@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FaEdit, FaEye, FaPlus, FaSearch, FaSpinner, FaTimes, FaTrash } from "react-icons/fa";
+import { NavLink, useNavigate, useParams, useLocation } from "react-router-dom";
+import { FaEdit, FaEye, FaSearch, FaSpinner, FaTimes, FaTrash } from "react-icons/fa";
 import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import { useToast } from "../../../components/ToastContext.jsx";
-import { getUsuarios } from "../../usuarios/service/usuarioService.js";
+import { ROUTES } from "../../../router/routes.js";
+import { getDepartamentos, getMunicipios, getUsuarios } from "../../usuarios/service/usuarioService.js";
 import { getFormatosCampo, labelFormatoCampo } from "../service/catalogosOrdenService.js";
 import {
   createOrdenServicio,
@@ -10,23 +12,62 @@ import {
   getOrdenesServicio,
   updateOrdenServicio,
 } from "../service/formatoOrdenServicioService.js";
+import { formatTelefonoLocal, telefonoLocalError } from "../../../utils/phoneFormat.js";
+import OrdenServicioFormView from "./OrdenServicioFormView.jsx";
 
-const ESTADOS_ORDEN = ["Pendiente", "En proceso", "Completada", "Cancelada"];
+const COMPOUESTO_OPTION_KEYS = ["compuesto8h", "compuesto12h", "compuesto16h", "compuesto24h"];
+
+const DRAFT_KEY = "orden_servicio_draft_v1";
+
+const emptyDetalleRow = (n = 1) => ({
+  numeroMuestra: String(n).padStart(2, "0"),
+  analisis: "",
+  codigoLab: "",
+});
+
+const emptyControlRecepcionRow = () => ({
+  laboratorio: "",
+  recibidoPor: "",
+  fechaEntregaResultados: "",
+});
 
 const initialForm = {
   numeroOrden: "",
-  fechaRecepcionMuestra: "",
-  estadoOrden: "Pendiente",
-  idUsuario: "",
-  idFormatoCampo: "",
-  idTipoMuestreo: "",
+  proformaNo: "",
+  fecha: "",
+  usuarioEmpresa: "",
+  atencionA: "",
+  telefono: "",
+  celular: "",
+  extension: "",
+  correo: "",
+  direccion: "",
+  departamento: "",
+  municipio: "",
   analisisOrden: false,
   muestreoOrden: false,
   hojaObservacionOrden: false,
   informeTecnicoOrden: false,
-  otro1Orden: "",
-  otro2Orden: "",
+  otroServicio: "",
+  modalidadMuestreo: "puntual",
+  compuesto8h: false,
+  compuesto12h: false,
+  compuesto16h: false,
+  compuesto24h: false,
+  modalidadMuestreoOtros: "",
+  detalleMuestras: [emptyDetalleRow(1)],
+  controlRecepcion: [emptyControlRecepcionRow()],
+  idUsuario: "",
+  idFormatoCampo: "",
+  estadoOrden: "Pendiente",
+  muestreoPor: "usuario",
+  transportePor: "usuario",
+  incluirNormaInforme: "si",
+  especificarLab: "",
+  especificarNorma: "",
   observacionOrden: "",
+  firmaUsuario: "",
+  firmaApe: "",
 };
 
 function labelUsuario(u) {
@@ -35,12 +76,12 @@ function labelUsuario(u) {
   return `${nombre} ${apellido}`.trim() || nombre;
 }
 
-function toDatetimeLocalValue(iso) {
+function toDateInputValue(iso) {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
   const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 function formatFecha(iso) {
@@ -51,22 +92,27 @@ function formatFecha(iso) {
 }
 
 function mapOrdenToForm(orden, usuarios) {
-  const u = usuarios.find(
-    (x) => (x.nombreUsuario ?? x.NombreUsuario) === orden.usuario
-  );
+  const u = usuarios.find((x) => (x.nombreUsuario ?? x.NombreUsuario) === orden.usuario);
+  const tipo = String(orden.tipoMuestreo ?? "").toLowerCase();
+  let modalidadMuestreo = "puntual";
+  if (tipo.includes("compuesto")) modalidadMuestreo = "compuesto";
+  else if (tipo.includes("otro")) modalidadMuestreo = "otros";
   return {
+    ...initialForm,
     numeroOrden: String(orden.numeroOrden ?? ""),
-    fechaRecepcionMuestra: toDatetimeLocalValue(orden.fechaRecepcionMuestra),
+    proformaNo: orden.otro1Orden ?? "",
+    fecha: toDateInputValue(orden.fechaRecepcionMuestra),
+    usuarioEmpresa: orden.usuario ?? "",
+    modalidadMuestreo,
     estadoOrden: orden.estadoOrden || "Pendiente",
     idUsuario: String(u?.idUsuario ?? u?.IdUsuario ?? ""),
     idFormatoCampo: String(orden.formatoCampo ?? ""),
-    idTipoMuestreo: "",
     analisisOrden: !!orden.analisisOrden,
     muestreoOrden: !!orden.muestreoOrden,
     hojaObservacionOrden: !!orden.hojaObservacionOrden,
     informeTecnicoOrden: !!orden.informeTecnicoOrden,
-    otro1Orden: orden.otro1Orden ?? "",
-    otro2Orden: orden.otro2Orden ?? "",
+    otroServicio: orden.otro2Orden ?? "",
+    especificarNorma: orden.otro2Orden ?? "",
     observacionOrden: orden.observacionOrden ?? "",
   };
 }
@@ -74,25 +120,129 @@ function mapOrdenToForm(orden, usuarios) {
 function validateForm(form) {
   const errors = {};
   if (!String(form.numeroOrden).trim()) errors.numeroOrden = "Requerido";
-  if (!form.fechaRecepcionMuestra) errors.fechaRecepcionMuestra = "Requerido";
-  if (!String(form.estadoOrden).trim()) errors.estadoOrden = "Requerido";
-  if (!form.idUsuario) errors.idUsuario = "Seleccione un usuario";
-  if (!form.idFormatoCampo) errors.idFormatoCampo = "Seleccione un formato de campo";
-  if (!form.idTipoMuestreo) errors.idTipoMuestreo = "Indique el ID del tipo de muestreo";
+  if (!form.fecha) errors.fecha = "Requerido";
+  if (!String(form.usuarioEmpresa).trim()) errors.usuarioEmpresa = "Requerido";
+
+  const errTelefono = telefonoLocalError(form.telefono, { label: "Teléfono" });
+  if (errTelefono) errors.telefono = errTelefono;
+
+  const errCelular = telefonoLocalError(form.celular, { label: "Celular" });
+  if (errCelular) errors.celular = errCelular;
+
+  if (form.modalidadMuestreo === "compuesto") {
+    const seleccionadas = COMPOUESTO_OPTION_KEYS.filter((key) => form[key]).length;
+    if (seleccionadas !== 1) {
+      errors.compuestoOpcion = "Seleccione una sola opción para muestreo compuesto";
+    }
+  }
+
+  if (form.modalidadMuestreo === "otros" && !String(form.modalidadMuestreoOtros ?? "").trim()) {
+    errors.modalidadMuestreoOtros = "Especifique el tipo de muestreo";
+  }
+
   return errors;
+}
+
+function firstUsuarioId(usuarios) {
+  const u = usuarios[0];
+  return u?.idUsuario ?? u?.IdUsuario ?? null;
+}
+
+function firstFormatoCampoId(formatosCampo) {
+  return formatosCampo[0]?.idFormatoCampo ?? null;
+}
+
+/** La API exige idTipoMuestreo; se infiere de la modalidad elegida en el formulario. */
+function idTipoMuestreoFromModalidad(modalidadMuestreo) {
+  if (modalidadMuestreo === "compuesto") return 2;
+  if (modalidadMuestreo === "otros") return 3;
+  return 1;
+}
+
+function formToApiPayload(form, { usuarios = [], formatosCampo = [] } = {}) {
+  const fechaIso = form.fecha ? new Date(`${form.fecha}T12:00:00`).toISOString() : new Date().toISOString();
+  const idUsuario = Number(form.idUsuario) || Number(firstUsuarioId(usuarios)) || 0;
+  const idFormatoCampo = Number(form.idFormatoCampo) || Number(firstFormatoCampoId(formatosCampo)) || 0;
+
+  return {
+    numeroOrden: form.numeroOrden,
+    fechaRecepcionMuestra: fechaIso,
+    estadoOrden: form.estadoOrden || "Pendiente",
+    idUsuario,
+    idFormatoCampo,
+    idTipoMuestreo: idTipoMuestreoFromModalidad(form.modalidadMuestreo),
+    analisisOrden: form.analisisOrden,
+    muestreoOrden: form.muestreoOrden,
+    hojaObservacionOrden: form.hojaObservacionOrden,
+    informeTecnicoOrden: form.informeTecnicoOrden,
+    otro1Orden: form.proformaNo?.trim() || form.otroServicio?.trim() || null,
+    otro2Orden: form.especificarNorma?.trim() || null,
+    observacionOrden: buildObservacionOrden(form),
+  };
+}
+
+function buildObservacionOrden(form) {
+  const partes = [];
+  if (form.modalidadMuestreo === "otros" && form.modalidadMuestreoOtros?.trim()) {
+    partes.push(`Tipo de muestreo (otros): ${form.modalidadMuestreoOtros.trim()}`);
+  }
+  if (form.observacionOrden?.trim()) partes.push(form.observacionOrden.trim());
+  return partes.length > 0 ? partes.join("\n") : null;
+}
+
+function normalizeFormState(data) {
+  const merged = { ...initialForm, ...data };
+
+  if (!Array.isArray(merged.detalleMuestras) || merged.detalleMuestras.length === 0) {
+    merged.detalleMuestras = [emptyDetalleRow(1)];
+  }
+
+  if (!Array.isArray(merged.controlRecepcion) || merged.controlRecepcion.length === 0) {
+    merged.controlRecepcion = [
+      {
+        laboratorio: data.laboratorio ?? "",
+        recibidoPor: data.recibidoPor ?? "",
+        fechaEntregaResultados: data.fechaEntregaResultados ?? "",
+      },
+    ];
+  }
+
+  return merged;
+}
+
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    return normalizeFormState(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
+function clearDraft() {
+  localStorage.removeItem(DRAFT_KEY);
 }
 
 export default function FormatosOrdenServicioPage() {
   const { addToast } = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { id: editIdParam } = useParams();
+
+  const isCreateRoute = location.pathname.endsWith("/nueva");
+  const isEditRoute = Boolean(editIdParam) && location.pathname.includes("/editar");
+  const isFormRoute = isCreateRoute || isEditRoute;
 
   const [ordenes, setOrdenes] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
   const [formatosCampo, setFormatosCampo] = useState([]);
+  const [departamentos, setDepartamentos] = useState([]);
+  const [municipios, setMunicipios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [catalogsLoading, setCatalogsLoading] = useState(true);
   const [search, setSearch] = useState("");
 
-  const [modalOpen, setModalOpen] = useState(false);
   const [editingOrden, setEditingOrden] = useState(null);
   const [detailOrden, setDetailOrden] = useState(null);
   const [form, setForm] = useState({ ...initialForm });
@@ -116,9 +266,16 @@ export default function FormatosOrdenServicioPage() {
   const loadCatalogs = useCallback(async () => {
     try {
       setCatalogsLoading(true);
-      const [users, campos] = await Promise.all([getUsuarios(), getFormatosCampo()]);
+      const [users, campos, deps, muns] = await Promise.all([
+        getUsuarios(),
+        getFormatosCampo(),
+        getDepartamentos(),
+        getMunicipios(),
+      ]);
       setUsuarios((users ?? []).filter((u) => u.activo !== false && u.Activo !== false));
       setFormatosCampo(campos);
+      setDepartamentos(deps ?? []);
+      setMunicipios(muns ?? []);
     } catch (err) {
       addToast(err.message, "error");
     } finally {
@@ -131,17 +288,49 @@ export default function FormatosOrdenServicioPage() {
     loadCatalogs();
   }, [loadOrdenes, loadCatalogs]);
 
+  useEffect(() => {
+    if (!isFormRoute) return;
+
+    if (isCreateRoute) {
+      setEditingOrden(null);
+      const draft = loadDraft();
+      const today = new Date().toISOString().slice(0, 10);
+      setForm(draft ?? { ...initialForm, fecha: today });
+      setFormErrors({});
+      return;
+    }
+
+    if (isEditRoute && editIdParam) {
+      const orden = ordenes.find((o) => String(o.idFormatoOrden) === String(editIdParam));
+      if (orden) {
+        setEditingOrden(orden);
+        setForm(mapOrdenToForm(orden, usuarios));
+        setFormErrors({});
+      }
+    }
+  }, [isFormRoute, isCreateRoute, isEditRoute, editIdParam, ordenes, usuarios]);
+
+  const departamentoMap = useMemo(() => {
+    const map = {};
+    for (const d of departamentos) {
+      const id = d.idDepartamento ?? d.IdDepartamento;
+      const nombre = d.nombreDepartamento ?? d.NombreDepartamento ?? d.nombre ?? "";
+      if (id != null && nombre) map[nombre] = id;
+    }
+    return map;
+  }, [departamentos]);
+
+  const municipiosFiltrados = useMemo(() => {
+    const depId = departamentoMap[form.departamento];
+    if (!depId) return [];
+    return municipios.filter((m) => (m.idDepartamento ?? m.IdDepartamento) === depId);
+  }, [municipios, departamentoMap, form.departamento]);
+
   const filteredOrdenes = useMemo(() => {
     const q = search.toLowerCase().trim();
     if (!q) return ordenes;
     return ordenes.filter((o) => {
-      const texto = [
-        o.numeroOrden,
-        o.estadoOrden,
-        o.usuario,
-        o.tipoMuestreo,
-        o.formatoCampo,
-      ]
+      const texto = [o.numeroOrden, o.estadoOrden, o.usuario, o.tipoMuestreo, o.formatoCampo]
         .join(" ")
         .toLowerCase();
       return texto.includes(q);
@@ -150,58 +339,145 @@ export default function FormatosOrdenServicioPage() {
 
   function handleFormChange(e) {
     const { name, value, type, checked } = e.target;
-    const nextVal = type === "checkbox" ? checked : value;
-    const merged = { ...form, [name]: nextVal };
-    setForm(merged);
-    const errors = validateForm(merged);
-    setFormErrors((prev) => ({ ...prev, [name]: errors[name] ?? "" }));
+    let nextVal = type === "checkbox" ? checked : value;
+
+    if (name === "telefono" || name === "celular") {
+      nextVal = formatTelefonoLocal(value);
+    }
+
+    if (name === "modalidadMuestreo") {
+      setForm((prev) => ({
+        ...prev,
+        modalidadMuestreo: value,
+        compuesto8h: false,
+        compuesto12h: false,
+        compuesto16h: false,
+        compuesto24h: false,
+        modalidadMuestreoOtros: value === "otros" ? prev.modalidadMuestreoOtros : "",
+      }));
+      setFormErrors((prev) => ({
+        ...prev,
+        compuestoOpcion: "",
+        modalidadMuestreoOtros: "",
+      }));
+      return;
+    }
+
+    if (COMPOUESTO_OPTION_KEYS.includes(name) && type === "checkbox") {
+      setForm((prev) => {
+        const cleared = {
+          compuesto8h: false,
+          compuesto12h: false,
+          compuesto16h: false,
+          compuesto24h: false,
+        };
+        if (checked) {
+          cleared[name] = true;
+        }
+        const merged = { ...prev, ...cleared };
+        const errors = validateForm(merged);
+        setFormErrors((e) => ({
+          ...e,
+          compuestoOpcion: errors.compuestoOpcion ?? "",
+        }));
+        return merged;
+      });
+      return;
+    }
+
+    if (name === "departamento") {
+      setForm((prev) => ({ ...prev, departamento: value, municipio: "" }));
+      return;
+    }
+
+    setForm((prev) => {
+      const merged = { ...prev, [name]: nextVal };
+      const errors = validateForm(merged);
+      setFormErrors((e) => ({ ...e, [name]: errors[name] ?? "" }));
+      return merged;
+    });
   }
 
-  function closeModal() {
-    setModalOpen(false);
+  function handleDetalleChange(index, field, value) {
+    setForm((prev) => {
+      const detalleMuestras = [...prev.detalleMuestras];
+      detalleMuestras[index] = { ...detalleMuestras[index], [field]: value };
+      return { ...prev, detalleMuestras };
+    });
+  }
+
+  function handleAddDetalleRow() {
+    setForm((prev) => ({
+      ...prev,
+      detalleMuestras: [...prev.detalleMuestras, emptyDetalleRow(prev.detalleMuestras.length + 1)],
+    }));
+  }
+
+  function handleRemoveDetalleRow(index) {
+    setForm((prev) => ({
+      ...prev,
+      detalleMuestras: prev.detalleMuestras.filter((_, i) => i !== index),
+    }));
+  }
+
+  function handleControlRecepcionChange(index, field, value) {
+    setForm((prev) => {
+      const controlRecepcion = [...prev.controlRecepcion];
+      controlRecepcion[index] = { ...controlRecepcion[index], [field]: value };
+      return { ...prev, controlRecepcion };
+    });
+  }
+
+  function handleAddControlRecepcionRow() {
+    setForm((prev) => ({
+      ...prev,
+      controlRecepcion: [...prev.controlRecepcion, emptyControlRecepcionRow()],
+    }));
+  }
+
+  function handleRemoveControlRecepcionRow(index) {
+    setForm((prev) => ({
+      ...prev,
+      controlRecepcion: prev.controlRecepcion.filter((_, i) => i !== index),
+    }));
+  }
+
+  function closeFormView() {
     setEditingOrden(null);
     setFormErrors({});
+    navigate(ROUTES.formatosOrdenServicio);
   }
 
-  function openCreateModal() {
+  function openEditForm(orden) {
     setDetailOrden(null);
-    setEditingOrden(null);
-    const now = new Date();
-    const pad = (n) => String(n).padStart(2, "0");
-    const localNow = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    setForm({ ...initialForm, fechaRecepcionMuestra: localNow });
-    setFormErrors({});
-    setModalOpen(true);
-  }
-
-  function openEditModal(orden) {
-    setDetailOrden(null);
-    setEditingOrden(orden);
-    setForm(mapOrdenToForm(orden, usuarios));
-    setFormErrors({});
-    setModalOpen(true);
-  }
-
-  function openDetailModal(orden) {
-    setDetailOrden(orden);
+    navigate(ROUTES.formatosOrdenServicioEditar(orden.idFormatoOrden));
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     const errors = validateForm(form);
     setFormErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+    if (Object.keys(errors).length > 0) {
+      addToast("Complete los campos requeridos", "error");
+      return;
+    }
 
     try {
       setSaving(true);
+      const payload = formToApiPayload(form, { usuarios, formatosCampo });
+      if (!payload.idUsuario || !payload.idFormatoCampo) {
+        addToast("No hay usuarios o formatos de campo en el catálogo para registrar la orden.", "error");
+        return;
+      }
       if (editingOrden?.idFormatoOrden) {
-        await updateOrdenServicio(editingOrden.idFormatoOrden, form);
+        await updateOrdenServicio(editingOrden.idFormatoOrden, payload);
         addToast("Orden de servicio actualizada", "success");
       } else {
-        await createOrdenServicio(form);
-        addToast("Orden de servicio creada", "success");
+        await createOrdenServicio(payload);
+        addToast("Orden de servicio enviada correctamente", "success");
+        clearDraft();
       }
-      closeModal();
+      closeFormView();
       await loadOrdenes();
     } catch (err) {
       addToast(err.message, "error");
@@ -228,23 +504,63 @@ export default function FormatosOrdenServicioPage() {
 
   const catalogsReady = !catalogsLoading;
 
+  if (isFormRoute) {
+    if (isEditRoute && !editingOrden && !loading) {
+      return (
+        <div className="mx-auto flex max-w-lg flex-col items-center gap-4 p-8 text-center">
+          <p className="text-gray-700">No se encontró la orden de servicio solicitada.</p>
+          <button
+            type="button"
+            onClick={closeFormView}
+            className="rounded-lg bg-blue-900 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
+          >
+            Volver al listado
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <OrdenServicioFormView
+        form={form}
+        formErrors={formErrors}
+        onChange={handleFormChange}
+        onDetalleChange={handleDetalleChange}
+        onAddDetalleRow={handleAddDetalleRow}
+        onRemoveDetalleRow={handleRemoveDetalleRow}
+        onControlRecepcionChange={handleControlRecepcionChange}
+        onAddControlRecepcionRow={handleAddControlRecepcionRow}
+        onRemoveControlRecepcionRow={handleRemoveControlRecepcionRow}
+        onSubmit={handleSubmit}
+        onCancel={closeFormView}
+        saving={saving}
+        catalogsLoading={catalogsLoading}
+        departamentos={departamentos}
+        municipiosFiltrados={municipiosFiltrados}
+      />
+    );
+  }
+
+  const tabClass = ({ isActive }) =>
+    [
+      "rounded-lg px-4 py-2 text-sm font-semibold transition",
+      isActive ? "bg-blue-900 text-white shadow" : "text-blue-900 hover:bg-blue-50",
+    ].join(" ");
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4 sm:p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-        <button
-          type="button"
-          onClick={openCreateModal}
-          disabled={!catalogsReady}
-          className="inline-flex items-center gap-2 rounded-lg bg-blue-900 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-50"
-        >
-          <FaPlus className="h-4 w-4" />
-          Nueva orden de servicio
-        </button>
+      <div className="flex gap-2 rounded-xl border border-gray-200 bg-gray-50 p-1 w-fit">
+        <NavLink to={ROUTES.formatosOrdenServicio} end className={tabClass}>
+          Listado
+        </NavLink>
+        <NavLink to={ROUTES.formatosOrdenServicioNueva} className={tabClass}>
+          Crear orden
+        </NavLink>
       </div>
 
       {!catalogsReady && (
         <p className="text-sm text-amber-700">
-          Cargando catálogos (usuarios y formatos de campo)…
+          Cargando catálogos… Puede abrir el formulario; los selectores se completarán al cargar.
         </p>
       )}
 
@@ -281,8 +597,15 @@ export default function FormatosOrdenServicioPage() {
               </tr>
             ) : filteredOrdenes.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-gray-500 sm:px-6">
-                  {search ? "No se encontraron órdenes" : "No hay órdenes de servicio registradas"}
+                <td colSpan={6} className="px-4 py-12 text-center sm:px-6">
+                  <p className="text-gray-600">
+                    {search ? "No se encontraron órdenes" : "No hay órdenes de servicio registradas"}
+                  </p>
+                  {!search && (
+                    <p className="mt-2 text-sm text-gray-500">
+                      Use la pestaña &quot;Crear orden&quot; para registrar una nueva.
+                    </p>
+                  )}
                 </td>
               </tr>
             ) : (
@@ -302,7 +625,7 @@ export default function FormatosOrdenServicioPage() {
                       <button
                         type="button"
                         title="Editar"
-                        onClick={() => openEditModal(orden)}
+                        onClick={() => openEditForm(orden)}
                         className="rounded p-1.5 text-blue-900 hover:bg-blue-100"
                       >
                         <FaEdit className="h-4 w-4" />
@@ -310,7 +633,7 @@ export default function FormatosOrdenServicioPage() {
                       <button
                         type="button"
                         title="Ver detalle"
-                        onClick={() => openDetailModal(orden)}
+                        onClick={() => setDetailOrden(orden)}
                         className="rounded p-1.5 text-blue-900 hover:bg-slate-100"
                       >
                         <FaEye className="h-4 w-4" />
@@ -337,96 +660,16 @@ export default function FormatosOrdenServicioPage() {
         </table>
       </div>
 
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b px-6 py-4">
-              <h2 className="text-lg font-semibold text-gray-800">
-                {editingOrden ? "Editar orden de servicio" : "Nueva orden de servicio"}
-              </h2>
-              <button type="button" onClick={closeModal} className="rounded p-1 text-gray-400 hover:bg-gray-100">
-                <FaTimes className="h-5 w-5" />
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-4 p-6" noValidate>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Número de orden" name="numeroOrden" type="number" value={form.numeroOrden} error={formErrors.numeroOrden} onChange={handleFormChange} />
-                <Field label="Estado" name="estadoOrden" as="select" value={form.estadoOrden} error={formErrors.estadoOrden} onChange={handleFormChange}>
-                  {ESTADOS_ORDEN.map((e) => (
-                    <option key={e} value={e}>{e}</option>
-                  ))}
-                </Field>
-                <Field label="Fecha recepción muestra" name="fechaRecepcionMuestra" type="datetime-local" value={form.fechaRecepcionMuestra} error={formErrors.fechaRecepcionMuestra} onChange={handleFormChange} className="sm:col-span-2" />
-                <Field label="Usuario responsable" name="idUsuario" as="select" value={form.idUsuario} error={formErrors.idUsuario} onChange={handleFormChange}>
-                  <option value="">— Seleccionar —</option>
-                  {usuarios.map((u) => {
-                    const id = u.idUsuario ?? u.IdUsuario;
-                    return (
-                      <option key={id} value={id}>{labelUsuario(u)}</option>
-                    );
-                  })}
-                </Field>
-                <Field label="Formato de campo" name="idFormatoCampo" as="select" value={form.idFormatoCampo} error={formErrors.idFormatoCampo} onChange={handleFormChange}>
-                  <option value="">— Seleccionar —</option>
-                  {formatosCampo.map((f) => (
-                    <option key={f.idFormatoCampo} value={f.idFormatoCampo}>{labelFormatoCampo(f)}</option>
-                  ))}
-                </Field>
-                <div className="sm:col-span-2">
-                  <Field
-                    label="ID tipo de muestreo"
-                    name="idTipoMuestreo"
-                    type="number"
-                    value={form.idTipoMuestreo}
-                    error={formErrors.idTipoMuestreo}
-                    onChange={handleFormChange}
-                    hint={
-                      editingOrden?.tipoMuestreo
-                        ? `Actual en BD: «${editingOrden.tipoMuestreo}». No hay GET de tipos en la API; use el ID de la tabla TiposMuestreo.`
-                        : "No existe endpoint GET de tipos de muestreo; indique el IdTipoMuestreo de la base de datos."
-                    }
-                  />
-                </div>
-              </div>
-
-              <fieldset className="rounded-lg border border-gray-200 p-4">
-                <legend className="px-1 text-sm font-medium text-gray-700">Documentos incluidos</legend>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <Check name="analisisOrden" label="Análisis" checked={form.analisisOrden} onChange={handleFormChange} />
-                  <Check name="muestreoOrden" label="Muestreo" checked={form.muestreoOrden} onChange={handleFormChange} />
-                  <Check name="hojaObservacionOrden" label="Hoja de observación" checked={form.hojaObservacionOrden} onChange={handleFormChange} />
-                  <Check name="informeTecnicoOrden" label="Informe técnico" checked={form.informeTecnicoOrden} onChange={handleFormChange} />
-                </div>
-              </fieldset>
-
-              <Field label="Otro 1" name="otro1Orden" value={form.otro1Orden} onChange={handleFormChange} />
-              <Field label="Otro 2" name="otro2Orden" value={form.otro2Orden} onChange={handleFormChange} />
-              <Field label="Observaciones" name="observacionOrden" as="textarea" value={form.observacionOrden} onChange={handleFormChange} />
-
-              <div className="flex justify-end gap-3 border-t pt-4">
-                <button type="button" onClick={closeModal} className="rounded-lg border px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="inline-flex items-center gap-2 rounded-lg bg-blue-900 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-50"
-                >
-                  {saving && <FaSpinner className="h-4 w-4 animate-spin" />}
-                  {editingOrden ? "Guardar cambios" : "Crear orden"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {detailOrden && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white shadow-xl">
             <div className="flex items-center justify-between border-b px-6 py-4">
               <h2 className="text-lg font-semibold text-gray-800">Detalle orden #{detailOrden.numeroOrden}</h2>
-              <button type="button" onClick={() => setDetailOrden(null)} className="rounded p-1 text-gray-400 hover:bg-gray-100">
+              <button
+                type="button"
+                onClick={() => setDetailOrden(null)}
+                className="rounded p-1 text-gray-400 hover:bg-gray-100"
+              >
                 <FaTimes className="h-5 w-5" />
               </button>
             </div>
@@ -440,8 +683,8 @@ export default function FormatosOrdenServicioPage() {
               <DetailRow label="Muestreo" value={detailOrden.muestreoOrden ? "Sí" : "No"} />
               <DetailRow label="Hoja observación" value={detailOrden.hojaObservacionOrden ? "Sí" : "No"} />
               <DetailRow label="Informe técnico" value={detailOrden.informeTecnicoOrden ? "Sí" : "No"} />
-              {detailOrden.otro1Orden && <DetailRow label="Otro 1" value={detailOrden.otro1Orden} />}
-              {detailOrden.otro2Orden && <DetailRow label="Otro 2" value={detailOrden.otro2Orden} />}
+              {detailOrden.otro1Orden && <DetailRow label="Proforma / otro" value={detailOrden.otro1Orden} />}
+              {detailOrden.otro2Orden && <DetailRow label="Norma / otro" value={detailOrden.otro2Orden} />}
               {detailOrden.observacionOrden && <DetailRow label="Observaciones" value={detailOrden.observacionOrden} />}
               <DetailRow label="Creado" value={formatFecha(detailOrden.fechaCreacionOrden)} />
               <DetailRow label="Por" value={detailOrden.usuarioCreacionOrden || "—"} />
@@ -459,37 +702,6 @@ export default function FormatosOrdenServicioPage() {
         onCancel={() => setConfirmDelete(null)}
       />
     </div>
-  );
-}
-
-function Field({ label, name, value, error, onChange, type = "text", as, hint, className = "", children }) {
-  const id = `orden-${name}`;
-  const base = "input w-full";
-  const errCls = error ? "border-red-500" : "";
-  return (
-    <div className={className}>
-      <label htmlFor={id} className="mb-1 block text-sm font-medium text-gray-700">{label}</label>
-      {as === "select" ? (
-        <select id={id} name={name} value={value} onChange={onChange} className={`${base} ${errCls}`}>
-          {children}
-        </select>
-      ) : as === "textarea" ? (
-        <textarea id={id} name={name} value={value} onChange={onChange} rows={3} className={`${base} ${errCls}`} />
-      ) : (
-        <input id={id} name={name} type={type} value={value} onChange={onChange} className={`${base} ${errCls}`} />
-      )}
-      {hint && <p className="mt-1 text-xs text-amber-700">{hint}</p>}
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
-    </div>
-  );
-}
-
-function Check({ name, label, checked, onChange }) {
-  return (
-    <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
-      <input type="checkbox" name={name} checked={checked} onChange={onChange} className="rounded border-gray-300" />
-      {label}
-    </label>
   );
 }
 
