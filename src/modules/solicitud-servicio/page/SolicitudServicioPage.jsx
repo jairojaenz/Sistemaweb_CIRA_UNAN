@@ -8,6 +8,7 @@ import { ROUTES } from "../../../router/routes.js";
 import { normalizeClienteFromApi } from "../../clientes/service/clienteService.js";
 import { saveSolicitudServicioLocal } from "../service/solicitudServicioService.js";
 import { mapClienteToSolicitudPrefill, nombreCompletoCliente } from "../utils/mapClienteToSolicitud.js";
+import { getMediosRecepcion } from "../../catalogos/service/medioRecepcionService.js";
 
 function isClienteActivo(c) {
   return c?.activo !== false;
@@ -89,19 +90,45 @@ export default function SolicitudServicioPage() {
     navigate(ROUTES.gestionClientes);
   }
 
-  // Constants
-  const receptionMethods = [
-    { id: 'phone', label: 'Vía telefónica' },
-    { id: 'email', label: 'Vía correo electrónico' },
-    { id: 'personal', label: 'Personal' },
-    { id: 'whatsapp', label: 'WhatsApp' },
-  ];
+  // Medios de recepción (desde API)
+  const [receptionMethods, setReceptionMethods] = useState([]);
+  const [loadingReceptionMethods, setLoadingReceptionMethods] = useState(false);
+  const [receptionMethodsError, setReceptionMethodsError] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadMedios() {
+      setLoadingReceptionMethods(true);
+      setReceptionMethodsError(null);
+      try {
+        const data = await getMediosRecepcion();
+        if (!mounted) return;
+        const list = Array.isArray(data) ? data : [];
+        const normalized = list.map((m) => ({
+          id: m.idMedioRecepcion ?? m.id ?? m.value ?? m.codigo ?? m.nombreMedioRecepcion ?? m.nombre ?? m.label,
+          label: m.nombreMedioRecepcion ?? m.nombre ?? m.label ?? String(m.idMedioRecepcion ?? m.id ?? ""),
+        }));
+        setReceptionMethods(normalized);
+      } catch (err) {
+        if (!mounted) return;
+        setReceptionMethodsError("No se pudo cargar los medios de recepción");
+      } finally {
+        if (!mounted) return;
+        setLoadingReceptionMethods(false);
+      }
+    }
+    loadMedios();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const serviceTypes = [
     { id: 'analisis', label: 'Análisis' },
     { id: 'muestreo', label: 'Muestreo' },
     { id: 'informe', label: 'Informe Técnico' },
-    { id: 'medicion', label: 'Medición in situ' },
+    { id: 'medicion', label: 'Medición NEA/ND' },
+    { id: 'transporte', label: 'Transporte' },
   ];
 
   const matrices = [
@@ -110,7 +137,6 @@ export default function SolicitudServicioPage() {
     { id: 'lodo', label: 'Lodo' },
     { id: 'sedimento', label: 'Sedimento' },
     { id: 'suelo', label: 'Suelo' },
-    { id: 'otro', label: 'Otro' },
   ];
 
   // Validation
@@ -249,32 +275,50 @@ export default function SolicitudServicioPage() {
       {/* Medio de recepción */}
       <div>
         <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
-          <div className="w-1 h-7 bg-[#fbbf24] rounded-full"></div>
+          <div className="w-1 h-7 bg-accent rounded-full"></div>
           Medio de recepción
         </h3>
         <p className="text-sm text-[#6a7282] mb-4 ml-4">Seleccione solo 1</p>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 ml-4">
-          {receptionMethods.map(method => (
-            <button
-              key={method.id}
-              type="button"
-              onClick={() => setFormData(prev => ({ ...prev, medioRecepcion: method.id }))}
-              className={`p-4 rounded-lg border-2 transition-all font-semibold ${formData.medioRecepcion === method.id
-                ? 'border-blue-900 bg-blue-100 shadow-md text-blue-900'
-                : 'border-gray-300 hover:border-blue-900/50 bg-white text-gray-700'
-                }`}
-            >
-              {method.label}
-            </button>
-          ))}
+          {loadingReceptionMethods ? (
+            [1, 2, 3, 4].map((i) => (
+              <button
+                key={i}
+                type="button"
+                disabled
+                className="p-4 rounded-lg border-2 transition-all font-semibold border-gray-300 bg-white text-gray-400"
+              >
+                Cargando...
+              </button>
+            ))
+          ) : receptionMethods.length > 0 ? (
+            receptionMethods.map((method) => (
+              <button
+                key={method.id}
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, medioRecepcion: method.id }))}
+                className={`p-4 rounded-lg border-2 transition-all font-semibold ${formData.medioRecepcion === method.id
+                  ? 'border-blue-900 bg-blue-100 shadow-md text-blue-900'
+                  : 'border-gray-300 hover:border-blue-900/50 bg-white text-gray-700'
+                  }`}
+              >
+                {method.label}
+              </button>
+            ))
+          ) : (
+            <div className="col-span-2 md:col-span-4">
+              <p className="text-sm text-[#6a7282]">No hay medios de recepción disponibles.</p>
+            </div>
+          )}
         </div>
+        {receptionMethodsError && <p className="text-red-500 text-xs mt-2 ml-4">{receptionMethodsError}</p>}
       </div>
 
       {/* Información del Usuario */}
       <div>
         <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
-          <div className="w-1 h-7 bg-[#10b981] rounded-full"></div>
+          <div className="w-1 h-7 bg-primary rounded-full"></div>
           Información del Usuario
         </h3>
         <p className="text-sm text-[#6a7282] mb-6 ml-4">Datos del cliente, empresa o institución</p>
@@ -465,7 +509,7 @@ export default function SolicitudServicioPage() {
       {/* Matrix Selection */}
       <div className="bg-gray-50 p-6 rounded-lg">
         <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
-          <div className="w-1 h-7 bg-[#fbbf24] rounded-full"></div>
+          <div className="w-1 h-7 bg-accent rounded-full"></div>
           Matriz <span className="text-red-500">*</span>
         </h3>
         <p className="text-sm text-[#6a7282] mb-4 ml-4">Seleccione solo 1</p>
@@ -509,7 +553,7 @@ export default function SolicitudServicioPage() {
       {/* Number of Samples */}
       <div>
         <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
-          <div className="w-1 h-7 bg-yellow-500 rounded-full"></div>
+          <div className="w-1 h-7 bg-primary rounded-full"></div>
           Muestras
         </h3>
         <p className="text-sm text-[#6a7282] mb-6 ml-4">Especifique la cantidad de muestras</p>
@@ -534,7 +578,7 @@ export default function SolicitudServicioPage() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
-              <div className="w-1 h-7 bg-blue-900 rounded-full"></div>
+              <div className="w-1 h-7 bg-accent rounded-full"></div>
               Análisis Solicitados
             </h3>
             <p className="text-sm text-[#6a7282] ml-4">Agregue los análisis requeridos</p>
@@ -604,7 +648,7 @@ export default function SolicitudServicioPage() {
       {/* Sampling Location */}
       <div>
         <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
-          <div className="w-1 h-7 bg-[#fbbf24] rounded-full"></div>
+          <div className="w-1 h-7 bg-primary rounded-full"></div>
           Ubicación de Muestreo
         </h3>
         <p className="text-sm text-[#6a7282] mb-6 ml-4">Dirección y/o coordenadas de los puntos</p>
@@ -736,7 +780,7 @@ export default function SolicitudServicioPage() {
       {/* Digital Signature */}
       <div>
         <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
-          <div className="w-1 h-7 bg-[#10b981] rounded-full"></div>
+          <div className="w-1 h-7 bg-primary rounded-full"></div>
           Verificación Final
         </h3>
         <p className="text-sm text-[#6a7282] mb-6 ml-4">Complete la información de verificación</p>
@@ -801,16 +845,6 @@ export default function SolicitudServicioPage() {
         </div>
 
         <p className="mt-4 ml-4 text-xs text-[#6a7282]">Al ingresar su firma acepta los términos y condiciones del servicio</p>
-      </div>
-
-      {/* Success Message */}
-      <div className="bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-lg border-2 border-green-200">
-        <div className="flex items-start gap-4">
-          <div>
-            <p className="text-sm font-bold text-green-800 mb-1">¡Casi listo!</p>
-            <p className="text-sm text-gray-700">Verifique que toda la información sea correcta y haga clic en "Guarda" para completar su solicitud de servicio.</p>
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -907,7 +941,7 @@ export default function SolicitudServicioPage() {
               <button
                 type="button"
                 onClick={handleSubmit}
-                className="flex items-center gap-2 rounded-lg bg-green-600 px-6 py-2 font-semibold text-white shadow-md transition-all hover:bg-green-700 hover:shadow-lg"
+                className="flex items-center gap-2 rounded-lg bg-blue-900 px-6 py-2 font-semibold text-white shadow-md transition-all hover:bg-blue-950 hover:shadow-lg"
               >
                 Guardar
                 <ChevronRight className="h-5 w-5" />

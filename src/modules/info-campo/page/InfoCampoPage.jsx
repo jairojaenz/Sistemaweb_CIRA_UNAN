@@ -467,7 +467,7 @@ export default function FormWizard() {
                       <div className="flex items-center justify-between mb-6">
                         <div>
                           <h3 className="text-lg font-bold text-primary mb-1 flex items-center gap-3">
-                            <div className="w-1 h-7 bg-primary rounded-full"></div>
+                            <div className="w-1 h-7 bg-accent rounded-full"></div>
                             Ensayos Solicitados
                           </h3>
                           <p className="text-sm text-gray-500 ml-4">Agregue los análisis requeridos</p>
@@ -476,7 +476,7 @@ export default function FormWizard() {
                           type="button"
                           onClick={handleAddEnsayo}
                           disabled={!formData.ensayoTipoTemp.trim() || !formData.ensayoTecnicaTemp.trim()}
-                          className="flex items-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg font-semibold"
+                          className="flex items-center gap-2 px-6 py-2.5 bg-blue-900 text-white rounded-lg hover:bg-blue-950 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg font-semibold"
                         >
                           <Plus className="w-4 h-4" />
                           Agregar
@@ -722,7 +722,7 @@ export default function FormWizard() {
               {/* PARÁMETROS DE CAMPO */}
               <div className="bg-gray-50 p-6 rounded-lg">
                 <h3 className="text-lg font-bold text-primary mb-1 flex items-center gap-3">
-                  <div className="w-1 h-7 bg-secondary rounded-full"></div>
+                  <div className="w-1 h-7 bg-primary rounded-full"></div>
                   Parámetros de Campo
                 </h3>
                 <p className="text-sm text-gray-500 mb-6 ml-4">Ingrese los valores medidos (opcional)</p>
@@ -758,7 +758,7 @@ export default function FormWizard() {
               {/* TIPO DE MUESTREO */}
               <div className="bg-gray-50 p-6 rounded-lg">
                 <h3 className="text-lg font-bold text-primary mb-1 flex items-center gap-3">
-                  <div className="w-1 h-7 bg-primary rounded-full"></div>
+                  <div className="w-1 h-7 bg-accent rounded-full"></div>
                   Tipo de Muestreo <span className="text-red-500">*</span>
                 </h3>
                 <p className="text-sm text-gray-500 mb-4 ml-4">Seleccione solo 1</p>
@@ -797,8 +797,10 @@ export default function FormWizard() {
                     <div className="space-y-3">
                       {[
                         { value: '8-horas', label: 'Compuesto de 8 horas' },
+                        { value: '12-horas', label: 'Compuesto de 12 horas' },
+                        { value: '16-horas', label: 'Compuesto de 16 horas' },
                         { value: '24-horas', label: 'Compuesto de 24 horas' },
-                        { value: 'otro', label: 'Otro' },
+                        //{ value: 'otro', label: 'Otro' },
                       ].map((suboption) => (
                         <label key={suboption.value} className="flex items-center gap-3 cursor-pointer">
                           <input
@@ -840,7 +842,7 @@ export default function FormWizard() {
               {/* EQUIPOS UTILIZADOS */}
               <div className="bg-gray-50 p-6 rounded-lg">
                 <h3 className="text-lg font-bold text-primary mb-1 flex items-center gap-3">
-                  <div className="w-1 h-7 bg-accent rounded-full"></div>
+                  <div className="w-1 h-7 bg-primary rounded-full"></div>
                   Equipos Utilizados <span className="text-red-500">*</span>
                 </h3>
                 <p className="text-sm text-gray-500 mb-4 ml-4">Liste los instrumentos empleados</p>
@@ -1159,14 +1161,6 @@ export default function FormWizard() {
                   </div>
                 </div>
               </div>
-
-              {/* MENSAJE FINAL */}
-              <div className="bg-green-50 border-l-4 border-green-600 p-6 rounded-lg">
-                <p className="text-sm text-foreground font-semibold flex items-center gap-3">
-                  <span className="text-2xl">✅</span>
-                  FIN DEL DOCUMENTO - Verifique que toda la información sea correcta antes de enviar.
-                </p>
-              </div>
             </div>
           )}
 
@@ -1212,7 +1206,7 @@ export default function FormWizard() {
             {currentStep < 3 ? (
               <button
                 onClick={handleNext}
-                className="flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-all shadow-md hover:shadow-lg font-semibold"
+                className="flex items-center gap-2 px-6 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-950 transition-all shadow-md hover:shadow-lg font-semibold"
               >
                 Siguiente
                 <ChevronRight className="w-5 h-5" />
@@ -1220,7 +1214,7 @@ export default function FormWizard() {
             ) : (
               <button
                 onClick={handleSubmit}
-                className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all shadow-md hover:shadow-lg font-semibold"
+                className="flex items-center gap-2 px-6 py-2 bg-blue-900 text-white rounded-lg hover:bg-green-700 transition-all shadow-md hover:shadow-lg font-semibold"
               >
                 Guardar
                 <ChevronRight className="w-5 h-5" />
