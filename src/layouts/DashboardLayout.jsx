@@ -105,6 +105,14 @@ export default function DashboardLayout() {
     if (p.includes("/catalogos/preservantes")) return "Catálogo de Preservantes";
     if (p.includes("/dashboard/proformas")) return "Proformas";
     if (p.includes("/catalogos/cargos")) return "Catálogo de Cargos";
+    if (p.includes("/catalogos/departamentos")) return "Catálogo de Departamentos";
+    if (p.includes("/catalogos/fuentes")) return "Catálogo de Fuentes";
+    if (p.includes("/catalogos/municipios")) return "Catálogo de Municipios";
+    if (p.includes("/catalogos/tipos-clientes")) return "Catálogo de Tipos de Clientes";
+    if (p.includes("/catalogos/grupos-analisis")) return "Catálogo de Grupos de Análisis";
+    if (p.includes("/catalogos/tecnicas-analisis")) return "Catálogo de Técnicas de Análisis";
+    if (p.includes("/catalogos/tipos-muestreo")) return "Catálogo de Tipos de Muestreo";
+    if (p.includes("/catalogos/equipos-muestreo")) return "Catálogo de Equipos de Muestreo";
     return "INFORMACIÓN DE CAMPO DE MUESTRAS";
   }
 
