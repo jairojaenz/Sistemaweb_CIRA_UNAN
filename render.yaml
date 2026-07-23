@@ -1,0 +1,27 @@
+# Render Blueprint — Frontend (Static Site)
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: cira-frontend
+    runtime: static
+    repo: https://github.com/jairojaenz/Sistemaweb_CIRA_UNAN
+    branch: main
+    buildCommand: npm install && npm run build
+    publishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://cira-web-api.onrender.com
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
