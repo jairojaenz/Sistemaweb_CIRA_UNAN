@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaUserAlt, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
 
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
 export default function LoginForm() {
   const [correo, setCorreo] = useState("");
   const [password, setPassword] = useState("");
@@ -18,7 +20,7 @@ export default function LoginForm() {
     try {
       setLoading(true);
       const response = await fetch(
-        "http://127.0.0.1:8000/api/login",
+        `${API_BASE}/api/login`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

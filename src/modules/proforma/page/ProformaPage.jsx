@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { createPortal } from "react-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
+  FaClipboardList,
   FaDownload,
   FaEdit,
+  FaEllipsisV,
   FaEye,
   FaFileInvoiceDollar,
   FaPlus,
@@ -41,6 +44,7 @@ const initialEditForm = {
 export default function ProformaPage() {
   const { addToast } = useToast();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [proformas, setProformas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -51,6 +55,43 @@ export default function ProformaPage() {
   const [editFormErrors, setEditFormErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(null);
+  const [accionesMenu, setAccionesMenu] = useState(null);
+
+  const ACCIONES_MENU_ALTURA_PX = 160;
+
+  function abrirMenuAcciones(e, proforma) {
+    e.stopPropagation();
+    if (accionesMenu?.proforma?.idProforma === proforma.idProforma) {
+      setAccionesMenu(null);
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const espacioAbajo = window.innerHeight - rect.bottom;
+    const placement = espacioAbajo >= ACCIONES_MENU_ALTURA_PX ? "bottom" : "top";
+    setAccionesMenu({
+      proforma,
+      x: rect.right,
+      y: placement === "bottom" ? rect.bottom + 4 : rect.top - 4,
+      placement,
+    });
+  }
+
+  function cerrarMenuAcciones() {
+    setAccionesMenu(null);
+  }
+
+  useEffect(() => {
+    if (!accionesMenu) return;
+    const cerrar = () => setAccionesMenu(null);
+    document.addEventListener("click", cerrar);
+    window.addEventListener("scroll", cerrar, true);
+    window.addEventListener("resize", cerrar);
+    return () => {
+      document.removeEventListener("click", cerrar);
+      window.removeEventListener("scroll", cerrar, true);
+      window.removeEventListener("resize", cerrar);
+    };
+  }, [accionesMenu]);
 
   const loadProformas = useCallback(async () => {
     try {
@@ -268,44 +309,97 @@ export default function ProformaPage() {
                     </span>
                   </td>
                     <td className="px-4 py-3 sm:px-6">
-                     <div className="flex items-center gap-2">
-                       <button
-                         type="button"
-                         title="Descargar PDF"
-                         onClick={() => handleDownloadPdf(p)}
-                         disabled={generatingPdf === p.idProforma}
-                         className="rounded p-1.5 text-blue-900 hover:bg-blue-100 disabled:opacity-50"
-                       >
-                         {generatingPdf === p.idProforma ? (
-                           <FaSpinner className="h-4 w-4 animate-spin" />
-                         ) : (
-                           <FaDownload className="h-4 w-4" />
-                         )}
-                       </button>
-                       <button
-                         type="button"
-                         title="Ver detalle"
-                         onClick={() => openDetailModal(p)}
-                         className="rounded p-1.5 text-blue-900 hover:bg-blue-100"
-                       >
-                         <FaEye className="h-4 w-4" />
-                       </button>
-                       <button
-                         type="button"
-                         title="Editar"
-                         onClick={() => openEditModal(p)}
-                         className="rounded p-1.5 text-blue-900 hover:bg-blue-100"
-                       >
-                         <FaEdit className="h-4 w-4" />
-                       </button>
-                     </div>
-                   </td>
+                      <button
+                        type="button"
+                        title="Más acciones"
+                        aria-expanded={accionesMenu?.proforma?.idProforma === p.idProforma}
+                        aria-haspopup="menu"
+                        onClick={(e) => abrirMenuAcciones(e, p)}
+                        className="rounded p-1.5 text-gray-600 hover:bg-gray-100"
+                      >
+                        <FaEllipsisV className="h-4 w-4" />
+                      </button>
+                    </td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
+
+      {accionesMenu &&
+        createPortal(
+          <div
+            role="menu"
+            onClick={(e) => e.stopPropagation()}
+            className="fixed z-[100] min-w-[11rem] rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+            style={{
+              left: accionesMenu.x,
+              top: accionesMenu.y,
+              transform:
+                accionesMenu.placement === "bottom"
+                  ? "translateX(-100%)"
+                  : "translate(-100%, -100%)",
+            }}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+              onClick={() => {
+                handleDownloadPdf(accionesMenu.proforma);
+                cerrarMenuAcciones();
+              }}
+              disabled={generatingPdf === accionesMenu.proforma.idProforma}
+            >
+              {generatingPdf === accionesMenu.proforma.idProforma ? (
+                <FaSpinner className="h-4 w-4 animate-spin text-blue-900" />
+              ) : (
+                <FaDownload className="h-4 w-4 text-blue-900" />
+              )}
+              Descargar PDF
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+              onClick={() => {
+                openDetailModal(accionesMenu.proforma);
+                cerrarMenuAcciones();
+              }}
+            >
+              <FaEye className="h-4 w-4 text-blue-900" />
+              Ver detalle
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+              onClick={() => {
+                openEditModal(accionesMenu.proforma);
+                cerrarMenuAcciones();
+              }}
+            >
+              <FaEdit className="h-4 w-4 text-blue-900" />
+              Editar
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+              onClick={() => {
+                navigate(ROUTES.planMuestreoPaso(1), {
+                  state: { fromProforma: accionesMenu.proforma },
+                });
+                cerrarMenuAcciones();
+              }}
+            >
+              <FaClipboardList className="h-4 w-4 text-amber-700" />
+              Crear Plan de Muestreo
+            </button>
+          </div>,
+          document.body
+        )}
 
       {/* Detail Modal */}
       {detailProforma && (

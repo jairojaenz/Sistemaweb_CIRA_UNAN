@@ -1,3 +1,5 @@
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
 let accessToken = null;
 let refreshPromise = null;
 
@@ -6,7 +8,7 @@ export function setAccessToken(token) {
 }
 
 async function doRefresh() {
-  const res = await fetch("/api/auth/refresh", {
+  const res = await fetch(`${API_BASE}/api/auth/refresh`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -46,7 +48,9 @@ async function request(url, { method = "GET", body, formData = false, skipAuth =
     fetchBody = JSON.stringify(body);
   }
 
-  let res = await fetch(url, {
+  const fullUrl = `${API_BASE}${url}`;
+
+  let res = await fetch(fullUrl, {
     method,
     credentials: "include",
     headers,
@@ -57,7 +61,7 @@ async function request(url, { method = "GET", body, formData = false, skipAuth =
     const newToken = await refreshToken();
     if (newToken) {
       headers["Authorization"] = `Bearer ${newToken}`;
-      res = await fetch(url, {
+      res = await fetch(fullUrl, {
         method,
         credentials: "include",
         headers,

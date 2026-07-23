@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import PlanMuestreoLayout from "./PlanMuestreoLayout.jsx";
 import { loadDraft, saveDraft } from "../service/planMuestreoDraftStorage.js";
 import { ROUTES } from "../../../router/routes.js";
@@ -7,11 +7,52 @@ import { formatTelefonoLocal } from "../../../utils/phoneFormat.js";
 
 export default function PlanMuestreoPaso1() {
   const navigate = useNavigate();
-  const [draft, setDraft] = useState(() => loadDraft());
+  const location = useLocation();
+  const fromProforma = location.state?.fromProforma;
+
+  const [draft, setDraft] = useState(() => {
+    const draft = loadDraft();
+    if (!fromProforma) return draft;
+    const { cliente } = fromProforma;
+
+    const detalleRows = (fromProforma.detalles ?? []).map((d) => ({
+      lugarMuestreo: "",
+      identificacionMuestra: "",
+      coordenadas: "",
+      matriz: "",
+      fuente: "",
+      ensayosSolicitados: d.nombreAnalisis || "",
+      tipoEnvaseVolumen: "",
+      preservantes: "",
+    }));
+
+    return {
+      ...draft,
+      paso1: {
+        ...draft.paso1,
+        usuarioProyecto: `${cliente.nombreCliente} ${cliente.apellidoCliente}`.trim(),
+        proformaNo: fromProforma.numeroProforma || "",
+        direccionUsuario: cliente.direccionCliente || "",
+        telefono: formatTelefonoLocal(cliente.telefonoCliente || cliente.celularCliente || ""),
+        atencionA: `${cliente.nombreCliente} ${cliente.apellidoCliente}`.trim(),
+        personaContacto: `${cliente.nombreCliente} ${cliente.apellidoCliente}`.trim(),
+        telefonoContacto: formatTelefonoLocal(cliente.telefonoCliente || cliente.celularCliente || ""),
+      },
+      paso2: detalleRows.length > 0
+        ? { ...draft.paso2, detalle: detalleRows }
+        : draft.paso2,
+    };
+  });
 
   useEffect(() => {
     saveDraft(draft);
   }, [draft]);
+
+  useEffect(() => {
+    if (fromProforma) {
+      navigate(ROUTES.planMuestreoPaso(1), { replace: true });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const paso1 = draft.paso1;
 

@@ -1,9 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaTrashAlt } from "react-icons/fa";
 import PlanMuestreoLayout from "./PlanMuestreoLayout.jsx";
 import { loadDraft, saveDraft } from "../service/planMuestreoDraftStorage.js";
 import { ROUTES } from "../../../router/routes.js";
+import { getUsuarios } from "../../usuarios/service/usuarioService.js";
+
+function labelUsuario(u) {
+  const nombre = u.nombreUsuario ?? u.NombreUsuario ?? "";
+  const apellido = u.apellidoUsuario ?? u.ApellidoUsuario ?? "";
+  return `${nombre} ${apellido}`.trim() || nombre;
+}
 
 const HORAS_COMPUESTO = ["8 h", "10 h", "12 h", "16 h", "24 h", "Otro"];
 
@@ -24,6 +31,20 @@ function ToggleChip({ checked, label, onChange }) {
 export default function PlanMuestreoPaso2() {
   const navigate = useNavigate();
   const [draft, setDraft] = useState(() => loadDraft());
+  const [usuarios, setUsuarios] = useState([]);
+
+  const loadUsuarios = useCallback(async () => {
+    try {
+      const data = await getUsuarios();
+      setUsuarios((data ?? []).filter((u) => u.activo !== false && u.Activo !== false));
+    } catch {
+      // silent
+    }
+  }, []);
+
+  useEffect(() => {
+    loadUsuarios();
+  }, [loadUsuarios]);
 
   useEffect(() => {
     saveDraft(draft);
@@ -148,23 +169,43 @@ export default function PlanMuestreoPaso2() {
                   <label className="text-sm font-semibold text-gray-700">
                     Coordinador del muestreo
                   </label>
-                  <input
-                    className="input mt-1"
+                  <select
+                    className="select mt-1"
                     value={paso2.coordinador}
                     onChange={(e) => setPaso2({ coordinador: e.target.value })}
-                  />
+                  >
+                    <option value="">— Seleccionar —</option>
+                    {usuarios.map((u) => {
+                      const id = u.idUsuario ?? u.IdUsuario;
+                      return (
+                        <option key={id} value={labelUsuario(u)}>
+                          {labelUsuario(u)}
+                        </option>
+                      );
+                    })}
+                  </select>
                 </div>
                 <div>
                   <label className="text-sm font-semibold text-gray-700">
                     Reemplazo del coordinador del muestreo
                   </label>
-                  <input
-                    className="input mt-1"
+                  <select
+                    className="select mt-1"
                     value={paso2.reemplazoCoordinador}
                     onChange={(e) =>
                       setPaso2({ reemplazoCoordinador: e.target.value })
                     }
-                  />
+                  >
+                    <option value="">— Seleccionar —</option>
+                    {usuarios.map((u) => {
+                      const id = u.idUsuario ?? u.IdUsuario;
+                      return (
+                        <option key={id} value={labelUsuario(u)}>
+                          {labelUsuario(u)}
+                        </option>
+                      );
+                    })}
+                  </select>
                 </div>
               </div>
             </div>
