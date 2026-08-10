@@ -1,14 +1,13 @@
+/**
+ * Service: catálogos auxiliares para el formulario de orden.
+ * GET /api/FormatosCampoMuestra (listado para el selector idFormatoCampo).
+ */
 import { apiGet } from "../../../auth/api.js";
-
-function normalizeListResponse(res) {
-  if (Array.isArray(res)) return res;
-  if (Array.isArray(res?.data)) return res.data;
-  return [];
-}
+import { asList } from "../../../utils/apiList.js";
 
 export async function getFormatosCampo() {
   const res = await apiGet("/api/FormatosCampoMuestra");
-  return normalizeListResponse(res).map((raw) => ({
+  return asList(res).map((raw) => ({
     idFormatoCampo: raw.idFormatoCampo ?? raw.IdFormatoCampo,
     comunidad: raw.comunidad ?? raw.Comunidad ?? "",
     muestraCaptadaCampo: raw.muestraCaptadaCampo ?? raw.MuestraCaptadaCampo ?? "",

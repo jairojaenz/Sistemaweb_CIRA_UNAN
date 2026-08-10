@@ -1,39 +1,38 @@
-import {
-  apiGet,
-  apiPost,
-  apiPut,
-  apiDelete,
-} from "../../../auth/api";// Importamos las funciones de la capa de API para realizar las solicitudes HTTP para interactuar con el backend.
+/**
+ * Service: Medios de recepción
+ * API: /api/catalogos/medios-recepcion
+ * UI `nombreMedioRecepcion` ↔ API `Nombre`.
+ */
+import { apiGet, apiPost, apiPut, apiDelete } from "../../../auth/api";
+import { asList, normalizeNamedItem, toNamedPayload } from "../../../utils/apiList.js";
+
+const ID = "idMedioRecepcion";
+const NAME = "nombreMedioRecepcion";
+
+function normalize(raw) {
+  return normalizeNamedItem(raw, { idKey: ID, nameKey: NAME });
+}
 
 export async function getMediosRecepcion() {
-  const res = await apiGet("/api/catalogos/medios-recepcion");
-  return res ?? [];
-}// Nota: El operador de coalescencia nula (??) asegura que se devuelva un array vacío si res es null o undefined.
+  return asList(await apiGet("/api/catalogos/medios-recepcion")).map(normalize);
+}
 
 export async function getMedioRecepcionById(id) {
-  return await apiGet(`/api/catalogos/medios-recepcion/${id}`);
-}// El endpoint para obtener un medio de recepción por ID.
+  return normalize(await apiGet(`/api/catalogos/medios-recepcion/${id}`));
+}
 
 export async function createMedioRecepcion(data) {
-  return await apiPost(
-    "/api/catalogos/medios-recepcion",
-    data
-  );
-}// El endpoint para crear un nuevo medio de recepción, enviando los datos necesarios en el cuerpo de la solicitud.
+  return apiPost("/api/catalogos/medios-recepcion", toNamedPayload(data, NAME));
+}
 
 export async function updateMedioRecepcion(id, data) {
-  return await apiPut(
-    `/api/catalogos/medios-recepcion/${id}`,
-    data
-  );
-}// El endpoint para actualizar un medio de recepción existente.
+  return apiPut(`/api/catalogos/medios-recepcion/${id}`, toNamedPayload(data, NAME));
+}
 
-/* export async function deleteMedioRecepcion(id) {
-  return await apiDelete(`/api/catalogos/medios-recepcion/${id}`);
-}*/ // El endpoint para eliminar un medio de recepción por ID.
+export async function deleteMedioRecepcion(id) {
+  return apiDelete(`/api/catalogos/medios-recepcion/${id}`);
+}
 
 export async function toggleMedioRecepcionStatus(id) {
-  return await apiPut(
-    `/api/catalogos/medios-recepcion/toggle-mediorec-status/${id}`
-  );
-}// El endpoint para alternar el estado de un medio de recepción (activo/inactivo) por ID.
+  return apiPut(`/api/catalogos/medios-recepcion/toggle-mediorec-status/${id}`);
+}

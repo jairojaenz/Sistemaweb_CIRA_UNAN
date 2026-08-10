@@ -1,4 +1,9 @@
+/**
+ * Dashboard home: agrega conteos desde Users + catálogos.
+ * Usa Promise.allSettled para no tumbar todo el panel si un endpoint falla (p. ej. 403 no-admin).
+ */
 import { apiGet } from "../../../auth/api";
+import { asList } from "../../../utils/apiList.js";
 
 export async function getDashboardStats() {
   const [usersRes, labsRes, cargosRes, deptosRes] = await Promise.allSettled([
@@ -8,10 +13,10 @@ export async function getDashboardStats() {
     apiGet("/api/catalogos/departamentos"),
   ]);
 
-  const users = usersRes.status === "fulfilled" ? (usersRes.value.users ?? []) : [];
-  const labs = labsRes.status === "fulfilled" ? (labsRes.value ?? []) : [];
-  const cargos = cargosRes.status === "fulfilled" ? (cargosRes.value ?? []) : [];
-  const deptos = deptosRes.status === "fulfilled" ? (deptosRes.value ?? []) : [];
+  const users = usersRes.status === "fulfilled" ? asList(usersRes.value) : [];
+  const labs = labsRes.status === "fulfilled" ? asList(labsRes.value) : [];
+  const cargos = cargosRes.status === "fulfilled" ? asList(cargosRes.value) : [];
+  const deptos = deptosRes.status === "fulfilled" ? asList(deptosRes.value) : [];
 
   return {
     totalUsuarios: users.length,

@@ -21,7 +21,7 @@ import {
   getSolicitudes,
 } from "../service/solicitudServicioService.js";
 
-const ACCIONES_MENU_ALTURA_PX = 132;
+const ACCIONES_MENU_ALTURA_PX = 176;
 
 export default function ListaSolicitudServicioPage() {
   const navigate = useNavigate();
@@ -352,6 +352,18 @@ export default function ListaSolicitudServicioPage() {
               role="menuitem"
               className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
               onClick={() => {
+                const id = accionesMenu.solicitud.idFormatoSolicitud;
+                cerrarMenuAcciones();
+                navigate(ROUTES.formatosOrdenServicioNuevaFromSolicitud(id));
+              }}
+            >
+              Crear Orden de servicio
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+              onClick={() => {
                 cerrarMenuAcciones();
               }}
             >
@@ -425,39 +437,47 @@ export default function ListaSolicitudServicioPage() {
 
               <div className="rounded-lg border border-gray-200 bg-slate-50 p-4">
                 <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
-                  Detalles de análisis
+                  Análisis solicitados
                 </h3>
 
-                <div className="space-y-3">
-                  {detailSolicitud.detalles?.map(
-                    (
-                      detalles,
-                      index
-                    ) => (
-                      <div
-                        key={`${detalles.nombreAnalisis}-${index}`}
-                        className="rounded-lg border border-gray-200 bg-white p-3"
-                      >
-                        <p className="text-sm font-medium text-gray-800">
-                          {
-                            detalles.nombreAnalisis
-                          }
-                        </p>
-
-                        <p className="text-sm text-gray-600">
-                          {
-                            detalles.abreviacionAnalisis
-                          }
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          {
-                            detalles.precioAnalisis
-                          }
-                        </p>
-                      </div>
-                    )
-                  )}
-                </div>
+                {detailSolicitud.detalles?.length > 0 ? (
+                  <div className="overflow-x-auto rounded-lg border border-gray-200">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-gray-200 text-xs uppercase text-gray-600">
+                        <tr>
+                          <th className="px-3 py-2 font-semibold">Análisis</th>
+                          <th className="px-3 py-2 font-semibold">Técnica / Abrev.</th>
+                          <th className="px-3 py-2 text-center font-semibold">Cant.</th>
+                          <th className="px-3 py-2 font-semibold">Laboratorio</th>
+                          <th className="px-3 py-2 text-right font-semibold">Precio</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200 bg-white">
+                        {detailSolicitud.detalles.map((d, index) => (
+                          <tr key={`${d.idAnalisis ?? d.nombreAnalisis}-${index}`}>
+                            <td className="px-3 py-2 font-medium text-gray-800">
+                              {d.nombreAnalisis}
+                            </td>
+                            <td className="px-3 py-2 text-gray-600">
+                              {d.nombreTecnicaTexto || d.abreviacionAnalisis || "—"}
+                            </td>
+                            <td className="px-3 py-2 text-center">{d.cantidad ?? 1}</td>
+                            <td className="px-3 py-2 text-gray-600">
+                              {d.nombreLaboratorio || "—"}
+                            </td>
+                            <td className="px-3 py-2 text-right text-gray-600">
+                              {d.precioAnalisis != null
+                                ? `C$${Number(d.precioAnalisis).toLocaleString("es-NI", { minimumFractionDigits: 2 })}`
+                                : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500">Sin análisis registrados.</p>
+                )}
               </div>
 
               <div>

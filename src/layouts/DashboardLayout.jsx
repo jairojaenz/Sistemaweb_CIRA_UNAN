@@ -9,6 +9,7 @@ import {
   FaFolder,
   FaFlask,
   FaHome,
+  FaKey,
   FaSignOutAlt,
   FaTasks,
   FaUniversity,
@@ -16,7 +17,10 @@ import {
   FaUsersCog,
 } from "react-icons/fa";
 import { useAuth } from "../auth/AuthContext";
+import { isAdministrador } from "../modules/auth/model/constants.js";
 import { ROUTES } from "../router/routes";
+import ChangePasswordModal from "../components/ChangePasswordModal.jsx";
+import { useToast } from "../components/ToastContext.jsx";
 import ciraLogo from "../assets/CIRA.png";
 import unanLogo from "../assets/unan-managua.png";
 
@@ -62,10 +66,12 @@ function ConfirmDialog({ open, onConfirm, onCancel }) {
 
 export default function DashboardLayout() {
   const { user, logout } = useAuth();
+  const { addToast } = useToast();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   const planMuestreoActive = pathname.includes("/plan-muestreo");
   const catalogosActive = pathname.includes("/catalogos");
@@ -118,6 +124,14 @@ export default function DashboardLayout() {
 
   const handleLogout = async () => {
     setShowLogoutConfirm(false);
+    await logout();
+    navigate(ROUTES.login);
+  };
+
+  /** Tras change-password la API revoca refresh tokens: cierra sesión local y vuelve al login. */
+  const handlePasswordChanged = async () => {
+    setShowChangePassword(false);
+    addToast("Contraseña actualizada. Inicie sesión de nuevo.", "success");
     await logout();
     navigate(ROUTES.login);
   };
@@ -296,7 +310,8 @@ export default function DashboardLayout() {
             {sidebarOpen && <span className="truncate">Gestión de Laboratorios</span>}
           </NavLink>
 
-          {(user?.cargoNombre === "Administrador" || user?.role === "admin") && (
+          {/* Menú admin: mismo criterio que ProtectedRoute / claim role del JWT */}
+          {isAdministrador(user) && (
             <NavLink
               to={ROUTES.gestionUsuarios}
               title={!sidebarOpen ? "Gestión de Usuarios" : undefined}
@@ -311,7 +326,7 @@ export default function DashboardLayout() {
               {sidebarOpen && <span className="truncate">Gestión de Usuarios</span>}
             </NavLink>
           )}
-           {(user?.cargoNombre === "Administrador" || user?.role === "admin") && (
+           {isAdministrador(user) && (
             <NavLink
               to={ROUTES.gestionClientes}
               title={!sidebarOpen ? "Gestión de Clientes" : undefined}
@@ -337,6 +352,18 @@ export default function DashboardLayout() {
           )}
           <button
             type="button"
+            title={!sidebarOpen ? "Cambiar contraseña" : undefined}
+            onClick={() => setShowChangePassword(true)}
+            className={[
+              "flex w-full items-center rounded-lg py-2.5 text-sm font-medium text-blue-100 transition hover:bg-blue-800/70 hover:text-white",
+              sidebarOpen ? "gap-3 px-4" : "justify-center px-0",
+            ].join(" ")}
+          >
+            <FaKey className="h-5 w-5 flex-shrink-0 opacity-90" />
+            {sidebarOpen && <span className="truncate">Cambiar contraseña</span>}
+          </button>
+          <button
+            type="button"
             title={!sidebarOpen ? "Cerrar sesión" : undefined}
             onClick={() => setShowLogoutConfirm(true)}
             className={[
@@ -353,6 +380,11 @@ export default function DashboardLayout() {
         open={showLogoutConfirm}
         onConfirm={handleLogout}
         onCancel={() => setShowLogoutConfirm(false)}
+      />
+      <ChangePasswordModal
+        open={showChangePassword}
+        onClose={() => setShowChangePassword(false)}
+        onSuccess={handlePasswordChanged}
       />
       </aside>
 

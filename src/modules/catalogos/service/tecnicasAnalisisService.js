@@ -1,8 +1,14 @@
+/**
+ * Service: Técnicas de análisis
+ * API: /api/catalogos/tecnicas-analisis
+ * Toggle = PUT con activo invertido (sin ruta toggle).
+ */
 import { apiDelete, apiGet, apiPost, apiPut } from "../../../auth/api";
+import { asList } from "../../../utils/apiList.js";
 
 export async function getTecnicasAnalisis() {
   const res = await apiGet("/api/catalogos/tecnicas-analisis");
-  return res ?? [];
+  return asList(res);
 }
 
 export async function getTecnicaAnalisisById(id) {
@@ -21,11 +27,11 @@ export async function deleteTecnicaAnalisis(id) {
   return await apiDelete(`/api/catalogos/tecnicas-analisis/${id}`);
 }
 
-export async function toggleTecnicaAnalisisStatus(tecnica) {
-  return updateTecnicaAnalisis(tecnica.idTecnicaAnalisis, {
-    nombreTecnica: tecnica.nombreTecnica,
-    descripcionTecnica: tecnica.descripcionTecnica ?? "",
-    idLaboratorio: tecnica.idLaboratorio,
-    activo: !tecnica.activo,
+export async function toggleTecnicaAnalisisStatus(item) {
+  return updateTecnicaAnalisis(item.idTecnicaAnalisis, {
+    nombreTecnica: item.nombreTecnica,
+    descripcionTecnica: item.descripcionTecnica ?? null,
+    idLaboratorio: item.idLaboratorio,
+    activo: !item.activo,
   });
 }

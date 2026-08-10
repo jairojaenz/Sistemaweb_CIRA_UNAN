@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "../../../auth/AuthContext.jsx";
 import { ChevronLeft, ChevronRight, FileCheck, Plus, Trash2 } from "lucide-react";
 import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import { useToast } from "../../../components/ToastContext.jsx";
 import WizardStepIndicator from "../../../components/WizardStepIndicator.jsx";
 import { ROUTES } from "../../../router/routes.js";
 import { normalizeClienteFromApi } from "../../clientes/service/clienteService.js";
-import { saveSolicitudServicioLocal } from "../service/solicitudServicioService.js";
+import { createSolicitudServicio } from "../service/solicitudServicioService.js";
+import { formToSolicitudPayload } from "../utils/formToSolicitudPayload.js";
 import { mapClienteToSolicitudPrefill, nombreCompletoCliente } from "../utils/mapClienteToSolicitud.js";
 import { getMediosRecepcion } from "../../catalogos/service/medioRecepcionService.js";
 import { getServicios } from "../../catalogos/service/servicioService.js";
@@ -44,6 +46,7 @@ const initialFormData = {
 
 export default function SolicitudServicioPage() {
   const { addToast } = useToast();
+  const { user } = useAuth();
   const { idCliente: idClienteParam } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -53,6 +56,7 @@ export default function SolicitudServicioPage() {
   const [formData, setFormData] = useState({ ...initialFormData });
 
   const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
   const [avisoClienteInactivo, setAvisoClienteInactivo] = useState(false);
 
   const clienteDesdeNavegacion = useMemo(() => {
@@ -227,6 +231,8 @@ export default function SolicitudServicioPage() {
     if (step === 2) {
       if (!formData.tipoServicio || (Array.isArray(formData.tipoServicio) && formData.tipoServicio.length === 0)) newErrors.tipoServicio = 'Seleccione al menos un servicio';
       if (!formData.matriz || !Array.isArray(formData.matriz) || formData.matriz.length === 0) newErrors.matriz = 'Seleccione al menos una matriz';
+      const analisisValidos = (formData.analisisSolicitados ?? []).some((a) => String(a.tipoAnalisis ?? "").trim());
+      if (!analisisValidos) newErrors.analisisSolicitados = 'Agregue al menos un análisis solicitado';
     }
 
     if (step === 3) {
@@ -284,16 +290,36 @@ export default function SolicitudServicioPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateStep(3)) return;
-    const ok = saveSolicitudServicioLocal({
-      ...formData,
-      idCliente: idCliente && !Number.isNaN(idCliente) ? idCliente : undefined,
-    });
-    if (ok) {
-      addToast("Solicitud guardada correctamente.", "success");
-    } else {
-      addToast("No se pudo guardar la solicitud.", "error");
+
+    if (!idCliente || Number.isNaN(idCliente)) {
+      addToast("Debe crear la solicitud desde un cliente (Gestión de Clientes).", "error");
+      return;
+    }
+
+    const idUsuario = Number(user?.idUsuario ?? user?.id ?? user?.Id ?? 0);
+    if (!idUsuario) {
+      addToast("No se pudo identificar el usuario de sesión. Inicie sesión con su cuenta.", "error");
+      return;
+    }
+
+    if (!formData.medioRecepcion) {
+      addToast("Seleccione el medio de recepción en el paso 1.", "error");
+      setCurrentStep(1);
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const payload = formToSolicitudPayload(formData, { idCliente, idUsuario });
+      await createSolicitudServicio(payload);
+      addToast("Solicitud registrada correctamente.", "success");
+      navigate(ROUTES.solicitudServicio);
+    } catch (err) {
+      addToast(err?.message || "No se pudo registrar la solicitud.", "error");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -811,6 +837,9 @@ export default function SolicitudServicioPage() {
             <p className="text-sm text-[#6a7282]">No hay análisis agregados. Haga clic en "Agregar" para añadir uno.</p>
           </div>
         )}
+        {errors.analisisSolicitados && (
+          <p className="mt-2 ml-4 text-xs text-red-600">{errors.analisisSolicitados}</p>
+        )}
       </div>
 
       {/* Sampling Location */}
@@ -1111,9 +1140,10 @@ export default function SolicitudServicioPage() {
               <button
                 type="button"
                 onClick={handleSubmit}
-                className="flex items-center gap-2 rounded-lg bg-blue-900 px-6 py-2 font-semibold text-white shadow-md transition-all hover:bg-blue-950 hover:shadow-lg"
+                disabled={saving}
+                className="flex items-center gap-2 rounded-lg bg-blue-900 px-6 py-2 font-semibold text-white shadow-md transition-all hover:bg-blue-950 hover:shadow-lg disabled:opacity-60"
               >
-                Guardar
+                {saving ? "Guardando…" : "Guardar"}
                 <ChevronRight className="h-5 w-5" />
               </button>
             )}

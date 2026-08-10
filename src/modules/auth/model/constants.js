@@ -1,3 +1,16 @@
-/** Usuario local para pruebas sin API (no usar en producción). */
-export const DEFAULT_LOCAL_USER = "admin";
-export const DEFAULT_LOCAL_PASSWORD = "123";
+/**
+ * Roles alineados con el claim JWT "role" / cargoNombre del backend.
+ * Usar en ProtectedRoute y en menús del dashboard.
+ */
+export const AUTH_ROLES = {
+  Administrador: "Administrador",
+};
+
+/** True si el usuario tiene privilegios de administrador. */
+export function isAdministrador(user) {
+  if (!user) return false;
+  return (
+    user.role === AUTH_ROLES.Administrador ||
+    user.cargoNombre === AUTH_ROLES.Administrador
+  );
+}

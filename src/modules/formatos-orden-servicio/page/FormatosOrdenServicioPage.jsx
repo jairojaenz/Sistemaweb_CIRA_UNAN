@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { NavLink, useNavigate, useParams, useLocation } from "react-router-dom";
 import { FaEdit, FaEye, FaSearch, FaSpinner, FaTimes, FaTrash } from "react-icons/fa";
 import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
+import { useAuth } from "../../../auth/AuthContext.jsx";
 import { useToast } from "../../../components/ToastContext.jsx";
 import { ROUTES } from "../../../router/routes.js";
 import { getDepartamentos, getMunicipios, getUsuarios } from "../../usuarios/service/usuarioService.js";
@@ -13,16 +14,26 @@ import {
   updateOrdenServicio,
 } from "../service/formatoOrdenServicioService.js";
 import { formatTelefonoLocal, telefonoLocalError } from "../../../utils/phoneFormat.js";
+import { getSolicitudById } from "../../solicitud-servicio/service/solicitudServicioService.js";
+import {
+  assignCodigosAsignados,
+  findProformaBySolicitud,
+  formatCodigoAsignado,
+  mapSolicitudToOrdenForm,
+  suggestNextNumeroOrden,
+} from "../utils/mapSolicitudToOrdenForm.js";
+import { formToOrdenServicioPayload } from "../utils/formToOrdenServicioPayload.js";
+import { getProformas } from "../../proforma/service/proformaService.js";
 import OrdenServicioFormView from "./OrdenServicioFormView.jsx";
 
 const COMPOUESTO_OPTION_KEYS = ["compuesto8h", "compuesto12h", "compuesto16h", "compuesto24h"];
 
 const DRAFT_KEY = "orden_servicio_draft_v1";
 
-const emptyDetalleRow = (n = 1) => ({
+const emptyDetalleRow = (n = 1, codigoSecuencia = n) => ({
   numeroMuestra: String(n).padStart(2, "0"),
   analisis: "",
-  codigoLab: "",
+  codigoAsignado: formatCodigoAsignado(codigoSecuencia),
 });
 
 const emptyControlRecepcionRow = () => ({
@@ -152,49 +163,13 @@ function firstFormatoCampoId(formatosCampo) {
   return formatosCampo[0]?.idFormatoCampo ?? null;
 }
 
-/** La API exige idTipoMuestreo; se infiere de la modalidad elegida en el formulario. */
-function idTipoMuestreoFromModalidad(modalidadMuestreo) {
-  if (modalidadMuestreo === "compuesto") return 2;
-  if (modalidadMuestreo === "otros") return 3;
-  return 1;
-}
-
-function formToApiPayload(form, { usuarios = [], formatosCampo = [] } = {}) {
-  const fechaIso = form.fecha ? new Date(`${form.fecha}T12:00:00`).toISOString() : new Date().toISOString();
-  const idUsuario = Number(form.idUsuario) || Number(firstUsuarioId(usuarios)) || 0;
-  const idFormatoCampo = Number(form.idFormatoCampo) || Number(firstFormatoCampoId(formatosCampo)) || 0;
-
-  return {
-    numeroOrden: form.numeroOrden,
-    fechaRecepcionMuestra: fechaIso,
-    estadoOrden: form.estadoOrden || "Pendiente",
-    idUsuario,
-    idFormatoCampo,
-    idTipoMuestreo: idTipoMuestreoFromModalidad(form.modalidadMuestreo),
-    analisisOrden: form.analisisOrden,
-    muestreoOrden: form.muestreoOrden,
-    hojaObservacionOrden: form.hojaObservacionOrden,
-    informeTecnicoOrden: form.informeTecnicoOrden,
-    otro1Orden: form.proformaNo?.trim() || form.otroServicio?.trim() || null,
-    otro2Orden: form.especificarNorma?.trim() || null,
-    observacionOrden: buildObservacionOrden(form),
-  };
-}
-
-function buildObservacionOrden(form) {
-  const partes = [];
-  if (form.modalidadMuestreo === "otros" && form.modalidadMuestreoOtros?.trim()) {
-    partes.push(`Tipo de muestreo (otros): ${form.modalidadMuestreoOtros.trim()}`);
-  }
-  if (form.observacionOrden?.trim()) partes.push(form.observacionOrden.trim());
-  return partes.length > 0 ? partes.join("\n") : null;
-}
-
 function normalizeFormState(data) {
   const merged = { ...initialForm, ...data };
 
   if (!Array.isArray(merged.detalleMuestras) || merged.detalleMuestras.length === 0) {
     merged.detalleMuestras = [emptyDetalleRow(1)];
+  } else {
+    merged.detalleMuestras = assignCodigosAsignados(merged.detalleMuestras);
   }
 
   if (!Array.isArray(merged.controlRecepcion) || merged.controlRecepcion.length === 0) {
@@ -225,12 +200,15 @@ function clearDraft() {
 }
 
 export default function FormatosOrdenServicioPage() {
+  const { user } = useAuth();
   const { addToast } = useToast();
+  const idUsuarioSesion = user?.idUsuario ?? user?.id ?? user?.Id ?? null;
   const navigate = useNavigate();
   const location = useLocation();
-  const { id: editIdParam } = useParams();
+  const { id: editIdParam, idSolicitud: solicitudIdParam } = useParams();
 
-  const isCreateRoute = location.pathname.endsWith("/nueva");
+  const isCreateRoute = location.pathname.includes("/nueva");
+  const isCreateFromSolicitud = isCreateRoute && Boolean(solicitudIdParam);
   const isEditRoute = Boolean(editIdParam) && location.pathname.includes("/editar");
   const isFormRoute = isCreateRoute || isEditRoute;
 
@@ -250,6 +228,8 @@ export default function FormatosOrdenServicioPage() {
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
+  const [solicitudOrigen, setSolicitudOrigen] = useState(null);
+  const [solicitudPrefillLoading, setSolicitudPrefillLoading] = useState(false);
 
   const loadOrdenes = useCallback(async () => {
     try {
@@ -291,16 +271,88 @@ export default function FormatosOrdenServicioPage() {
   useEffect(() => {
     if (!isFormRoute) return;
 
-    if (isCreateRoute) {
+    if (isCreateFromSolicitud) {
+      if (catalogsLoading || loading) return;
+
+      let cancelled = false;
+
+      async function loadSolicitudPrefill() {
+        try {
+          setSolicitudPrefillLoading(true);
+          const [data, proformas] = await Promise.all([
+            getSolicitudById(solicitudIdParam),
+            getProformas(),
+          ]);
+          if (cancelled) return;
+
+          const today = new Date().toISOString().slice(0, 10);
+          const base = { ...initialForm, fecha: today };
+          const proforma = findProformaBySolicitud(proformas, solicitudIdParam);
+          const numeroOrden = suggestNextNumeroOrden(ordenes);
+          const proformaNo = proforma?.numeroProforma ?? proforma?.NumeroProforma ?? "";
+          const tipoMuestreoNombre = proforma?.tiposMuestreo ?? proforma?.TiposMuestreo ?? "";
+
+          setEditingOrden(null);
+          setSolicitudOrigen(data);
+          setForm(
+            mapSolicitudToOrdenForm(data, {
+              initialForm: base,
+              usuarios,
+              idUsuarioSesion,
+              numeroOrden,
+              proformaNo,
+              tipoMuestreoNombre,
+              proforma,
+            }),
+          );
+          if (!tipoMuestreoNombre) {
+            addToast(
+              "La solicitud no tiene proforma con tipo de muestreo. Complételo manualmente en la sección 2.",
+              "warning",
+            );
+          }
+          setFormErrors({});
+        } catch (err) {
+          if (!cancelled) {
+            addToast(err?.message || "No se pudo cargar la solicitud", "error");
+            navigate(ROUTES.formatosOrdenServicioNueva);
+          }
+        } finally {
+          if (!cancelled) setSolicitudPrefillLoading(false);
+        }
+      }
+
+      loadSolicitudPrefill();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (isCreateRoute && !isCreateFromSolicitud) {
       setEditingOrden(null);
+      setSolicitudOrigen(null);
       const draft = loadDraft();
       const today = new Date().toISOString().slice(0, 10);
-      setForm(draft ?? { ...initialForm, fecha: today });
+      const nextOrden = suggestNextNumeroOrden(ordenes);
+      setForm(
+        draft
+          ? {
+              ...draft,
+              fecha: draft.fecha || today,
+              numeroOrden: draft.numeroOrden || nextOrden,
+            }
+          : {
+              ...initialForm,
+              fecha: today,
+              numeroOrden: nextOrden,
+            },
+      );
       setFormErrors({});
       return;
     }
 
     if (isEditRoute && editIdParam) {
+      setSolicitudOrigen(null);
       const orden = ordenes.find((o) => String(o.idFormatoOrden) === String(editIdParam));
       if (orden) {
         setEditingOrden(orden);
@@ -308,7 +360,21 @@ export default function FormatosOrdenServicioPage() {
         setFormErrors({});
       }
     }
-  }, [isFormRoute, isCreateRoute, isEditRoute, editIdParam, ordenes, usuarios]);
+  }, [
+    isFormRoute,
+    isCreateRoute,
+    isCreateFromSolicitud,
+    isEditRoute,
+    editIdParam,
+    solicitudIdParam,
+    ordenes,
+    usuarios,
+    catalogsLoading,
+    loading,
+    addToast,
+    navigate,
+    idUsuarioSesion,
+  ]);
 
   const departamentoMap = useMemo(() => {
     const map = {};
@@ -390,6 +456,17 @@ export default function FormatosOrdenServicioPage() {
       return;
     }
 
+    if (name === "idUsuario") {
+      const u = usuarios.find((x) => String(x.idUsuario ?? x.IdUsuario) === value);
+      const nombre = u ? labelUsuario(u) : "";
+      setForm((prev) => ({
+        ...prev,
+        idUsuario: value,
+        usuarioEmpresa: nombre || prev.usuarioEmpresa,
+      }));
+      return;
+    }
+
     setForm((prev) => {
       const merged = { ...prev, [name]: nextVal };
       const errors = validateForm(merged);
@@ -407,16 +484,24 @@ export default function FormatosOrdenServicioPage() {
   }
 
   function handleAddDetalleRow() {
-    setForm((prev) => ({
-      ...prev,
-      detalleMuestras: [...prev.detalleMuestras, emptyDetalleRow(prev.detalleMuestras.length + 1)],
-    }));
+    setForm((prev) => {
+      const nextIndex = prev.detalleMuestras.length + 1;
+      return {
+        ...prev,
+        detalleMuestras: [
+          ...prev.detalleMuestras,
+          emptyDetalleRow(nextIndex, nextIndex),
+        ],
+      };
+    });
   }
 
   function handleRemoveDetalleRow(index) {
     setForm((prev) => ({
       ...prev,
-      detalleMuestras: prev.detalleMuestras.filter((_, i) => i !== index),
+      detalleMuestras: assignCodigosAsignados(
+        prev.detalleMuestras.filter((_, i) => i !== index),
+      ),
     }));
   }
 
@@ -464,9 +549,18 @@ export default function FormatosOrdenServicioPage() {
 
     try {
       setSaving(true);
-      const payload = formToApiPayload(form, { usuarios, formatosCampo });
-      if (!payload.idUsuario || !payload.idFormatoCampo) {
-        addToast("No hay usuarios o formatos de campo en el catálogo para registrar la orden.", "error");
+      const payload = formToOrdenServicioPayload(form, {
+        usuarios,
+        formatosCampo,
+        idUsuarioSesion,
+        idFormatoSolicitud:
+          solicitudOrigen?.idFormatoSolicitud ?? solicitudOrigen?.IdFormatoSolicitud ?? null,
+      });
+      if (!payload.idUsuario) {
+        addToast(
+          "No se pudo determinar el usuario responsable. Inicie sesión con su cuenta de la API o registre usuarios activos.",
+          "error",
+        );
         return;
       }
       if (editingOrden?.idFormatoOrden) {
@@ -505,6 +599,15 @@ export default function FormatosOrdenServicioPage() {
   const catalogsReady = !catalogsLoading;
 
   if (isFormRoute) {
+    if (isCreateFromSolicitud && solicitudPrefillLoading) {
+      return (
+        <div className="flex flex-1 items-center justify-center gap-2 py-20 text-gray-500">
+          <FaSpinner className="h-6 w-6 animate-spin" />
+          <span>Cargando datos de la solicitud…</span>
+        </div>
+      );
+    }
+
     if (isEditRoute && !editingOrden && !loading) {
       return (
         <div className="mx-auto flex max-w-lg flex-col items-center gap-4 p-8 text-center">
@@ -524,6 +627,7 @@ export default function FormatosOrdenServicioPage() {
       <OrdenServicioFormView
         form={form}
         formErrors={formErrors}
+        onFormErrors={setFormErrors}
         onChange={handleFormChange}
         onDetalleChange={handleDetalleChange}
         onAddDetalleRow={handleAddDetalleRow}
@@ -534,9 +638,13 @@ export default function FormatosOrdenServicioPage() {
         onSubmit={handleSubmit}
         onCancel={closeFormView}
         saving={saving}
+        isEditing={Boolean(editingOrden?.idFormatoOrden)}
         catalogsLoading={catalogsLoading}
         departamentos={departamentos}
         municipiosFiltrados={municipiosFiltrados}
+        usuarios={usuarios}
+        formatosCampo={formatosCampo}
+        solicitudOrigen={solicitudOrigen?.numeroSolicitud ?? solicitudOrigen?.NumeroSolicitud ?? null}
       />
     );
   }

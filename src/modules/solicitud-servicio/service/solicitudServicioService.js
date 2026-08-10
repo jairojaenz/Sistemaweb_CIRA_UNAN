@@ -1,72 +1,30 @@
-const STORAGE_KEY = "solicitud_servicio_last_v1";
+/**
+ * Service: Solicitudes de servicio
+ * API: /api/FormatosSolicitudServicio
+ * CRUD alineado con FormatosSolicitudServicioController.
+ */
+import { apiDelete, apiGet, apiPost, apiPut } from "../../../auth/api.js";
+import { asList } from "../../../utils/apiList.js";
 
-export function saveSolicitudServicioLocal(payload) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    return true;
-  } catch {
-    return false;
-  }
-}
+const API_BASE = "/api/FormatosSolicitudServicio";
 
-const API_URL = "http://localhost:5001/api/FormatosSolicitudServicio";
-
-async function handleResponse(response) {
-  if (!response.ok) {
-    let errorMessage =
-      "Ocurrió un error en la solicitud";
-
-    try {
-      const errorData = await response.json();
-
-      errorMessage =
-        errorData.message ||
-        errorData.title ||
-        errorMessage;
-    } catch {
-      try {
-        errorMessage = await response.text();
-      } catch {
-        //
-      }
-    }
-
-    throw new Error(errorMessage);
-  }
-
-  if (response.status === 204) {
-    return null;
-  }
-
-  return response.json();
-}
-
-// Obtener todas las solicitudes
 export async function getSolicitudes() {
-  const response = await fetch(API_URL, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-    },
-  });
-   const data = await response.json();
-
-  console.log(data);
-
-  return data;
+  const res = await apiGet(API_BASE);
+  return asList(res);
 }
 
-// Obtener solicitud por ID
 export async function getSolicitudById(id) {
-  const response = await fetch(
-    `${API_URL}/${id}`,
-    {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
-    }
-  );
+  return apiGet(`${API_BASE}/${id}`);
+}
 
-  return handleResponse(response);
+export async function createSolicitudServicio(payload) {
+  return apiPost(`${API_BASE}/create-solicitud`, payload);
+}
+
+export async function updateSolicitudServicio(id, payload) {
+  return apiPut(`${API_BASE}/update-solicitud/${id}`, payload);
+}
+
+export async function deleteSolicitudServicio(id) {
+  return apiDelete(`${API_BASE}/delete-solicitud/${id}`);
 }

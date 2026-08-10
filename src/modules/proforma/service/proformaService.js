@@ -1,15 +1,21 @@
+/**
+ * Service: Proformas
+ * API: /api/FormatosProforma/...
+ * Listados pasan por asList() por si la API envuelve en data.
+ */
 import { apiGet, apiPost, apiPut } from "../../../auth/api";
+import { asList } from "../../../utils/apiList.js";
 
 export { getSolicitudById } from "../../solicitud-servicio/service/solicitudServicioService.js";
 
 export async function getProformas() {
   const res = await apiGet("/api/FormatosProforma/proforma");
-  return res ?? [];
+  return asList(res);
 }
 
 export async function getTiposMuestreo() {
   const res = await apiGet("/api/catalogos/tipos-muestreo");
-  return res ?? [];
+  return asList(res);
 }
 
 export async function createProforma(data) {

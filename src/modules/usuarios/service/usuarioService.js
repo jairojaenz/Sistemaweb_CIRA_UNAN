@@ -1,8 +1,15 @@
+/**
+ * Service: Usuarios (solo Administrador en API y rutas).
+ * API: /api/User/...
+ * Catálogos auxiliares también normalizados con asList().
+ */
 import { apiGet, apiPostFormData, apiPutFormData, apiDelete, apiPut } from "../../../auth/api";
+import { asList } from "../../../utils/apiList.js";
 
+/** GET /api/User/get-users → { users: [...] } o array. */
 export async function getUsuarios() {
   const res = await apiGet("/api/User/get-users");
-  return res.users ?? [];
+  return asList(res);
 }
 
 export async function getUsuarioById(id) {
@@ -10,23 +17,25 @@ export async function getUsuarioById(id) {
 }
 
 export async function getCargos() {
-  return await apiGet("/api/catalogos/cargos");
+  return asList(await apiGet("/api/catalogos/cargos"));
 }
 
 export async function getDepartamentos() {
-  return await apiGet("/api/catalogos/departamentos");
+  return asList(await apiGet("/api/catalogos/departamentos"));
 }
 
 export async function getMunicipios() {
-  return await apiGet("/api/catalogos/municipios");
+  return asList(await apiGet("/api/catalogos/municipios"));
 }
 
 export async function getMunicipiosByDepartamento(idDepartamento) {
-  return await apiGet(`/api/catalogos/municipios?idDepartamento=${idDepartamento}`);
+  return asList(
+    await apiGet(`/api/catalogos/municipios?idDepartamento=${idDepartamento}`)
+  );
 }
 
 export async function getLaboratorios() {
-  return await apiGet("/api/catalogos/laboratorios");
+  return asList(await apiGet("/api/catalogos/laboratorios"));
 }
 
 export async function createUsuario(data, firmaFile) {

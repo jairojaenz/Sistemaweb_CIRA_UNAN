@@ -1,40 +1,53 @@
-import {
-  apiGet,
-  apiPost,
-  apiPut,
-  apiDelete,
-} from "../../../auth/api";// Importamos las funciones de la capa de API para realizar las solicitudes HTTP para interactuar con el backend.
+/**
+ * Service: Laboratorios
+ * API: /api/catalogos/laboratorios
+ * UI `nombreLaboratorio` / `abreviacionLaboratorio` ↔ API `Nombre` / `Abreviacion`.
+ */
+import { apiGet, apiPost, apiPut, apiDelete } from "../../../auth/api";
+import { asList } from "../../../utils/apiList.js";
+
+function normalize(raw) {
+  if (!raw || typeof raw !== "object") return raw;
+  return {
+    ...raw,
+    idLaboratorio: raw.idLaboratorio ?? raw.IdLaboratorio,
+    nombreLaboratorio: raw.nombreLaboratorio ?? raw.nombre ?? raw.Nombre ?? "",
+    abreviacionLaboratorio:
+      raw.abreviacionLaboratorio ?? raw.abreviacion ?? raw.Abreviacion ?? "",
+    activo: raw.activo !== false && raw.Activo !== false,
+  };
+}
+
+function toPayload(data) {
+  return {
+    nombre: String(data.nombre ?? data.nombreLaboratorio ?? "").trim(),
+    abreviacion: String(
+      data.abreviacion ?? data.abreviacionLaboratorio ?? ""
+    ).trim(),
+    activo: data.activo !== false && data.Activo !== false,
+  };
+}
 
 export async function getLaboratorios() {
-  const res = await apiGet("/api/catalogos/laboratorios");
-  //console.log("Laboratorios obtenidos:", res);
-  return res ?? [];
-}// Nota: El operador de coalescencia nula (??) asegura que se devuelva un array vacío si res es null o undefined.
+  return asList(await apiGet("/api/catalogos/laboratorios")).map(normalize);
+}
 
 export async function getLaboratorioById(id) {
-  return await apiGet(`/api/catalogos/laboratorios/${id}`);
-}//| El endpoint para obtener un laboratorio por ID.
+  return normalize(await apiGet(`/api/catalogos/laboratorios/${id}`));
+}
 
 export async function createLaboratorio(data) {
-  return await apiPost(
-    "/api/catalogos/laboratorios",
-    data
-  );
-}// El endpoint para crear un nuevo laboratorio, enviando los datos necesarios en el cuerpo de la solicitud.
+  return apiPost("/api/catalogos/laboratorios", toPayload(data));
+}
 
 export async function updateLaboratorio(id, data) {
-  return await apiPut(
-    `/api/catalogos/laboratorios/${id}`,
-    data
-  );
-}// El endpoint para actualizar un laboratorio existente.
+  return apiPut(`/api/catalogos/laboratorios/${id}`, toPayload(data));
+}
 
-/* export async function deleteLaboratorio(id) {
-  return await apiDelete(`/api/catalogos/laboratorios/${id}`);
-}*/ // El endpoint para eliminar un laboratorio por ID.
+export async function deleteLaboratorio(id) {
+  return apiDelete(`/api/catalogos/laboratorios/${id}`);
+}
 
 export async function toggleLaboratorioStatus(id) {
-  return await apiPut(
-    `/api/catalogos/laboratorios/toggle-lab-status/${id}`
-  );
-}// El endpoint para alternar el estado de un laboratorio (activo/inactivo) por ID.
+  return apiPut(`/api/catalogos/laboratorios/toggle-lab-status/${id}`);
+}

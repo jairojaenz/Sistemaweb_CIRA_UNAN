@@ -1,39 +1,43 @@
-import {
-  apiGet,
-  apiPost,
-  apiPut,
-  apiDelete,
-} from "../../../auth/api";// Importamos las funciones de la capa de API para realizar las solicitudes HTTP para interactuar con el backend.
+/**
+ * Service: Cargos
+ * API: /api/catalogos/cargos
+ *
+ * El UI usa `nombreCargo`; el DTO de la API usa `Nombre`.
+ * normalizeNamedItem / toNamedPayload hacen ese puente para listar/crear/editar.
+ */
+import { apiGet, apiPost, apiPut, apiDelete } from "../../../auth/api";
+import { asList, normalizeNamedItem, toNamedPayload } from "../../../utils/apiList.js";
 
+const ID = "idCargo";
+const NAME = "nombreCargo";
+
+function normalize(raw) {
+  return normalizeNamedItem(raw, { idKey: ID, nameKey: NAME });
+}
+
+/** GET listado → array con nombreCargo / activo. */
 export async function getCargos() {
-  const res = await apiGet("/api/catalogos/cargos");
-  return res ?? [];
-}// Nota: El operador de coalescencia nula (??) asegura que se devuelva un array vacío si res es null o undefined.
+  return asList(await apiGet("/api/catalogos/cargos")).map(normalize);
+}
 
 export async function getCargoById(id) {
-  return await apiGet(`/api/catalogos/cargos/${id}`);
-}// El endpoint para obtener un cargo por ID.
+  return normalize(await apiGet(`/api/catalogos/cargos/${id}`));
+}
 
+/** POST: envía { nombre, activo } al backend. */
 export async function createCargo(data) {
-  return await apiPost(
-    "/api/catalogos/cargos",
-    data
-  );
-}// El endpoint para crear un nuevo cargo, enviando los datos necesarios en el cuerpo de la solicitud.
+  return apiPost("/api/catalogos/cargos", toNamedPayload(data, NAME));
+}
 
 export async function updateCargo(id, data) {
-  return await apiPut(
-    `/api/catalogos/cargos/${id}`,
-    data
-  );
-}// El endpoint para actualizar un cargo existente.
+  return apiPut(`/api/catalogos/cargos/${id}`, toNamedPayload(data, NAME));
+}
 
-/* export async function deleteCargo(id) {
-  return await apiDelete(`/api/catalogos/cargos/${id}`);
-}*/ // El endpoint para eliminar un cargo por ID.
+export async function deleteCargo(id) {
+  return apiDelete(`/api/catalogos/cargos/${id}`);
+}
 
+/** PUT toggle dedicado del API. */
 export async function toggleCargoStatus(id) {
-  return await apiPut(
-    `/api/catalogos/cargos/toggle-cargos-status/${id}`
-  );
-}// El endpoint para alternar el estado de un cargo (activo/inactivo) por ID.
+  return apiPut(`/api/catalogos/cargos/toggle-cargos-status/${id}`);
+}

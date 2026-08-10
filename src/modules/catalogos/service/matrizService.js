@@ -1,10 +1,10 @@
+/**
+ * Service: Matrices
+ * API: /api/catalogos/matrices
+ * UI `nombreMatriz` ↔ API `Nombre`. Toggle vía PUT (sin ruta toggle).
+ */
 import { apiDelete, apiGet, apiPost, apiPut } from "../../../auth/api.js";
-
-function normalizeListResponse(res) {
-  if (Array.isArray(res)) return res;
-  if (Array.isArray(res?.data)) return res.data;
-  return [];
-}
+import { asList } from "../../../utils/apiList.js";
 
 /**
  * Unifica respuesta GET (camelCase / PascalCase) en un solo shape.
@@ -16,21 +16,22 @@ export function normalizeMatrizFromApi(raw) {
   return {
     ...raw,
     idMatriz: raw.idMatriz ?? raw.IdMatriz,
-    nombreMatriz: raw.nombreMatriz ?? raw.NombreMatriz ?? "",
+    nombreMatriz: raw.nombreMatriz ?? raw.nombre ?? raw.Nombre ?? "",
     activo,
   };
 }
 
 function toApiPayload(data) {
   return {
-    nombreMatriz: String(data.nombreMatriz ?? data.NombreMatriz ?? "").trim(),
+    // API Matriz DTO usa Nombre
+    nombre: String(data.nombreMatriz ?? data.NombreMatriz ?? data.nombre ?? "").trim(),
     activo: data.activo !== false && data.Activo !== false,
   };
 }
 
 export async function getMatrices() {
   const res = await apiGet("/api/catalogos/matrices");
-  return normalizeListResponse(res).map(normalizeMatrizFromApi);
+  return asList(res).map(normalizeMatrizFromApi);
 }
 
 export async function getMatrizById(id) {

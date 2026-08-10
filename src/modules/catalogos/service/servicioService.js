@@ -1,39 +1,38 @@
-import {
-  apiGet,
-  apiPost,
-  apiPut,
-  apiDelete,
-} from "../../../auth/api";// Importamos las funciones de la capa de API para realizar las solicitudes HTTP para interactuar con el backend.
+/**
+ * Service: Servicios
+ * API: /api/catalogos/servicios
+ * UI `nombreServicio` ↔ API `Nombre`.
+ */
+import { apiGet, apiPost, apiPut, apiDelete } from "../../../auth/api";
+import { asList, normalizeNamedItem, toNamedPayload } from "../../../utils/apiList.js";
+
+const ID = "idServicio";
+const NAME = "nombreServicio";
+
+function normalize(raw) {
+  return normalizeNamedItem(raw, { idKey: ID, nameKey: NAME });
+}
 
 export async function getServicios() {
-  const res = await apiGet("/api/catalogos/servicios");
-  return res ?? [];
-}// Nota: El operador de coalescencia nula (??) asegura que se devuelva un array vacío si res es null o undefined.
+  return asList(await apiGet("/api/catalogos/servicios")).map(normalize);
+}
 
 export async function getServicioById(id) {
-  return await apiGet(`/api/catalogos/servicios/${id}`);
-}// El endpoint para obtener un servicio por ID.
+  return normalize(await apiGet(`/api/catalogos/servicios/${id}`));
+}
 
 export async function createServicio(data) {
-  return await apiPost(
-    "/api/catalogos/servicios",
-    data
-  );
-}// El endpoint para crear un nuevo servicio, enviando los datos necesarios en el cuerpo de la solicitud.
+  return apiPost("/api/catalogos/servicios", toNamedPayload(data, NAME));
+}
 
 export async function updateServicio(id, data) {
-  return await apiPut(
-    `/api/catalogos/servicios/${id}`,
-    data
-  );
-}// El endpoint para actualizar un servicio existente.
+  return apiPut(`/api/catalogos/servicios/${id}`, toNamedPayload(data, NAME));
+}
 
-/* export async function deleteServicio(id) {
-  return await apiDelete(`/api/catalogos/servicios/${id}`);
-}*/ // El endpoint para eliminar un servicio por ID.
+export async function deleteServicio(id) {
+  return apiDelete(`/api/catalogos/servicios/${id}`);
+}
 
 export async function toggleServicioStatus(id) {
-  return await apiPut(
-    `/api/catalogos/servicios/toggle-servicio-status/${id}`
-  );
-}// El endpoint para alternar el estado de un servicio (activo/inactivo) por ID.
+  return apiPut(`/api/catalogos/servicios/toggle-servicio-status/${id}`);
+}

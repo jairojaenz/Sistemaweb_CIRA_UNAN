@@ -1,3 +1,10 @@
+/**
+ * Rutas de la app.
+ * - `/` login público
+ * - `/dashboard/*` exige sesión (ProtectedRoute)
+ * - gestion-usuarios / gestion-clientes: además rol Administrador
+ * Contrato auth: src/auth/AUTH.md
+ */
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import DashboardLayout from "../layouts/DashboardLayout.jsx";
@@ -71,11 +78,27 @@ export default function AppRoutes() {
             <Route path="plan-muestreo/paso-1" element={<PlanMuestreoPaso1 />} />
             <Route path="plan-muestreo/paso-2" element={<PlanMuestreoPaso2 />} />
             <Route path="plan-muestreo/paso-3" element={<PlanMuestreoPaso3 />} />
-            <Route path="gestion-usuarios" element={<GestionUsuariosPage />} />
-            <Route path="gestion-clientes" element={<GestionClientesPage />} />
+            {/* Solo Administrador: alinea con [Authorize(Roles)] en UserController / ClientesController */}
+            <Route
+              path="gestion-usuarios"
+              element={
+                <ProtectedRoute roles={["Administrador"]}>
+                  <GestionUsuariosPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="gestion-clientes"
+              element={
+                <ProtectedRoute roles={["Administrador"]}>
+                  <GestionClientesPage />
+                </ProtectedRoute>
+              }
+            />
             <Route path="gestion-laboratorios" element={<GestionLaboratoriosPage />} />
             <Route path="formatos-orden-servicio" element={<FormatosOrdenServicioPage />} />
             <Route path="formatos-orden-servicio/nueva" element={<FormatosOrdenServicioPage />} />
+            <Route path="formatos-orden-servicio/nueva/:idSolicitud" element={<FormatosOrdenServicioPage />} />
             <Route path="formatos-orden-servicio/:id/editar" element={<FormatosOrdenServicioPage />} />
             <Route path="proformas" element={<ProformaPage />} />
             <Route path="proformas/nueva" element={<NuevaProformaPage />} />

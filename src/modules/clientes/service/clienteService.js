@@ -1,10 +1,11 @@
 import { apiDelete, apiGet, apiPostFormData, apiPut, apiPutFormData } from "../../../auth/api.js";
+import { asList } from "../../../utils/apiList.js";
 
 const TIPO_INDIVIDUO = "Individuo";
 
 function normalizeListResponse(res) {
-  if (Array.isArray(res)) return res;
-  if (Array.isArray(res?.data)) return res.data;
+  const list = asList(res);
+  if (list.length) return list;
   if (Array.isArray(res?.data?.clientes)) return res.data.clientes;
   if (Array.isArray(res?.clientes)) return res.clientes;
   if (Array.isArray(res?.Clientes)) return res.Clientes;
@@ -132,6 +133,10 @@ export async function deleteCliente(idCliente) {
   return await apiDelete(`/api/Clientes/delete-cliente/${idCliente}`);
 }
 
+/**
+ * PUT /api/Clientes/toggle-cliente-status/{id}
+ * Endpoint añadido en la API para alinear con el switch de Gestión de Clientes.
+ */
 export async function toggleClienteStatus(idCliente) {
   return await apiPut(`/api/Clientes/toggle-cliente-status/${idCliente}`);
 }
