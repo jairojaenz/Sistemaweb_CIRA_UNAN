@@ -12,6 +12,7 @@ import { modalidadFromTipoNombre } from "../utils/formToOrdenServicioPayload.js"
 import {
   createOrdenServicio,
   deleteOrdenServicio,
+  getOrdenServicioById,
   getOrdenesServicio,
   updateOrdenServicio,
 } from "../service/formatoOrdenServicioService.js";
@@ -36,6 +37,8 @@ const DRAFT_KEY = "orden_servicio_draft_v1";
 const emptyDetalleRow = (n = 1, codigoSecuencia = n) => ({
   numeroMuestra: String(n).padStart(2, "0"),
   analisis: "",
+  idAnalisis: "",
+  idMuestra: "",
   codigoAsignado: formatCodigoAsignado(codigoSecuencia),
 });
 
@@ -130,6 +133,15 @@ function mapOrdenToForm(orden, usuarios) {
     otroServicio: orden.otro2Orden ?? "",
     especificarNorma: orden.otro2Orden ?? "",
     observacionOrden: orden.observacionOrden ?? "",
+    detalleMuestras: (orden.detalles ?? []).length
+      ? orden.detalles.map((d, index) => ({
+          numeroMuestra: String(index + 1).padStart(2, "0"),
+          analisis: d.analisisSolicitado ?? "",
+          idAnalisis: d.idsAnalisis?.[0] ?? "",
+          idMuestra: d.idMuestra ?? "",
+          codigoAsignado: formatCodigoAsignado(index + 1),
+        }))
+      : [emptyDetalleRow(1)],
   };
 }
 
@@ -346,12 +358,26 @@ export default function FormatosOrdenServicioPage() {
 
     if (isEditRoute && editIdParam) {
       setSolicitudOrigen(null);
-      const orden = ordenes.find((o) => String(o.idFormatoOrden) === String(editIdParam));
-      if (orden) {
-        setEditingOrden(orden);
-        setForm(mapOrdenToForm(orden, usuarios));
-        setFormErrors({});
-      }
+      let cancelled = false;
+      (async () => {
+        try {
+          const detalle = await getOrdenServicioById(editIdParam);
+          if (cancelled) return;
+          setEditingOrden(detalle);
+          setForm(mapOrdenToForm(detalle, usuarios));
+          setFormErrors({});
+        } catch {
+          const orden = ordenes.find((o) => String(o.idFormatoOrden) === String(editIdParam));
+          if (orden) {
+            setEditingOrden(orden);
+            setForm(mapOrdenToForm(orden, usuarios));
+            setFormErrors({});
+          }
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
     }
   }, [
     isFormRoute,

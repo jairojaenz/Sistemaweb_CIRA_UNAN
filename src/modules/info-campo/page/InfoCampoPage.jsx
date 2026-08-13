@@ -1,16 +1,33 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '../../../auth/AuthContext.jsx';
 import { useToast } from '../../../components/ToastContext.jsx';
+import { ROUTES } from '../../../router/routes.js';
 import { getProformas } from '../../proforma/service/proformaService.js';
 import { getMuestras } from '../../catalogos/service/muestrasService.js';
 import { getMatrices } from '../../catalogos/service/matrizService.js';
 import { getFuentesMatriz } from '../../catalogos/service/fuentesMatrizService.js';
 import { getTiposMuestreo } from '../../catalogos/service/tiposMuestreoService.js';
 import { getEquiposMuestreo } from '../../catalogos/service/equiposMuestreoService.js';
-import { createInfoCampo, formToCampoPayload } from '../service/infoCampoService.js';
+import { getAnalisis } from '../../catalogos/service/analisisService.js';
+import {
+  createInfoCampo,
+  formToCampoPayload,
+  getFormatoCampoById,
+  updateInfoCampo,
+} from '../service/infoCampoService.js';
+
+function matchCatalogId(items, idKey, nameKeys, needle) {
+  const q = String(needle ?? "").toLowerCase().replace(/-/g, " ").trim();
+  if (!q) return "";
+  const found = items.find((item) =>
+    nameKeys.some((key) => String(item[key] ?? "").toLowerCase().includes(q)),
+  );
+  return found?.[idKey] ?? "";
+}
 
 const fuentesPorMatriz = {
   'agua-natural': ['Río', 'Lago', 'Mar', 'Pozo excavado', 'Pozo perforado', 'Manantial', 'Estero', 'Lluvia', 'Otro'],
@@ -22,6 +39,10 @@ const fuentesPorMatriz = {
 };
 
 export default function FormWizard() {
+  const navigate = useNavigate();
+  const { idCampo: idCampoParam } = useParams();
+  const idCampo = idCampoParam ? Number(idCampoParam) : null;
+  const isEdit = Number.isFinite(idCampo) && idCampo > 0;
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     usuario: '',
@@ -38,6 +59,7 @@ export default function FormWizard() {
     ensayos: [],
     ensayoTipoTemp: '',
     ensayoTecnicaTemp: '',
+    ensayoIdTemp: '',
     matriz: '',
     matrizOtra: '',
     fuente: '',
@@ -81,19 +103,21 @@ export default function FormWizard() {
   const [fuentesApi, setFuentesApi] = useState([]);
   const [tiposApi, setTiposApi] = useState([]);
   const [equiposApi, setEquiposApi] = useState([]);
+  const [analisisApi, setAnalisisApi] = useState([]);
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
     let mounted = true;
     async function loadCatalogos() {
       try {
-        const [p, m, mats, ftes, tipos, eqs] = await Promise.all([
+        const [p, m, mats, ftes, tipos, eqs, ans] = await Promise.all([
           getProformas(),
           getMuestras(),
           getMatrices(),
           getFuentesMatriz(),
           getTiposMuestreo(),
           getEquiposMuestreo(),
+          getAnalisis(),
         ]);
         if (!mounted) return;
         setProformas(p ?? []);
@@ -102,6 +126,7 @@ export default function FormWizard() {
         setFuentesApi((ftes ?? []).filter((x) => x.activo !== false));
         setTiposApi((tipos ?? []).filter((x) => x.activo !== false));
         setEquiposApi(eqs ?? []);
+        setAnalisisApi((ans ?? []).filter((x) => x.activo !== false));
       } catch {
         if (mounted) addToast("No se pudieron cargar los catálogos de campo", "error");
       }
@@ -111,6 +136,50 @@ export default function FormWizard() {
       mounted = false;
     };
   }, [addToast]);
+
+  useEffect(() => {
+    if (!isEdit) return;
+    let mounted = true;
+    async function loadCampo() {
+      try {
+        const c = await getFormatoCampoById(idCampo);
+        if (!mounted) return;
+        const p = c.parametros ?? {};
+        setFormData((prev) => ({
+          ...prev,
+          comunidad: c.comunidad ?? "",
+          observaciones: c.observacion ?? "",
+          muestraCapturadaPor: c.muestraCaptada ?? "",
+          identificacion: c.identificacionMuestra ?? "",
+          idProforma: c.idProforma ? String(c.idProforma) : "",
+          idMuestra: c.idMuestra ? String(c.idMuestra) : "",
+          idMatriz: c.idMatriz ? String(c.idMatriz) : "",
+          idFuente: c.idFuente ? String(c.idFuente) : "",
+          idTipoMuestreo: c.idTipoMuestreo ? String(c.idTipoMuestreo) : "",
+          idsEquipos: c.idsEquipos ?? [],
+          temperatura: p.temperatura ?? p.Temperatura ?? "",
+          cloroResidual: p.cloroResidual ?? p.CloroResidual ?? "",
+          ph: p.ph ?? p.Ph ?? "",
+          salinidad: p.salinidad ?? p.Salinidad ?? "",
+          conductividad: p.conductividadElectrica ?? p.ConductividadElectrica ?? "",
+          oxigenoDisuelto: p.oxigenoDisuelto ?? p.OxigenoDisuelto ?? "",
+          potencialRedox: p.potencialRedox ?? p.PotencialRedox ?? "",
+          satOxigeno: p.saturacionOxigeno ?? p.SaturacionOxigeno ?? "",
+          ensayos: (c.ensayos ?? []).map((e) => ({
+            idAnalisis: e.idAnalisis,
+            tipoAnalisis: e.nombreAnalisis ?? "",
+            tecnica: "",
+          })),
+        }));
+      } catch (err) {
+        if (mounted) addToast(err?.message || "No se pudo cargar el formato de campo", "error");
+      }
+    }
+    loadCampo();
+    return () => {
+      mounted = false;
+    };
+  }, [isEdit, idCampo, addToast]);
 
   const requiredFields = {
     usuario: true,
@@ -214,12 +283,29 @@ export default function FormWizard() {
   };
 
   const handleAddEnsayo = () => {
+    const idAnalisis = Number(formData.ensayoIdTemp);
+    const fromCatalog = analisisApi.find((a) => Number(a.idAnalisis) === idAnalisis);
+    if (fromCatalog) {
+      setFormData((prev) => ({
+        ...prev,
+        ensayos: [...prev.ensayos, {
+          idAnalisis: fromCatalog.idAnalisis,
+          tipoAnalisis: fromCatalog.nombreAnalisis,
+          tecnica: fromCatalog.abreviacionAnalisis || prev.ensayoTecnicaTemp,
+        }],
+        ensayoTipoTemp: '',
+        ensayoTecnicaTemp: '',
+        ensayoIdTemp: '',
+      }));
+      return;
+    }
     if (formData.ensayoTipoTemp.trim() && formData.ensayoTecnicaTemp.trim()) {
       setFormData((prev) => ({
         ...prev,
         ensayos: [...prev.ensayos, { tipoAnalisis: prev.ensayoTipoTemp, tecnica: prev.ensayoTecnicaTemp }],
         ensayoTipoTemp: '',
         ensayoTecnicaTemp: '',
+        ensayoIdTemp: '',
       }));
     }
   };
@@ -253,8 +339,15 @@ export default function FormWizard() {
     }
     try {
       setSaving(true);
-      await createInfoCampo(formToCampoPayload(formData, { idUsuario }));
-      addToast("Información de campo guardada correctamente.", "success");
+      const payload = formToCampoPayload(formData, { idUsuario });
+      if (isEdit) {
+        await updateInfoCampo(idCampo, payload);
+        addToast("Información de campo actualizada correctamente.", "success");
+      } else {
+        await createInfoCampo(payload);
+        addToast("Información de campo guardada correctamente.", "success");
+      }
+      navigate(ROUTES.infoCampo);
     } catch (err) {
       addToast(err?.message || "No se pudo guardar la información de campo.", "error");
     } finally {
@@ -643,7 +736,7 @@ export default function FormWizard() {
                         <button
                           type="button"
                           onClick={handleAddEnsayo}
-                          disabled={!formData.ensayoTipoTemp.trim() || !formData.ensayoTecnicaTemp.trim()}
+                          disabled={!formData.ensayoIdTemp && (!formData.ensayoTipoTemp.trim() || !formData.ensayoTecnicaTemp.trim())}
                           className="flex items-center gap-2 px-6 py-2.5 bg-blue-900 text-white rounded-lg hover:bg-blue-950 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg font-semibold"
                         >
                           <Plus className="w-4 h-4" />
@@ -653,14 +746,28 @@ export default function FormWizard() {
 
                       <div className="grid grid-cols-2 gap-4 mb-6 ml-4">
                         <div className="relative group">
-                          <input
-                            type="text"
-                            name="ensayoTipoTemp"
-                            value={formData.ensayoTipoTemp}
-                            onChange={handleChange}
-                            placeholder="Ej: pH"
-                            className="w-full px-4 py-2 border-2 border-border rounded-lg focus:outline-none focus:border-primary transition-colors"
-                          />
+                          <select
+                            name="ensayoIdTemp"
+                            value={formData.ensayoIdTemp}
+                            onChange={(e) => {
+                              const id = e.target.value;
+                              const item = analisisApi.find((a) => String(a.idAnalisis) === String(id));
+                              setFormData((prev) => ({
+                                ...prev,
+                                ensayoIdTemp: id,
+                                ensayoTipoTemp: item?.nombreAnalisis ?? prev.ensayoTipoTemp,
+                                ensayoTecnicaTemp: item?.abreviacionAnalisis ?? prev.ensayoTecnicaTemp,
+                              }));
+                            }}
+                            className="w-full px-4 py-2 border-2 border-border rounded-lg focus:outline-none focus:border-primary transition-colors bg-white"
+                          >
+                            <option value="">Seleccione un análisis</option>
+                            {analisisApi.map((a) => (
+                              <option key={a.idAnalisis} value={a.idAnalisis}>
+                                {a.nombreAnalisis}
+                              </option>
+                            ))}
+                          </select>
                           <label className="absolute left-4 -top-2.5 text-xs font-semibold text-gray-700 bg-gray-50 px-1">
                             Tipo de Análisis
                           </label>
@@ -767,7 +874,13 @@ export default function FormWizard() {
                     <button
                       key={option.value}
                       onClick={() => {
-                        setFormData((prev) => ({ ...prev, matriz: option.value, matrizOtra: '' }));
+                        setFormData((prev) => ({
+                          ...prev,
+                          matriz: option.value,
+                          matrizOtra: '',
+                          idMatriz: matchCatalogId(matricesApi, 'idMatriz', ['nombreMatriz', 'nombre'], option.label),
+                          idFuente: '',
+                        }));
                         if (errors.matriz) {
                           setErrors((prev) => {
                             const newErrors = { ...prev };
@@ -845,7 +958,12 @@ export default function FormWizard() {
                         <button
                           key={fuenteValue}
                           onClick={() => {
-                            setFormData((prev) => ({ ...prev, fuente: fuenteValue, fuenteOtra: '' }));
+                            setFormData((prev) => ({
+                              ...prev,
+                              fuente: fuenteValue,
+                              fuenteOtra: '',
+                              idFuente: matchCatalogId(fuentesApi, 'idFuente', ['nombreFuente', 'nombre'], fuente),
+                            }));
                             if (errors.fuente) {
                               setErrors((prev) => {
                                 const newErrors = { ...prev };
@@ -940,7 +1058,18 @@ export default function FormWizard() {
                     <button
                       key={option.value}
                       onClick={() => {
-                        setFormData((prev) => ({ ...prev, tipoMuestreo: option.value, compuestoHoras: '', tipoMuestreoOtro: '' }));
+                        setFormData((prev) => ({
+                          ...prev,
+                          tipoMuestreo: option.value,
+                          compuestoHoras: '',
+                          tipoMuestreoOtro: '',
+                          idTipoMuestreo: matchCatalogId(
+                            tiposApi,
+                            'idTipoMuestreo',
+                            ['nombreTipoMuestreo', 'nombre'],
+                            option.label,
+                          ),
+                        }));
                         if (errors.tipoMuestreo) {
                           setErrors((prev) => {
                             const newErrors = { ...prev };
@@ -1385,7 +1514,7 @@ export default function FormWizard() {
                 disabled={saving}
                 className="flex items-center gap-2 px-6 py-2 bg-blue-900 text-white rounded-lg hover:bg-green-700 transition-all shadow-md hover:shadow-lg font-semibold disabled:opacity-60"
               >
-                {saving ? "Guardando…" : "Guardar"}
+                {saving ? "Guardando…" : isEdit ? "Actualizar" : "Guardar"}
                 <ChevronRight className="w-5 h-5" />
               </button>
             )}

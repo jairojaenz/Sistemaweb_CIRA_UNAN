@@ -27,6 +27,15 @@ export function normalizeCampoFromApi(raw) {
     matriz: raw.matriz ?? raw.Matriz ?? "",
     idFuente: raw.idFuente ?? raw.IdFuente,
     fuente: raw.fuente ?? raw.Fuente ?? "",
+    parametros: raw.parametros ?? raw.Parametros ?? null,
+    idsEquipos: raw.idsEquipos ?? raw.IdsEquipos ?? [],
+    idsMuestraxAnalisis: raw.idsMuestraxAnalisis ?? raw.IdsMuestraxAnalisis ?? [],
+    idsAnalisis: raw.idsAnalisis ?? raw.IdsAnalisis ?? [],
+    ensayos: (raw.ensayos ?? raw.Ensayos ?? []).map((e) => ({
+      idMuestraxAnalisis: e.idMuestraxAnalisis ?? e.IdMuestraxAnalisis,
+      idAnalisis: e.idAnalisis ?? e.IdAnalisis,
+      nombreAnalisis: e.nombreAnalisis ?? e.NombreAnalisis ?? "",
+    })),
   };
 }
 
@@ -77,5 +86,8 @@ export function formToCampoPayload(form, { idUsuario } = {}) {
       saturacionOxigeno: form.satOxigeno || null,
     },
     idsEquipos: (form.idsEquipos ?? []).map(Number).filter((id) => id > 0),
+    idsAnalisis: (form.ensayos ?? [])
+      .map((e) => Number(e.idAnalisis))
+      .filter((id) => id > 0),
   };
 }

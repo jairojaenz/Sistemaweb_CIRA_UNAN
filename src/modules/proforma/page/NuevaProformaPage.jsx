@@ -145,10 +145,16 @@ export default function NuevaProformaPage() {
         idUsuario: user?.idUsuario ?? user?.id ?? 0,
         detallesTecnicas: Object.entries(detallesTecnicas)
           .filter(([, idTecnica]) => idTecnica)
-          .map(([idAnalisis, idTecnica]) => ({
-            idAnalisis: Number(idAnalisis),
-            idTecnicaAnalisis: idTecnica,
-          })),
+          .map(([idAnalisis, idTecnica]) => {
+            const detalle = (solicitud?.detalles ?? []).find(
+              (d) => Number(d.idAnalisis) === Number(idAnalisis),
+            );
+            return {
+              idAnalisis: Number(idAnalisis),
+              idTecnicaAnalisis: idTecnica,
+              cantidad: Number(detalle?.cantidad) > 0 ? Number(detalle.cantidad) : 1,
+            };
+          }),
       };
       await createProforma(payload);
       addToast("Proforma creada exitosamente", "success");

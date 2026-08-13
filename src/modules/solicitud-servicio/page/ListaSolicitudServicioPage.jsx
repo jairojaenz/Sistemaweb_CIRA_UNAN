@@ -8,6 +8,7 @@ import { createPortal } from "react-dom";
 
 import {
   FaEllipsisV,
+  FaPlus,
   FaSearch,
   FaSpinner,
   FaTimes,
@@ -141,15 +142,25 @@ export default function ListaSolicitudServicioPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-4 sm:p-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-blue-900">
-          Lista de Solicitudes de Servicio
-        </h1>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-blue-900">
+            Lista de Solicitudes de Servicio
+          </h1>
 
-        <p className="text-sm text-slate-500">
-          Consulta y administra las
-          solicitudes registradas.
-        </p>
+          <p className="text-sm text-slate-500">
+            Consulta y administra las
+            solicitudes registradas.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate(ROUTES.gestionClientes)}
+          className="inline-flex items-center gap-2 rounded-lg bg-blue-900 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
+        >
+          <FaPlus className="h-4 w-4" />
+          Nueva solicitud
+        </button>
       </div>
 
       <div className="relative">

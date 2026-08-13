@@ -6,7 +6,7 @@ import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import { useToast } from "../../../components/ToastContext.jsx";
 import WizardStepIndicator from "../../../components/WizardStepIndicator.jsx";
 import { ROUTES } from "../../../router/routes.js";
-import { normalizeClienteFromApi } from "../../clientes/service/clienteService.js";
+import { getClienteById, normalizeClienteFromApi } from "../../clientes/service/clienteService.js";
 import {
   createSolicitudServicio,
   getSolicitudById,
@@ -130,7 +130,7 @@ export default function SolicitudServicioPage() {
         if (!mounted) return;
         const list = Array.isArray(data) ? data : [];
         const normalized = list.map((m) => ({
-          id: m.idMedioRecepcion ?? m.id ?? m.value ?? m.codigo ?? m.nombreMedioRecepcion ?? m.nombre ?? m.label,
+          id: Number(m.idMedioRecepcion ?? m.id ?? m.value ?? 0) || (m.idMedioRecepcion ?? m.id),
           label: m.nombreMedioRecepcion ?? m.nombre ?? m.label ?? String(m.idMedioRecepcion ?? m.id ?? ""),
         }));
         setReceptionMethods(normalized);
@@ -163,7 +163,7 @@ export default function SolicitudServicioPage() {
         if (!mounted) return;
         const list = Array.isArray(data) ? data : [];
         const normalized = list.map((s) => ({
-          id: s.idServicio ?? s.id ?? s.value ?? s.codigo ?? s.nombreServicio ?? s.nombre ?? s.label,
+          id: Number(s.idServicio ?? s.id ?? s.value ?? 0) || (s.idServicio ?? s.id),
           label: s.nombreServicio ?? s.nombre ?? s.label ?? String(s.idServicio ?? s.id ?? ""),
         }));
         setServiceTypes(normalized);
@@ -236,21 +236,31 @@ export default function SolicitudServicioPage() {
         const s = await getSolicitudById(idSolicitud);
         if (!mounted) return;
         setIdClienteEdit(s.idCliente ?? null);
+        let prefillCliente = {};
+        if (s.idCliente) {
+          try {
+            const cliente = await getClienteById(s.idCliente);
+            prefillCliente = mapClienteToSolicitudPrefill(cliente);
+          } catch {
+            /* el wizard sigue con los datos de la solicitud */
+          }
+        }
         setFormData((prev) => ({
           ...prev,
+          ...prefillCliente,
           solicitudNo: s.numeroSolicitud ?? "",
           fechaRecepcion: toInputDate(s.fechaRecepcion),
-          medioRecepcion: s.idMedioRecepcion ? String(s.idMedioRecepcion) : "",
-          nombreUsuario: s.cliente ?? "",
-          correo: s.correoCliente ?? "",
-          tipoServicio: s.idServicios ?? [],
+          medioRecepcion: s.idMedioRecepcion ? Number(s.idMedioRecepcion) : "",
+          nombreUsuario: s.cliente ?? prefillCliente.nombreUsuario ?? "",
+          correo: s.correoCliente ?? prefillCliente.correo ?? "",
+          tipoServicio: (s.idServicios ?? []).map(Number).filter((id) => id > 0),
           matriz: (s.matrices ?? []).map((m) => ({
-            idMatriz: m.idMatriz ?? m.IdMatriz,
+            idMatriz: Number(m.idMatriz ?? m.IdMatriz),
             numMuestras: m.numMuestras ?? m.NumMuestras ?? 0,
           })),
           numeroMuestras: s.numMuestras ?? 0,
           analisisSolicitados: (s.detalles ?? []).map((d) => ({
-            idAnalisis: d.idAnalisis ?? d.IdAnalisis ?? "",
+            idAnalisis: Number(d.idAnalisis ?? d.IdAnalisis) || "",
             tipoAnalisis: d.nombreAnalisis ?? d.NombreAnalisis ?? "",
             tecnica: d.abreviacionAnalisis ?? d.AbreviacionAnalisis ?? "",
             cantidad: d.cantidad ?? 1,
@@ -281,7 +291,7 @@ export default function SolicitudServicioPage() {
   function selectedServiceLabels() {
     const ids = Array.isArray(formData.tipoServicio) ? formData.tipoServicio : (formData.tipoServicio ? [formData.tipoServicio] : []);
     if (!ids || ids.length === 0) return 'No especificado';
-    return ids.map(id => (serviceTypes.find(s => s.id === id)?.label || id)).join(', ');
+    return ids.map(id => (serviceTypes.find(s => Number(s.id) === Number(id))?.label || id)).join(', ');
   }
   function selectedMatrixLabels() {
     const entries = Array.isArray(formData.matriz) ? formData.matriz : (formData.matriz ? [formData.matriz] : []);
@@ -493,8 +503,8 @@ export default function SolicitudServicioPage() {
               <button
                 key={method.id}
                 type="button"
-                onClick={() => setFormData(prev => ({ ...prev, medioRecepcion: method.id }))}
-                className={`p-4 rounded-lg border-2 transition-all font-semibold ${formData.medioRecepcion === method.id
+                onClick={() => setFormData(prev => ({ ...prev, medioRecepcion: Number(method.id) }))}
+                className={`p-4 rounded-lg border-2 transition-all font-semibold ${Number(formData.medioRecepcion) === Number(method.id)}
                   ? 'border-blue-900 bg-blue-100 shadow-md text-blue-900'
                   : 'border-gray-300 hover:border-blue-900/50 bg-white text-gray-700'
                   }`}
@@ -699,16 +709,18 @@ export default function SolicitudServicioPage() {
           ) : serviceTypes.length > 0 ? (
             serviceTypes.map((service) => {
               const isSelected = Array.isArray(formData.tipoServicio)
-                ? formData.tipoServicio.includes(service.id)
-                : formData.tipoServicio === service.id;
+                ? formData.tipoServicio.some((id) => Number(id) === Number(service.id))
+                : Number(formData.tipoServicio) === Number(service.id);
               return (
                 <button
                   key={service.id}
                   type="button"
                   onClick={() => setFormData(prev => {
                     const current = Array.isArray(prev.tipoServicio) ? prev.tipoServicio : (prev.tipoServicio ? [prev.tipoServicio] : []);
-                    const exists = current.includes(service.id);
-                    const next = exists ? current.filter(i => i !== service.id) : [...current, service.id];
+                    const exists = current.some((id) => Number(id) === Number(service.id));
+                    const next = exists
+                      ? current.filter((i) => Number(i) !== Number(service.id))
+                      : [...current, Number(service.id)];
                     return { ...prev, tipoServicio: next };
                   })}
                   className={`p-4 rounded-lg border-2 transition-all font-semibold ${isSelected

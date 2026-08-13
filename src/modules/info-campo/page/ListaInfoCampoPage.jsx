@@ -5,16 +5,14 @@ import { useNavigate } from "react-router-dom";
 import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import { useToast } from "../../../components/ToastContext.jsx";
 import { ROUTES } from "../../../router/routes.js";
-import { clearDraft, saveDraft } from "../service/planMuestreoDraftStorage.js";
-import { deletePlanMuestreo, getPlanMuestreoById, getPlanesMuestreo } from "../service/planMuestreoService.js";
-import { mapPlanToDraft } from "../utils/mapPlanToDraft.js";
+import { deleteInfoCampo, getFormatosCampo } from "../service/infoCampoService.js";
 
 const ACCIONES_MENU_ALTURA_PX = 168;
 
-export default function ListaPlanesMuestreoPage() {
+export default function ListaInfoCampoPage() {
   const navigate = useNavigate();
   const { addToast } = useToast();
-  const [planes, setPlanes] = useState([]);
+  const [registros, setRegistros] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState(null);
@@ -22,34 +20,34 @@ export default function ListaPlanesMuestreoPage() {
   const [deleting, setDeleting] = useState(false);
   const [accionesMenu, setAccionesMenu] = useState(null);
 
-  const loadPlanes = useCallback(async () => {
+  const loadRegistros = useCallback(async () => {
     try {
       setLoading(true);
-      setPlanes(await getPlanesMuestreo());
+      setRegistros(await getFormatosCampo());
     } catch (err) {
-      addToast(err?.message || "Error al cargar los planes de muestreo", "error");
+      addToast(err?.message || "Error al cargar la información de campo", "error");
     } finally {
       setLoading(false);
     }
   }, [addToast]);
 
   useEffect(() => {
-    loadPlanes();
-  }, [loadPlanes]);
+    loadRegistros();
+  }, [loadRegistros]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
-    if (!q) return planes;
-    return planes.filter((p) =>
-      [p.codReferencia, p.formatosProforma, p.coordinador, p.tiposMuestreo, p.usuario, p.muestra]
+    if (!q) return registros;
+    return registros.filter((r) =>
+      [r.identificacionMuestra, r.numeroProforma, r.comunidad, r.matriz, r.usuario, r.estado]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q)),
     );
-  }, [search, planes]);
+  }, [search, registros]);
 
-  function abrirMenu(e, plan) {
+  function abrirMenu(e, registro) {
     e.stopPropagation();
-    if (accionesMenu?.plan?.idFormatoMuestreo === plan.idFormatoMuestreo) {
+    if (accionesMenu?.registro?.idFormatoCampo === registro.idFormatoCampo) {
       setAccionesMenu(null);
       return;
     }
@@ -57,7 +55,7 @@ export default function ListaPlanesMuestreoPage() {
     const espacioAbajo = window.innerHeight - rect.bottom;
     const placement = espacioAbajo >= ACCIONES_MENU_ALTURA_PX ? "bottom" : "top";
     setAccionesMenu({
-      plan,
+      registro,
       x: rect.right,
       y: placement === "bottom" ? rect.bottom + 4 : rect.top - 4,
       placement,
@@ -81,19 +79,16 @@ export default function ListaPlanesMuestreoPage() {
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-4 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-blue-900">Planes de Muestreo</h1>
-          <p className="text-sm text-slate-500">Consulta los planes registrados y crea uno nuevo.</p>
+          <h1 className="text-2xl font-semibold text-blue-900">Información de Campo</h1>
+          <p className="text-sm text-slate-500">Consulta los formatos de campo y registra uno nuevo.</p>
         </div>
         <button
           type="button"
-          onClick={() => {
-            clearDraft();
-            navigate(ROUTES.planMuestreoPaso(1));
-          }}
+          onClick={() => navigate(ROUTES.infoCampoNueva)}
           className="inline-flex items-center gap-2 rounded-lg bg-blue-900 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
         >
           <FaPlus className="h-4 w-4" />
-          Nuevo plan
+          Nuevo formato
         </button>
       </div>
 
@@ -101,7 +96,7 @@ export default function ListaPlanesMuestreoPage() {
         <FaSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-900" />
         <input
           type="text"
-          placeholder="Buscar plan..."
+          placeholder="Buscar formato de campo..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="input w-full pl-10"
@@ -112,12 +107,12 @@ export default function ListaPlanesMuestreoPage() {
         <table className="w-full min-w-[800px] text-left text-sm">
           <thead className="bg-gray-50 text-xs uppercase text-gray-600">
             <tr>
-              <th className="px-4 py-3 font-semibold sm:px-6">Referencia</th>
-              <th className="px-4 py-3 font-semibold sm:px-6">Proforma</th>
-              <th className="px-4 py-3 font-semibold sm:px-6">Coordinador</th>
-              <th className="px-4 py-3 font-semibold sm:px-6">Tipo muestreo</th>
               <th className="px-4 py-3 font-semibold sm:px-6">Muestra</th>
+              <th className="px-4 py-3 font-semibold sm:px-6">Proforma</th>
+              <th className="px-4 py-3 font-semibold sm:px-6">Comunidad</th>
+              <th className="px-4 py-3 font-semibold sm:px-6">Matriz</th>
               <th className="px-4 py-3 font-semibold sm:px-6">Usuario</th>
+              <th className="px-4 py-3 font-semibold sm:px-6">Estado</th>
               <th className="px-4 py-3 font-semibold sm:px-6">Acciones</th>
             </tr>
           </thead>
@@ -126,29 +121,29 @@ export default function ListaPlanesMuestreoPage() {
               <tr>
                 <td colSpan={7} className="px-4 py-10 text-center text-gray-500">
                   <FaSpinner className="mx-auto h-6 w-6 animate-spin" />
-                  <span className="mt-2 block">Cargando planes...</span>
+                  <span className="mt-2 block">Cargando formatos...</span>
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-10 text-center text-gray-500">
-                  {search ? "No se encontraron planes" : "No hay planes de muestreo registrados"}
+                  {search ? "No se encontraron formatos" : "No hay información de campo registrada"}
                 </td>
               </tr>
             ) : (
-              filtered.map((plan) => (
-                <tr key={plan.idFormatoMuestreo} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-900 sm:px-6">{plan.codReferencia}</td>
-                  <td className="px-4 py-3 sm:px-6">{plan.formatosProforma}</td>
-                  <td className="px-4 py-3 sm:px-6">{plan.coordinador}</td>
-                  <td className="px-4 py-3 sm:px-6">{plan.tiposMuestreo}</td>
-                  <td className="px-4 py-3 sm:px-6">{plan.muestra}</td>
-                  <td className="px-4 py-3 sm:px-6">{plan.usuario}</td>
+              filtered.map((registro) => (
+                <tr key={registro.idFormatoCampo} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 font-medium text-gray-900 sm:px-6">{registro.identificacionMuestra}</td>
+                  <td className="px-4 py-3 sm:px-6">{registro.numeroProforma}</td>
+                  <td className="px-4 py-3 sm:px-6">{registro.comunidad || "—"}</td>
+                  <td className="px-4 py-3 sm:px-6">{registro.matriz}</td>
+                  <td className="px-4 py-3 sm:px-6">{registro.usuario}</td>
+                  <td className="px-4 py-3 sm:px-6">{registro.estado}</td>
                   <td className="px-4 py-3 sm:px-6">
                     <button
                       type="button"
                       title="Más acciones"
-                      onClick={(e) => abrirMenu(e, plan)}
+                      onClick={(e) => abrirMenu(e, registro)}
                       className="rounded p-1.5 text-gray-600 hover:bg-gray-100"
                     >
                       <FaEllipsisV className="h-4 w-4" />
@@ -179,7 +174,7 @@ export default function ListaPlanesMuestreoPage() {
               role="menuitem"
               className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
               onClick={() => {
-                setDetail(accionesMenu.plan);
+                setDetail(accionesMenu.registro);
                 setAccionesMenu(null);
               }}
             >
@@ -189,16 +184,9 @@ export default function ListaPlanesMuestreoPage() {
               type="button"
               role="menuitem"
               className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-              onClick={async () => {
-                const plan = accionesMenu.plan;
+              onClick={() => {
+                navigate(ROUTES.infoCampoEditar(accionesMenu.registro.idFormatoCampo));
                 setAccionesMenu(null);
-                try {
-                  const detalle = await getPlanMuestreoById(plan.idFormatoMuestreo);
-                  saveDraft(mapPlanToDraft(detalle));
-                  navigate(ROUTES.planMuestreoPaso(1));
-                } catch (err) {
-                  addToast(err?.message || "No se pudo cargar el plan para editar", "error");
-                }
               }}
             >
               Editar
@@ -208,7 +196,7 @@ export default function ListaPlanesMuestreoPage() {
               role="menuitem"
               className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
               onClick={() => {
-                setConfirmDelete(accionesMenu.plan);
+                setConfirmDelete(accionesMenu.registro);
                 setAccionesMenu(null);
               }}
             >
@@ -220,20 +208,20 @@ export default function ListaPlanesMuestreoPage() {
 
       <ConfirmDialog
         open={!!confirmDelete}
-        title="Eliminar plan de muestreo"
-        message={`¿Eliminar el plan ${confirmDelete?.codReferencia || ""}?`}
+        title="Eliminar formato de campo"
+        message={`¿Eliminar el formato de ${confirmDelete?.identificacionMuestra || "campo"}?`}
         confirmText="Eliminar"
         loading={deleting}
         onCancel={() => setConfirmDelete(null)}
         onConfirm={async () => {
           try {
             setDeleting(true);
-            await deletePlanMuestreo(confirmDelete.idFormatoMuestreo);
-            addToast("Plan eliminado", "success");
+            await deleteInfoCampo(confirmDelete.idFormatoCampo);
+            addToast("Formato de campo eliminado", "success");
             setConfirmDelete(null);
-            await loadPlanes();
+            await loadRegistros();
           } catch (err) {
-            addToast(err?.message || "No se pudo eliminar el plan", "error");
+            addToast(err?.message || "No se pudo eliminar el formato", "error");
           } finally {
             setDeleting(false);
           }
@@ -244,18 +232,18 @@ export default function ListaPlanesMuestreoPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-lg bg-white shadow-xl">
             <div className="flex items-center justify-between border-b px-6 py-4">
-              <h2 className="text-lg font-semibold text-gray-800">Detalle del plan</h2>
+              <h2 className="text-lg font-semibold text-gray-800">Detalle de campo</h2>
               <button type="button" onClick={() => setDetail(null)} className="rounded p-1 text-gray-400 hover:bg-gray-100">
                 <FaTimes className="h-5 w-5" />
               </button>
             </div>
             <div className="space-y-3 p-6 text-sm">
-              <p><span className="font-medium text-gray-600">Referencia:</span> {detail.codReferencia}</p>
-              <p><span className="font-medium text-gray-600">Proforma:</span> {detail.formatosProforma}</p>
-              <p><span className="font-medium text-gray-600">Coordinador:</span> {detail.coordinador}</p>
-              <p><span className="font-medium text-gray-600">Tipo:</span> {detail.tiposMuestreo}</p>
-              <p><span className="font-medium text-gray-600">Muestra:</span> {detail.muestra}</p>
-              <p><span className="font-medium text-gray-600">Observaciones:</span> {detail.observaciones || "—"}</p>
+              <p><span className="font-medium text-gray-600">Muestra:</span> {detail.identificacionMuestra}</p>
+              <p><span className="font-medium text-gray-600">Proforma:</span> {detail.numeroProforma}</p>
+              <p><span className="font-medium text-gray-600">Comunidad:</span> {detail.comunidad || "—"}</p>
+              <p><span className="font-medium text-gray-600">Matriz:</span> {detail.matriz}</p>
+              <p><span className="font-medium text-gray-600">Fuente:</span> {detail.fuente}</p>
+              <p><span className="font-medium text-gray-600">Observación:</span> {detail.observacion || "—"}</p>
             </div>
           </div>
         </div>

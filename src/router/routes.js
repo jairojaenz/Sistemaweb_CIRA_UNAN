@@ -4,6 +4,8 @@ export const ROUTES = {
   dashboard: "/dashboard",
   home: "/dashboard",
   infoCampo: "/dashboard/info-campo",
+  infoCampoNueva: "/dashboard/info-campo/nueva",
+  infoCampoEditar: (id) => `/dashboard/info-campo/editar/${id}`,
   solicitudServicio: "/dashboard/solicitud-servicio",
   solicitudServicioCliente: (idCliente) => `/dashboard/solicitud-servicio/${idCliente}`,
   solicitudServicioEditar: (id) => `/dashboard/solicitud-servicio/editar/${id}`,

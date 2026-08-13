@@ -13,6 +13,7 @@ import { ROUTES } from "./routes.js";
 
 const LoginPage = lazy(() => import("../modules/auth/page/LoginPage.jsx"));
 const DashboardHomePage = lazy(() => import("../modules/home/page/DashboardHomePage.jsx"));
+const ListaInfoCampoPage = lazy(() => import("../modules/info-campo/page/ListaInfoCampoPage.jsx"));
 const InfoCampoPage = lazy(() => import("../modules/info-campo/page/InfoCampoPage.jsx"));
 const SolicitudServicioPage = lazy(() =>
   import("../modules/solicitud-servicio/page/SolicitudServicioPage.jsx")
@@ -76,7 +77,9 @@ export default function AppRoutes() {
             }
           >
             <Route index element={<DashboardHomePage />} />
-            <Route path="info-campo" element={<InfoCampoPage />} />
+            <Route path="info-campo" element={<ListaInfoCampoPage />} />
+            <Route path="info-campo/nueva" element={<InfoCampoPage />} />
+            <Route path="info-campo/editar/:idCampo" element={<InfoCampoPage />} />
             <Route path="solicitud-servicio" element={<ListaSolicitudServicioPage />} />
             <Route path="solicitud-servicio/editar/:idSolicitud" element={<SolicitudServicioPage />} />
             <Route path="solicitud-servicio/:idCliente" element={<SolicitudServicioPage />} />

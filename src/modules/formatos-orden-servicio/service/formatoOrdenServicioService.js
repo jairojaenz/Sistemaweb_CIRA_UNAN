@@ -57,6 +57,13 @@ export function normalizeOrdenFromApi(raw) {
     idTipoMuestreo: raw.idTipoMuestreo ?? raw.IdTipoMuestreo ?? "",
     tipoMuestreo: raw.tipoMuestreo ?? raw.TipoMuestreo ?? "",
     usuario: raw.usuario ?? raw.Usuario ?? "",
+    detalles: (raw.detalles ?? raw.Detalles ?? []).map((d) => ({
+      idDetalleOrden: d.idDetalleOrden ?? d.IdDetalleOrden,
+      idMuestra: d.idMuestra ?? d.IdMuestra,
+      identificacion: d.identificacion ?? d.Identificacion ?? "",
+      analisisSolicitado: d.analisisSolicitado ?? d.AnalisisSolicitado ?? "",
+      idsAnalisis: d.idsAnalisis ?? d.IdsAnalisis ?? [],
+    })),
   };
 }
 

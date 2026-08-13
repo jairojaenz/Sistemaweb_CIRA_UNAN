@@ -5,7 +5,7 @@ import PlanMuestreoLayout from "./PlanMuestreoLayout.jsx";
 import { useAuth } from "../../../auth/AuthContext.jsx";
 import { useToast } from "../../../components/ToastContext.jsx";
 import { clearDraft, loadDraft, saveDraft } from "../service/planMuestreoDraftStorage.js";
-import { createPlanMuestreo } from "../service/planMuestreoService.js";
+import { createPlanMuestreo, updatePlanMuestreo } from "../service/planMuestreoService.js";
 import { formToPlanMuestreoPayload } from "../utils/formToPlanMuestreoPayload.js";
 import { ROUTES } from "../../../router/routes.js";
 
@@ -135,8 +135,14 @@ export default function PlanMuestreoPaso3() {
     try {
       setSaving(true);
       const payload = formToPlanMuestreoPayload(draft, { idUsuario });
-      await createPlanMuestreo(payload);
-      addToast("Plan de muestreo creado correctamente.", "success");
+      const idPlan = Number(draft.idFormatoMuestreo);
+      if (idPlan > 0) {
+        await updatePlanMuestreo(idPlan, payload);
+        addToast("Plan de muestreo actualizado correctamente.", "success");
+      } else {
+        await createPlanMuestreo(payload);
+        addToast("Plan de muestreo creado correctamente.", "success");
+      }
       clearDraft();
       navigate(ROUTES.planMuestreo);
     } catch (err) {
@@ -154,7 +160,7 @@ export default function PlanMuestreoPaso3() {
       isLastStep
       onPrevious={() => navigate(ROUTES.planMuestreoPaso(2))}
       onSubmit={handleCreate}
-      submitLabel={saving ? "Guardando…" : "Crear"}
+      submitLabel={saving ? "Guardando…" : Number(draft.idFormatoMuestreo) > 0 ? "Actualizar" : "Crear"}
       submitDisabled={saving}
     >
       <div className="space-y-5">

@@ -96,7 +96,9 @@ export default function DashboardLayout() {
 
   function getPageTitle(p) {
     if (p === "/dashboard" || p === "/dashboard/") return "Bienvenido al Sistema de Gestión de Información de Campo de Muestras";
-    if (p.includes("/info-campo")) return "Información de Campo de Muestras";
+    if (p.includes("/info-campo/editar/")) return "Editar Información de Campo";
+    if (p.includes("/info-campo/nueva")) return "Nueva Información de Campo";
+    if (p.includes("/info-campo")) return "Lista de Información de Campo";
     if (p.includes("/solicitud-servicio/editar/")) return "Editar Solicitud de Servicio";
     if (/\/dashboard\/solicitud-servicio\/\d+/.test(p)) return "Crear Solicitud de Servicio";
     if (p.includes("/solicitud-servicio")) return "Lista de Solicitud de Servicios";

@@ -46,6 +46,20 @@ export function formToPlanMuestreoPayload(draft, { idUsuario } = {}) {
   const p3 = draft.paso3 ?? {};
   const nota = notaTipoMuestreo(p2);
   const obs = String(p3.observacionesMuestreo ?? "").trim();
+  const detalle = Array.isArray(p2.detalle) ? p2.detalle : [];
+  const idsAnalisis = detalle
+    .flatMap((row) => row.idsEnsayos ?? [])
+    .map(Number)
+    .filter((id) => id > 0);
+  const tipoEnvase = detalle.map((row) => row.tipoEnvaseVolumen).find((v) => String(v ?? "").trim()) || null;
+  const puntos = detalle
+    .filter((row) => row.lugarMuestreo || row.coordenadas || row.identificacionMuestra)
+    .map((row) => {
+      const partes = [row.lugarMuestreo, row.identificacionMuestra, row.coordenadas].filter(Boolean);
+      return partes.join(" — ");
+    });
+  const notaPuntos = puntos.length ? `Puntos: ${puntos.join("; ")}` : "";
+  const observaciones = [nota, notaPuntos, obs].filter(Boolean).join(". ");
 
   return {
     codReferencia: p1.codigoReferencia || "SIN-REF",
@@ -55,7 +69,7 @@ export function formToPlanMuestreoPayload(draft, { idUsuario } = {}) {
     horaRegreso: timeOrDefault(p1.horaRegreso, "17:00:00"),
     coordinador: p2.coordinador || "",
     reemplazoCoordinador: p2.reemplazoCoordinador || "",
-    observaciones: obs ? `${nota}. ${obs}` : nota,
+    observaciones: observaciones || null,
     observacionCoordinador: p3.observacionesCoordinador || null,
     usuarioElaboracion: p3.elaboraNombreFirma || "",
     fechaElaboracion: dateOrToday(p3.elaboraFecha),
@@ -71,5 +85,7 @@ export function formToPlanMuestreoPayload(draft, { idUsuario } = {}) {
     idUsuario: Number(idUsuario) || null,
     idTipoMuestreo: idTipoMuestreoFromDraft(p2),
     idMuestra: Number(p1.idMuestra) || 0,
+    idsAnalisis,
+    tipoEnvaseMuestra: tipoEnvase,
   };
 }

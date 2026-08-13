@@ -73,9 +73,11 @@ export function formToOrdenServicioPayload(
   const detalleMuestras = (form.detalleMuestras ?? [])
     .filter((row) => trimOrNull(row.analisis))
     .map((row) => ({
+      idMuestra: Number(row.idMuestra) || null,
       numeroMuestra: trimOrNull(row.numeroMuestra) || "01",
       analisisSolicitado: trimOrNull(row.analisis),
       codigoAsignado: trimOrNull(row.codigoAsignado ?? row.codigoLab),
+      idsAnalisis: [Number(row.idAnalisis)].filter((id) => id > 0),
     }));
 
   const controlRecepcion = (form.controlRecepcion ?? [])

@@ -234,6 +234,7 @@ export function buildDetalleMuestrasFromSolicitud(solicitud, proforma = null) {
       rows.push({
         numeroMuestra: String(i).padStart(2, "0"),
         analisis,
+        idAnalisis: linea.idAnalisis ?? solicitudDetalle?.idAnalisis ?? "",
         codigoAsignado: formatCodigoAsignado(codigoSecuencia),
       });
       codigoSecuencia += 1;

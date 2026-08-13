@@ -26,6 +26,26 @@ export function normalizePlanFromApi(raw) {
     formatosProforma: raw.formatosProforma ?? raw.FormatosProforma ?? "",
     tiposMuestreo: raw.tiposMuestreo ?? raw.TiposMuestreo ?? "",
     usuario: raw.usuario ?? raw.Usuario ?? "",
+    idProforma: raw.idProforma ?? raw.IdProforma,
+    idUsuario: raw.idUsuario ?? raw.IdUsuario,
+    idTipoMuestreo: raw.idTipoMuestreo ?? raw.IdTipoMuestreo,
+    idMuestra: raw.idMuestra ?? raw.IdMuestra,
+    clienteFinalizacion: raw.clienteFinalizacion ?? raw.ClienteFinalizacion ?? "",
+    fechaElaboracion: raw.fechaElaboracion ?? raw.FechaElaboracion ?? "",
+    horaElaboracion: raw.horaElaboracion ?? raw.HoraElaboracion ?? "",
+    fechaFinalizacion: raw.fechaFinalizacion ?? raw.FechaFinalizacion ?? "",
+    horaFinalizacion: raw.horaFinalizacion ?? raw.HoraFinalizacion ?? "",
+    usuarioEntrega: raw.usuarioEntrega ?? raw.UsuarioEntrega ?? "",
+    fechaEntrega: raw.fechaEntrega ?? raw.FechaEntrega ?? "",
+    horaEntrega: raw.horaEntrega ?? raw.HoraEntrega ?? "",
+    idsMuestraxAnalisis: raw.idsMuestraxAnalisis ?? raw.IdsMuestraxAnalisis ?? [],
+    idsAnalisis: raw.idsAnalisis ?? raw.IdsAnalisis ?? [],
+    ensayos: (raw.ensayos ?? raw.Ensayos ?? []).map((e) => ({
+      idMuestraxAnalisis: e.idMuestraxAnalisis ?? e.IdMuestraxAnalisis,
+      idAnalisis: e.idAnalisis ?? e.IdAnalisis,
+      nombreAnalisis: e.nombreAnalisis ?? e.NombreAnalisis ?? "",
+      tipoEnvaseMuestra: e.tipoEnvaseMuestra ?? e.TipoEnvaseMuestra ?? "",
+    })),
   };
 }
 

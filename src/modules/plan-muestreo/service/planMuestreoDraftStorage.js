@@ -2,6 +2,7 @@ const STORAGE_KEY = "plan_muestreo_draft_v1";
 
 export function getEmptyDraft() {
   return {
+    idFormatoMuestreo: null,
     paso1: {
       codigoReferencia: "",
       usuarioProyecto: "",
@@ -69,6 +70,7 @@ export function loadDraft() {
     return {
       ...empty,
       ...parsed,
+      idFormatoMuestreo: parsed.idFormatoMuestreo ?? null,
       paso1: { ...empty.paso1, ...(parsed.paso1 ?? {}) },
       paso2,
       paso3: { ...empty.paso3, ...(parsed.paso3 ?? {}) },
