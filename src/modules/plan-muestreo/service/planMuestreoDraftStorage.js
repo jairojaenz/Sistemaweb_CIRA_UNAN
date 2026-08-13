@@ -6,6 +6,8 @@ export function getEmptyDraft() {
       codigoReferencia: "",
       usuarioProyecto: "",
       proformaNo: "",
+      idProforma: "",
+      idMuestra: "",
       direccionUsuario: "",
       atencionA: "",
       telefono: "",
@@ -17,9 +19,10 @@ export function getEmptyDraft() {
       horaRegreso: "",
     },
     paso2: {
-      tipoMuestreo: "puntual", // puntual | compuesto | otros
+      tipoMuestreo: "puntual", // puntual | compuesto
+      horaPuntual: "",
       compuestoHoras: [],
-      otrosHoras: [],
+      compuestoOtroTiempo: "",
       coordinador: "",
       reemplazoCoordinador: "",
       detalle: [
@@ -30,6 +33,7 @@ export function getEmptyDraft() {
           matriz: "",
           fuente: "",
           ensayosSolicitados: "",
+          idsEnsayos: [],
           tipoEnvaseVolumen: "",
           preservantes: "",
         },
@@ -56,7 +60,19 @@ export function loadDraft() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return getEmptyDraft();
     const parsed = JSON.parse(raw);
-    return parsed ?? getEmptyDraft();
+    if (!parsed) return getEmptyDraft();
+    const empty = getEmptyDraft();
+    const paso2 = { ...empty.paso2, ...(parsed.paso2 ?? {}) };
+    if (paso2.tipoMuestreo === "otros") {
+      paso2.tipoMuestreo = "compuesto";
+    }
+    return {
+      ...empty,
+      ...parsed,
+      paso1: { ...empty.paso1, ...(parsed.paso1 ?? {}) },
+      paso2,
+      paso3: { ...empty.paso3, ...(parsed.paso3 ?? {}) },
+    };
   } catch {
     return getEmptyDraft();
   }

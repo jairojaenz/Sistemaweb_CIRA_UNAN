@@ -34,17 +34,19 @@ export function normalizeClienteFromApi(raw) {
   return {
     ...raw,
     idCliente: raw.idCliente ?? raw.IdCliente,
-    nombreCliente: raw.nombreCliente ?? raw.NombreCliente ?? "",
-    apellidoCliente: raw.apellidoCliente ?? raw.ApellidoCliente ?? "",
-    telefonoCliente: raw.telefonoCliente ?? raw.TelefonoCliente ?? "",
-    celularCliente: raw.celularCliente ?? raw.CelularCliente ?? "",
-    correoCliente: raw.correoCliente ?? raw.CorreoCliente ?? "",
-    direccionCliente: raw.direccionCliente ?? raw.DireccionCliente ?? "",
-    cedulaCliente: raw.cedulaCliente ?? raw.CedulaCliente ?? "",
+    // GET devuelve Nombre/Apellido/Correo (DTO corto); el form usa *Cliente.
+    nombreCliente: raw.nombreCliente ?? raw.NombreCliente ?? raw.nombre ?? raw.Nombre ?? "",
+    apellidoCliente: raw.apellidoCliente ?? raw.ApellidoCliente ?? raw.apellido ?? raw.Apellido ?? "",
+    telefonoCliente: raw.telefonoCliente ?? raw.TelefonoCliente ?? raw.telefono ?? raw.Telefono ?? "",
+    celularCliente: raw.celularCliente ?? raw.CelularCliente ?? raw.celular ?? raw.Celular ?? "",
+    correoCliente: raw.correoCliente ?? raw.CorreoCliente ?? raw.correo ?? raw.Correo ?? "",
+    direccionCliente: raw.direccionCliente ?? raw.DireccionCliente ?? raw.direccion ?? raw.Direccion ?? "",
+    cedulaCliente: raw.cedulaCliente ?? raw.CedulaCliente ?? raw.cedula ?? raw.Cedula ?? "",
     numeroRuc: String(raw.numeroRuc ?? raw.NumeroRuc ?? "").trim(),
     nombreContacto: raw.nombreContacto ?? raw.NombreContacto ?? null,
-    firmaCliente: raw.firmaCliente ?? raw.FirmaCliente ?? "",
-    fechaCreacionCliente: raw.fechaCreacionCliente ?? raw.FechaCreacionCliente ?? null,
+    firmaCliente: raw.firmaCliente ?? raw.FirmaCliente ?? raw.firma ?? raw.Firma ?? "",
+    fechaCreacionCliente:
+      raw.fechaCreacionCliente ?? raw.FechaCreacionCliente ?? raw.fechaCreacion ?? raw.FechaCreacion ?? null,
     idUsuario: raw.idUsuario ?? raw.IdUsuario ?? null,
     departamento,
     municipio,
@@ -96,6 +98,11 @@ function appendClienteFormFields(fd, data, options = {}) {
 export async function getClientes() {
   const res = await apiGet("/api/Clientes/clientes");
   return normalizeListResponse(res).map(normalizeClienteFromApi);
+}
+
+export async function getClienteById(idCliente) {
+  const res = await apiGet(`/api/Clientes/clientes/${idCliente}`);
+  return normalizeClienteFromApi(res);
 }
 
 /**

@@ -1,41 +1,48 @@
 /**
  * Service: Usuarios (solo Administrador en API y rutas).
  * API: /api/User/...
- * Catálogos auxiliares también normalizados con asList().
+ * GET devuelve Nombre/Correo/Firma; el UI usa nombreUsuario/correoUsuario/firmaUsuario.
  */
 import { apiGet, apiPostFormData, apiPutFormData, apiDelete, apiPut } from "../../../auth/api";
 import { asList } from "../../../utils/apiList.js";
+import { getMunicipios as getMunicipiosCatalogo } from "../../catalogos/service/municipiosService.js";
+
+export function normalizeUsuarioFromApi(raw) {
+  if (!raw || typeof raw !== "object") return raw;
+  return {
+    ...raw,
+    idUsuario: raw.idUsuario ?? raw.IdUsuario,
+    nombreUsuario: raw.nombreUsuario ?? raw.NombreUsuario ?? raw.nombre ?? raw.Nombre ?? "",
+    apellidoUsuario: raw.apellidoUsuario ?? raw.ApellidoUsuario ?? raw.apellido ?? raw.Apellido ?? "",
+    correoUsuario: raw.correoUsuario ?? raw.CorreoUsuario ?? raw.correo ?? raw.Correo ?? "",
+    celularUsuario: raw.celularUsuario ?? raw.CelularUsuario ?? raw.celular ?? raw.Celular ?? "",
+    cedulaUsuario: raw.cedulaUsuario ?? raw.CedulaUsuario ?? raw.cedula ?? raw.Cedula ?? "",
+    firmaUsuario: raw.firmaUsuario ?? raw.FirmaUsuario ?? raw.firma ?? raw.Firma ?? "",
+    cargo: raw.cargo ?? raw.Cargo ?? "",
+    departamento: raw.departamento ?? raw.Departamento ?? "",
+    municipio: raw.municipio ?? raw.Municipio ?? "",
+    laboratorio: raw.laboratorio ?? raw.Laboratorio ?? "",
+    activo: raw.activo !== false && raw.Activo !== false,
+  };
+}
 
 /** GET /api/User/get-users → { users: [...] } o array. */
 export async function getUsuarios() {
   const res = await apiGet("/api/User/get-users");
-  return asList(res);
+  return asList(res).map(normalizeUsuarioFromApi);
 }
 
 export async function getUsuarioById(id) {
-  return await apiGet(`/api/User/get-user/${id}`);
+  return normalizeUsuarioFromApi(await apiGet(`/api/User/get-user/${id}`));
 }
 
-export async function getCargos() {
-  return asList(await apiGet("/api/catalogos/cargos"));
-}
-
-export async function getDepartamentos() {
-  return asList(await apiGet("/api/catalogos/departamentos"));
-}
-
-export async function getMunicipios() {
-  return asList(await apiGet("/api/catalogos/municipios"));
-}
+export { getCargos } from "../../catalogos/service/cargosService.js";
+export { getDepartamentos } from "../../catalogos/service/departamentosService.js";
+export { getMunicipios } from "../../catalogos/service/municipiosService.js";
+export { getLaboratorios } from "../../laboratorios/service/laboratorioService.js";
 
 export async function getMunicipiosByDepartamento(idDepartamento) {
-  return asList(
-    await apiGet(`/api/catalogos/municipios?idDepartamento=${idDepartamento}`)
-  );
-}
-
-export async function getLaboratorios() {
-  return asList(await apiGet("/api/catalogos/laboratorios"));
+  return getMunicipiosCatalogo(idDepartamento);
 }
 
 export async function createUsuario(data, firmaFile) {

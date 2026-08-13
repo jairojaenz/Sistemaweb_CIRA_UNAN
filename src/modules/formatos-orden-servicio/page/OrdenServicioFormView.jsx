@@ -14,7 +14,13 @@ import {
 import { FaSpinner } from "react-icons/fa";
 import WizardStepIndicator from "../../../components/WizardStepIndicator.jsx";
 import { labelFormatoCampo } from "../service/catalogosOrdenService.js";
-import { telefonoLocalError } from "../../../utils/phoneFormat.js";
+import OrdenValidationModal from "../components/OrdenValidationModal.jsx";
+import {
+  collectOrdenIssues,
+  issuesForStep,
+  issuesToFormErrors,
+  mapApiErrorToIssues,
+} from "../utils/ordenValidation.js";
 
 const TOTAL_STEPS = 3;
 const STEP_LABELS = ["Cliente", "Servicios solicitados", "Logística y cierre"];
@@ -33,42 +39,19 @@ const SERVICIOS_OPCIONES = [
   { name: "informeTecnicoOrden", label: "Informe técnico", desc: "Documento de resultados", icon: BarChart3 },
 ];
 
-const COMPOUESTO_KEYS = ["compuesto8h", "compuesto12h", "compuesto16h", "compuesto24h"];
-
 function labelUsuario(u) {
   const nombre = u.nombreUsuario ?? u.NombreUsuario ?? "";
   const apellido = u.apellidoUsuario ?? u.ApellidoUsuario ?? "";
   return `${nombre} ${apellido}`.trim() || nombre;
 }
 
-function validateStep(step, form) {
-  const errors = {};
-
-  if (step === 1) {
-    if (!String(form.numeroOrden).trim()) errors.numeroOrden = "Requerido";
-    if (!form.fecha) errors.fecha = "Requerido";
-    if (!String(form.usuarioEmpresa).trim()) errors.usuarioEmpresa = "Requerido";
-
-    const errTelefono = telefonoLocalError(form.telefono, { label: "Teléfono" });
-    if (errTelefono) errors.telefono = errTelefono;
-
-    const errCelular = telefonoLocalError(form.celular, { label: "Celular" });
-    if (errCelular) errors.celular = errCelular;
-  }
-
-  if (step === 2) {
-    if (form.modalidadMuestreo === "compuesto") {
-      const seleccionadas = COMPOUESTO_KEYS.filter((key) => form[key]).length;
-      if (seleccionadas !== 1) {
-        errors.compuestoOpcion = "Seleccione una sola duración para muestreo compuesto";
-      }
-    }
-    if (form.modalidadMuestreo === "otros" && !String(form.modalidadMuestreoOtros ?? "").trim()) {
-      errors.modalidadMuestreoOtros = "Especifique el tipo de muestreo";
-    }
-  }
-
-  return errors;
+function validationExtras(formViewProps) {
+  return {
+    usuarios: formViewProps.usuarios ?? [],
+    formatosCampo: formViewProps.formatosCampo ?? [],
+    idUsuarioSesion: formViewProps.idUsuarioSesion ?? null,
+    catalogsReady: !formViewProps.catalogsLoading,
+  };
 }
 
 function SectionHeader({ accent = "bg-blue-900", title, subtitle }) {
@@ -179,7 +162,7 @@ function ServiceCard({ name, label, desc, icon: Icon, checked, onChange }) {
 
 export default function OrdenServicioFormView({
   form,
-  formErrors,
+  formErrors = {},
   onChange,
   onDetalleChange,
   onAddDetalleRow,
@@ -193,20 +176,29 @@ export default function OrdenServicioFormView({
   saving,
   isEditing = false,
   catalogsLoading = false,
+  idUsuarioSesion = null,
   departamentos,
   municipiosFiltrados,
   usuarios = [],
   formatosCampo = [],
+  tiposMuestreo = [],
   solicitudOrigen = null,
 }) {
   const [currentStep, setCurrentStep] = useState(1);
+  const [validationOpen, setValidationOpen] = useState(false);
+  const [validationIssues, setValidationIssues] = useState([]);
+  const [apiMessage, setApiMessage] = useState("");
   const compuesto = form.modalidadMuestreo === "compuesto";
   const otros = form.modalidadMuestreo === "otros";
+  const extras = validationExtras({ usuarios, formatosCampo, idUsuarioSesion, catalogsLoading });
 
   function goNext() {
-    const errors = validateStep(currentStep, form);
-    onFormErrors?.(errors);
-    if (Object.keys(errors).length > 0) return;
+    const stepIssues = issuesForStep(
+      collectOrdenIssues(form, { ...extras, includeCatalogIssues: currentStep === 1 }),
+      currentStep,
+    );
+    onFormErrors?.(issuesToFormErrors(stepIssues));
+    if (stepIssues.length > 0) return;
     setCurrentStep((s) => Math.min(s + 1, TOTAL_STEPS));
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -216,17 +208,42 @@ export default function OrdenServicioFormView({
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function handleFinalSubmit(e) {
+  function goToStepFromModal(step) {
+    setValidationOpen(false);
+    setCurrentStep(step);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function handleFinalSubmit(e) {
     e.preventDefault();
-    const allErrors = { ...validateStep(1, form), ...validateStep(2, form) };
-    onFormErrors?.(allErrors);
-    if (Object.keys(allErrors).length > 0) {
-      const firstStepWithError =
-        allErrors.numeroOrden || allErrors.fecha || allErrors.usuarioEmpresa ? 1 : 2;
-      setCurrentStep(firstStepWithError);
+    // Enter en un input o un clic reciclado no deben crear la orden fuera del paso 3.
+    if (currentStep < TOTAL_STEPS) {
+      goNext();
       return;
     }
-    onSubmit(e);
+
+    const issues = collectOrdenIssues(form, extras);
+    onFormErrors?.(issuesToFormErrors(issues));
+    if (issues.length > 0) {
+      setValidationIssues(issues);
+      setApiMessage("");
+      setValidationOpen(true);
+      return;
+    }
+
+    try {
+      await onSubmit(e);
+    } catch (err) {
+      if (err?.issues?.length) {
+        setValidationIssues(err.issues);
+        setApiMessage("");
+      } else {
+        const known = mapApiErrorToIssues(err?.message);
+        setValidationIssues(known);
+        setApiMessage(known.length > 0 ? "" : (err?.message ?? "No se pudo guardar la orden."));
+      }
+      setValidationOpen(true);
+    }
   }
 
   function setRadio(name, value) {
@@ -317,62 +334,68 @@ export default function OrdenServicioFormView({
                     </div>
                   </div>
 
-                  {(usuarios.length > 0 || formatosCampo.length > 0) && (
-                    <Panel>
-                      <SectionHeader
-                        accent="bg-amber-400"
-                        title="Vinculación en sistema"
-                        subtitle="Relacione la orden con registros existentes (opcional)"
-                      />
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        {usuarios.length > 0 && (
-                          <div>
-                            <label htmlFor="orden-idUsuario" className="mb-1.5 block text-sm font-semibold text-gray-700">
-                              Usuario del sistema
-                            </label>
-                            <select
-                              id="orden-idUsuario"
-                              name="idUsuario"
-                              value={form.idUsuario}
-                              onChange={onChange}
-                              className="select"
-                            >
-                              <option value="">Seleccione usuario</option>
-                              {usuarios.map((u) => {
-                                const id = u.idUsuario ?? u.IdUsuario;
-                                return (
-                                  <option key={id} value={String(id)}>
-                                    {labelUsuario(u)}
-                                  </option>
-                                );
-                              })}
-                            </select>
-                          </div>
+                  <Panel>
+                    <SectionHeader
+                      accent="bg-amber-400"
+                      title="Vinculación en sistema"
+                      subtitle="Obligatorios para crear la orden: usuario responsable y formato de campo"
+                    />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label htmlFor="orden-idUsuario" className="mb-1.5 block text-sm font-semibold text-gray-700">
+                          Usuario del sistema <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          id="orden-idUsuario"
+                          name="idUsuario"
+                          value={form.idUsuario}
+                          onChange={onChange}
+                          className={`select ${formErrors.idUsuario ? "border-red-500" : ""}`}
+                        >
+                          <option value="">Seleccione usuario</option>
+                          {usuarios.map((u) => {
+                            const id = u.idUsuario ?? u.IdUsuario;
+                            return (
+                              <option key={id} value={String(id)}>
+                                {labelUsuario(u)}
+                              </option>
+                            );
+                          })}
+                        </select>
+                        {formErrors.idUsuario && (
+                          <p className="mt-1 text-xs text-red-600">{formErrors.idUsuario}</p>
                         )}
-                        {formatosCampo.length > 0 && (
-                          <div>
-                            <label htmlFor="orden-idFormatoCampo" className="mb-1.5 block text-sm font-semibold text-gray-700">
-                              Formato de campo
-                            </label>
-                            <select
-                              id="orden-idFormatoCampo"
-                              name="idFormatoCampo"
-                              value={form.idFormatoCampo}
-                              onChange={onChange}
-                              className="select"
-                            >
-                              <option value="">Seleccione formato</option>
-                              {formatosCampo.map((f) => (
-                                <option key={f.idFormatoCampo} value={String(f.idFormatoCampo)}>
-                                  {labelFormatoCampo(f)}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
+                        {usuarios.length === 0 && !catalogsLoading && (
+                          <p className="mt-1 text-xs text-amber-700">No hay usuarios activos. Regístrelos en Gestión de Usuarios.</p>
                         )}
                       </div>
-                    </Panel>
-                  )}
+                      <div>
+                        <label htmlFor="orden-idFormatoCampo" className="mb-1.5 block text-sm font-semibold text-gray-700">
+                          Formato de campo <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          id="orden-idFormatoCampo"
+                          name="idFormatoCampo"
+                          value={form.idFormatoCampo}
+                          onChange={onChange}
+                          className={`select ${formErrors.idFormatoCampo ? "border-red-500" : ""}`}
+                        >
+                          <option value="">Seleccione formato</option>
+                          {formatosCampo.map((f) => (
+                            <option key={f.idFormatoCampo} value={String(f.idFormatoCampo)}>
+                              {labelFormatoCampo(f)}
+                            </option>
+                          ))}
+                        </select>
+                        {formErrors.idFormatoCampo && (
+                          <p className="mt-1 text-xs text-red-600">{formErrors.idFormatoCampo}</p>
+                        )}
+                        {formatosCampo.length === 0 && !catalogsLoading && (
+                          <p className="mt-1 text-xs text-amber-700">No hay formatos de campo. Créelos en Información de Campo.</p>
+                        )}
+                      </div>
+                    </div>
+                  </Panel>
 
                   <div>
                     <SectionHeader
@@ -397,6 +420,7 @@ export default function OrdenServicioFormView({
                         type="email"
                         value={form.correo}
                         onChange={onChange}
+                        error={formErrors.correo}
                       />
                       <FloatInput
                         label="Teléfono"
@@ -517,8 +541,35 @@ export default function OrdenServicioFormView({
                     <SectionHeader
                       accent="bg-amber-400"
                       title="Tipo de muestreo solicitado"
-                      subtitle="Modalidad y duración si aplica"
+                      subtitle="El catálogo es obligatorio; la modalidad detalla el muestreo en el formulario"
                     />
+                    <div className="mb-5 max-w-xl">
+                      <label htmlFor="orden-idTipoMuestreo" className="mb-1.5 block text-sm font-semibold text-gray-700">
+                        Tipo de muestreo (catálogo) <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        id="orden-idTipoMuestreo"
+                        name="idTipoMuestreo"
+                        value={form.idTipoMuestreo}
+                        onChange={onChange}
+                        className={`select ${formErrors.idTipoMuestreo ? "border-red-500" : ""}`}
+                      >
+                        <option value="">Seleccione tipo de muestreo</option>
+                        {tiposMuestreo.map((t) => (
+                          <option key={t.idTipoMuestreo} value={String(t.idTipoMuestreo)}>
+                            {t.nombreTipoMuestreo || t.nombre}
+                          </option>
+                        ))}
+                      </select>
+                      {formErrors.idTipoMuestreo && (
+                        <p className="mt-1 text-xs text-red-600">{formErrors.idTipoMuestreo}</p>
+                      )}
+                      {tiposMuestreo.length === 0 && !catalogsLoading && (
+                        <p className="mt-1 text-xs text-amber-700">
+                          No hay tipos de muestreo activos. Cárguelos en el catálogo.
+                        </p>
+                      )}
+                    </div>
                     <div className="grid gap-3 sm:grid-cols-3">
                       <ChoiceButton
                         active={form.modalidadMuestreo === "puntual"}
@@ -632,9 +683,18 @@ export default function OrdenServicioFormView({
                                   onChange={(e) =>
                                     onDetalleChange(index, "codigoAsignado", e.target.value)
                                   }
-                                  className="input border-gray-200 bg-gray-50 font-mono text-sm"
+                                  className={`input bg-gray-50 font-mono text-sm ${
+                                    formErrors[`detalleMuestras.${index}.codigoAsignado`]
+                                      ? "border-red-500"
+                                      : "border-gray-200"
+                                  }`}
                                   placeholder="AR-0001"
                                 />
+                                {formErrors[`detalleMuestras.${index}.codigoAsignado`] && (
+                                  <p className="mt-1 text-xs text-red-600">
+                                    {formErrors[`detalleMuestras.${index}.codigoAsignado`]}
+                                  </p>
+                                )}
                               </td>
                               <td className="px-2 py-2 text-center">
                                 {form.detalleMuestras.length > 1 && (
@@ -653,6 +713,9 @@ export default function OrdenServicioFormView({
                         </tbody>
                       </table>
                     </div>
+                    {formErrors.detalleMuestras && (
+                      <p className="mt-2 text-xs text-red-600">{formErrors.detalleMuestras}</p>
+                    )}
                     {form.detalleMuestras.length === 0 && (
                       <p className="mt-3 text-center text-sm text-gray-500">
                         No hay muestras registradas. Use el botón «Añadir muestra».
@@ -749,6 +812,34 @@ export default function OrdenServicioFormView({
 
                   <Panel>
                     <SectionHeader
+                      accent="bg-amber-400"
+                      title="Estado de la orden"
+                      subtitle="Obligatorio al crear: indica en qué etapa queda el registro"
+                    />
+                    <div className="max-w-md">
+                      <label htmlFor="orden-estadoOrden" className="mb-1.5 block text-sm font-semibold text-gray-700">
+                        Estado <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        id="orden-estadoOrden"
+                        name="estadoOrden"
+                        value={form.estadoOrden}
+                        onChange={onChange}
+                        className={`select ${formErrors.estadoOrden ? "border-red-500" : ""}`}
+                      >
+                        <option value="Pendiente">Pendiente</option>
+                        <option value="En proceso">En proceso</option>
+                        <option value="Completada">Completada</option>
+                        <option value="Anulada">Anulada</option>
+                      </select>
+                      {formErrors.estadoOrden && (
+                        <p className="mt-1 text-xs text-red-600">{formErrors.estadoOrden}</p>
+                      )}
+                    </div>
+                  </Panel>
+
+                  <Panel>
+                    <SectionHeader
                       accent="bg-blue-600"
                       title="Muestreo y transporte"
                       subtitle="Responsables de la toma de muestra y el traslado"
@@ -840,7 +931,11 @@ export default function OrdenServicioFormView({
                         onChange={onChange}
                         className="textarea w-full resize-y rounded-xl border-gray-200 focus:ring-blue-900"
                         placeholder="Escriba aquí cualquier nota adicional…"
+                        maxLength={200}
                       />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Máximo 200 caracteres ({String(form.observacionOrden ?? "").length}/200).
+                      </p>
                     </div>
                   </div>
 
@@ -945,8 +1040,9 @@ export default function OrdenServicioFormView({
                 </button>
               ) : (
                 <button
-                  type="submit"
+                  type="button"
                   disabled={saving}
+                  onClick={handleFinalSubmit}
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-900 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-blue-950 hover:shadow-lg disabled:opacity-50"
                 >
                   {saving && <FaSpinner className="h-4 w-4 animate-spin" />}
@@ -957,6 +1053,15 @@ export default function OrdenServicioFormView({
           </div>
         </form>
       </div>
+
+      <OrdenValidationModal
+        open={validationOpen}
+        issues={validationIssues}
+        apiMessage={apiMessage}
+        isEditing={isEditing}
+        onClose={() => setValidationOpen(false)}
+        onGoToStep={goToStepFromModal}
+      />
     </div>
   );
 }

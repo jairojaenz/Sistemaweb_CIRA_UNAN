@@ -6,9 +6,27 @@ import ConfirmDialog from "../../../components/ConfirmDialog";
 import SignaturePad from "../../../components/SignaturePad.jsx";
 import FirmaDisplay from "../../../components/FirmaDisplay.jsx";
 import {
-  getUsuarios, createUsuario, updateUsuario, deleteUsuario, toggleUsuarioStatus,
-  getCargos, getDepartamentos, getMunicipios, getLaboratorios,
+  getUsuarios,
+  getUsuarioById,
+  createUsuario,
+  updateUsuario,
+  deleteUsuario,
+  toggleUsuarioStatus,
+  getCargos,
+  getDepartamentos,
+  getMunicipios,
+  getLaboratorios,
+  normalizeUsuarioFromApi,
 } from "../service/usuarioService";
+
+function catalogoConActual(items, nameKey, actual) {
+  const activos = items.filter((item) => item.activo !== false);
+  if (actual && !activos.some((item) => item[nameKey] === actual)) {
+    const extra = items.find((item) => item[nameKey] === actual);
+    if (extra) return [...activos, extra];
+  }
+  return activos;
+}
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
@@ -45,6 +63,7 @@ export default function GestionUsuariosPage() {
   const [saving, setSaving] = useState(false);
 
   const [firmaFile, setFirmaFile] = useState(null);
+  const [firmaGuardada, setFirmaGuardada] = useState("");
   const [signatureResetVersion, setSignatureResetVersion] = useState(0);
 
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -87,24 +106,38 @@ export default function GestionUsuariosPage() {
   const departamentoMap = useMemo(() => {
     const map = {};
     for (const d of departamentos) {
-      map[d.nombreDepartamento] = d.idDepartamento;
+      const nombre = d.nombreDepartamento ?? d.nombre ?? "";
+      if (nombre) map[nombre] = d.idDepartamento;
     }
     return map;
   }, [departamentos]);
 
+  const cargosOpciones = useMemo(
+    () => catalogoConActual(cargos, "nombreCargo", form.Cargo),
+    [cargos, form.Cargo],
+  );
+  const departamentosOpciones = useMemo(
+    () => catalogoConActual(departamentos, "nombreDepartamento", form.NombreDep),
+    [departamentos, form.NombreDep],
+  );
+  const laboratoriosOpciones = useMemo(
+    () => catalogoConActual(laboratorios, "nombreLaboratorio", form.Laboratorio),
+    [laboratorios, form.Laboratorio],
+  );
+
   const filteredMunicipios = useMemo(() => {
     const depId = departamentoMap[form.NombreDep];
     if (!depId) return [];
-    return allMunicipios.filter((m) => m.idDepartamento === depId);
-  }, [allMunicipios, departamentoMap, form.NombreDep]);
+    const delDepto = allMunicipios.filter((m) => Number(m.idDepartamento) === Number(depId));
+    return catalogoConActual(delDepto, "nombreMunicipio", form.NombreMunic);
+  }, [allMunicipios, departamentoMap, form.NombreDep, form.NombreMunic]);
 
   const filteredUsers = users.filter((u) => {
-    const q = search.toLowerCase();
-    return (
-      u.nombreUsuario?.toLowerCase().includes(q) ||
-      u.apellidoUsuario?.toLowerCase().includes(q) ||
-      u.correoUsuario?.toLowerCase().includes(q)
-    );
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    const nombre = `${u.nombreUsuario ?? ""} ${u.apellidoUsuario ?? ""}`.toLowerCase();
+    const correo = String(u.correoUsuario ?? "").toLowerCase();
+    return nombre.includes(q) || correo.includes(q);
   });
 
   function validateField(name, value) {
@@ -142,6 +175,7 @@ export default function GestionUsuariosPage() {
     setModalOpen(false);
     setEditingUser(null);
     setFirmaFile(null);
+    setFirmaGuardada("");
     setSignatureResetVersion((v) => v + 1);
     setFormErrors({});
   }
@@ -160,18 +194,8 @@ export default function GestionUsuariosPage() {
     return true;
   }
 
-  function openCreateModal() {
-    setEditingUser(null);
-    setForm({ ...initialForm });
-    setFormErrors({});
-    setFirmaFile(null);
-    setSignatureResetVersion((v) => v + 1);
-    setModalOpen(true);
-  }
-
-  function openEditModal(user) {
-    setEditingUser(user);
-    setForm({
+  function mapUserToForm(user) {
+    return {
       NombreUsuario: user.nombreUsuario || "",
       ApellidoUsuario: user.apellidoUsuario || "",
       CorreoUsuario: user.correoUsuario || "",
@@ -183,11 +207,36 @@ export default function GestionUsuariosPage() {
       Laboratorio: user.laboratorio || "",
       CelularUsuario: formatTelefonoLocal(user.celularUsuario || ""),
       CedulaUsuario: user.cedulaUsuario || "",
-    });
+    };
+  }
+
+  function openCreateModal() {
+    setEditingUser(null);
+    setForm({ ...initialForm });
     setFormErrors({});
     setFirmaFile(null);
+    setFirmaGuardada("");
     setSignatureResetVersion((v) => v + 1);
     setModalOpen(true);
+  }
+
+  async function openEditModal(user) {
+    const mapped = normalizeUsuarioFromApi(user);
+    setEditingUser(mapped);
+    setForm(mapUserToForm(mapped));
+    setFormErrors({});
+    setFirmaFile(null);
+    setFirmaGuardada(mapped.firmaUsuario ?? "");
+    setSignatureResetVersion((v) => v + 1);
+    setModalOpen(true);
+    try {
+      const fresh = await getUsuarioById(mapped.idUsuario);
+      setEditingUser(fresh);
+      setForm(mapUserToForm(fresh));
+      setFirmaGuardada(fresh.firmaUsuario ?? "");
+    } catch {
+      /* se mantiene el registro del listado */
+    }
   }
 
   async function handleSubmit(e) {
@@ -248,8 +297,14 @@ export default function GestionUsuariosPage() {
     }
   }
 
-  function openDetailModal(user) {
-    setDetailUser(user);
+  async function openDetailModal(user) {
+    setDetailUser(normalizeUsuarioFromApi(user));
+    try {
+      const fresh = await getUsuarioById(user.idUsuario);
+      setDetailUser(fresh);
+    } catch {
+      /* se mantiene el registro del listado */
+    }
   }
 
   function closeDetailModal() {
@@ -446,7 +501,7 @@ export default function GestionUsuariosPage() {
                   value={form.Cargo}
                   error={formErrors.Cargo}
                   onChange={handleFormChange}
-                  options={cargos}
+                  options={cargosOpciones}
                   optionValue="nombreCargo"
                   optionLabel="nombreCargo"
                   loading={catalogsLoading}
@@ -458,7 +513,7 @@ export default function GestionUsuariosPage() {
                   value={form.NombreDep}
                   error={formErrors.NombreDep}
                   onChange={handleFormChange}
-                  options={departamentos}
+                  options={departamentosOpciones}
                   optionValue="nombreDepartamento"
                   optionLabel="nombreDepartamento"
                   loading={catalogsLoading}
@@ -486,7 +541,7 @@ export default function GestionUsuariosPage() {
                   value={form.Laboratorio}
                   error={formErrors.Laboratorio}
                   onChange={handleFormChange}
-                  options={laboratorios}
+                  options={laboratoriosOpciones}
                   optionValue="nombreLaboratorio"
                   optionLabel="nombreLaboratorio"
                   loading={catalogsLoading}
@@ -522,13 +577,16 @@ export default function GestionUsuariosPage() {
                 </p>
                 {editingUser && (
                   <p className="mb-2 text-xs text-gray-600">
-                    La firma guardada se conserva. Dibuje de nuevo solo si desea reemplazarla.
+                    {firmaGuardada
+                      ? "Se muestra la firma guardada. Pulse «Limpiar firma» para borrar el recuadro y dibujar una nueva."
+                      : "Este usuario no tiene firma guardada. Puede dibujar una nueva."}
                   </p>
                 )}
                 <SignaturePad
                   resetVersion={signatureResetVersion}
                   disabled={saving}
                   onChange={setFirmaFile}
+                  initialSrc={editingUser ? firmaGuardada : ""}
                 />
                 {!editingUser && !firmaFile && (
                   <p className="mt-1 text-xs text-amber-700">Debe firmar en el recuadro para crear el usuario.</p>
@@ -685,11 +743,13 @@ function SelectField({ label, name, value, error, onChange, options, optionValue
         className={`select ${error ? "border-red-400 ring-1 ring-red-400" : ""}`}
       >
         <option value="">{loading ? "Cargando..." : disabled ? "Seleccione un departamento primero" : `Seleccione ${label.toLowerCase()}`}</option>
-        {options.map((opt, i) => (
-          <option key={opt[optionValue] ?? i} value={opt[optionValue]}>
-            {opt[optionLabel]}
-          </option>
-        ))}
+        {options
+          .filter((opt) => opt[optionValue] || opt[optionLabel])
+          .map((opt, i) => (
+            <option key={opt[optionValue] ?? i} value={opt[optionValue]}>
+              {opt[optionLabel] || opt.nombre || opt.Nombre}
+            </option>
+          ))}
       </select>
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
     </div>

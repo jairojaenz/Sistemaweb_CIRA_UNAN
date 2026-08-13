@@ -17,11 +17,13 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "../../../components/ToastContext.jsx";
 import { ROUTES } from "../../../router/routes.js";
 
+import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import {
+  deleteSolicitudServicio,
   getSolicitudes,
 } from "../service/solicitudServicioService.js";
 
-const ACCIONES_MENU_ALTURA_PX = 176;
+const ACCIONES_MENU_ALTURA_PX = 220;
 
 export default function ListaSolicitudServicioPage() {
   const navigate = useNavigate();
@@ -38,6 +40,9 @@ export default function ListaSolicitudServicioPage() {
 
   const [detailSolicitud, setDetailSolicitud] =
     useState(null);
+
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
 
   const loadSolicitudes = useCallback(
@@ -364,14 +369,50 @@ export default function ListaSolicitudServicioPage() {
               role="menuitem"
               className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
               onClick={() => {
+                const id = accionesMenu.solicitud.idFormatoSolicitud;
                 cerrarMenuAcciones();
+                navigate(ROUTES.solicitudServicioEditar(id));
               }}
             >
               Editar
             </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+              onClick={() => {
+                setConfirmDelete(accionesMenu.solicitud);
+                cerrarMenuAcciones();
+              }}
+            >
+              Eliminar
+            </button>
           </div>,
           document.body
         )}
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title="Eliminar solicitud"
+        message={`¿Eliminar la solicitud ${confirmDelete?.numeroSolicitud || ""}? Quedará inactiva (eliminación lógica) y no se listará.`}
+        confirmText="Eliminar"
+        loading={deleting}
+        onCancel={() => setConfirmDelete(null)}
+        onConfirm={async () => {
+          if (!confirmDelete?.idFormatoSolicitud) return;
+          try {
+            setDeleting(true);
+            await deleteSolicitudServicio(confirmDelete.idFormatoSolicitud);
+            addToast("Solicitud eliminada", "success");
+            setConfirmDelete(null);
+            await loadSolicitudes();
+          } catch (err) {
+            addToast(err?.message || "No se pudo eliminar la solicitud", "error");
+          } finally {
+            setDeleting(false);
+          }
+        }}
+      />
 
       {detailSolicitud && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">

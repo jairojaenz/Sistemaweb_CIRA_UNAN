@@ -7,12 +7,17 @@ import { useToast } from "../../../components/ToastContext.jsx";
 import WizardStepIndicator from "../../../components/WizardStepIndicator.jsx";
 import { ROUTES } from "../../../router/routes.js";
 import { normalizeClienteFromApi } from "../../clientes/service/clienteService.js";
-import { createSolicitudServicio } from "../service/solicitudServicioService.js";
-import { formToSolicitudPayload } from "../utils/formToSolicitudPayload.js";
+import {
+  createSolicitudServicio,
+  getSolicitudById,
+  updateSolicitudServicio,
+} from "../service/solicitudServicioService.js";
+import { formToSolicitudPayload, toInputDate } from "../utils/formToSolicitudPayload.js";
 import { mapClienteToSolicitudPrefill, nombreCompletoCliente } from "../utils/mapClienteToSolicitud.js";
 import { getMediosRecepcion } from "../../catalogos/service/medioRecepcionService.js";
 import { getServicios } from "../../catalogos/service/servicioService.js";
 import { getMatrices } from "../../catalogos/service/matrizService.js";
+import { getAnalisis } from "../../catalogos/service/analisisService.js";
 
 function isClienteActivo(c) {
   return c?.activo !== false;
@@ -47,10 +52,18 @@ const initialFormData = {
 export default function SolicitudServicioPage() {
   const { addToast } = useToast();
   const { user } = useAuth();
-  const { idCliente: idClienteParam } = useParams();
+  const { idCliente: idClienteParam, idSolicitud: idSolicitudParam } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const idCliente = idClienteParam ? Number(idClienteParam) : null;
+  // Crear: /solicitud-servicio/:idCliente  |  Editar: /solicitud-servicio/editar/:idSolicitud
+  const idSolicitud = idSolicitudParam ? Number(idSolicitudParam) : null;
+  const isEdit = Number.isFinite(idSolicitud) && idSolicitud > 0;
+  const [idClienteEdit, setIdClienteEdit] = useState(null);
+  const idCliente = isEdit
+    ? idClienteEdit
+    : idClienteParam
+      ? Number(idClienteParam)
+      : null;
 
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({ ...initialFormData });
@@ -82,6 +95,7 @@ export default function SolicitudServicioPage() {
       : "";
 
   useEffect(() => {
+    if (isEdit) return;
     if (!idCliente || Number.isNaN(idCliente) || !clienteDesdeNavegacion) return;
     if (!isClienteActivo(clienteDesdeNavegacion)) {
       setAvisoClienteInactivo(true);
@@ -196,6 +210,66 @@ export default function SolicitudServicioPage() {
     return () => { mounted = false; };
   }, []);
 
+  // Catálogo de análisis: el POST exige idAnalisis, no texto libre.
+  const [analisisCatalogo, setAnalisisCatalogo] = useState([]);
+  useEffect(() => {
+    let mounted = true;
+    getAnalisis()
+      .then((data) => {
+        if (!mounted) return;
+        setAnalisisCatalogo((data ?? []).filter((a) => a.activo !== false));
+      })
+      .catch(() => {
+        if (mounted) addToast("No se pudo cargar el catálogo de análisis", "error");
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [addToast]);
+
+  // Edición: carga la solicitud y rellena el wizard.
+  useEffect(() => {
+    if (!isEdit) return;
+    let mounted = true;
+    async function loadSolicitud() {
+      try {
+        const s = await getSolicitudById(idSolicitud);
+        if (!mounted) return;
+        setIdClienteEdit(s.idCliente ?? null);
+        setFormData((prev) => ({
+          ...prev,
+          solicitudNo: s.numeroSolicitud ?? "",
+          fechaRecepcion: toInputDate(s.fechaRecepcion),
+          medioRecepcion: s.idMedioRecepcion ? String(s.idMedioRecepcion) : "",
+          nombreUsuario: s.cliente ?? "",
+          correo: s.correoCliente ?? "",
+          tipoServicio: s.idServicios ?? [],
+          matriz: (s.matrices ?? []).map((m) => ({
+            idMatriz: m.idMatriz ?? m.IdMatriz,
+            numMuestras: m.numMuestras ?? m.NumMuestras ?? 0,
+          })),
+          numeroMuestras: s.numMuestras ?? 0,
+          analisisSolicitados: (s.detalles ?? []).map((d) => ({
+            idAnalisis: d.idAnalisis ?? d.IdAnalisis ?? "",
+            tipoAnalisis: d.nombreAnalisis ?? d.NombreAnalisis ?? "",
+            tecnica: d.abreviacionAnalisis ?? d.AbreviacionAnalisis ?? "",
+            cantidad: d.cantidad ?? 1,
+          })),
+          ubicacionMuestreo: s.direccionMuestreo ?? "",
+          observaciones: s.observacion ?? "",
+          fechaProforma: toInputDate(s.fechaEnvioProforma),
+          estado: s.estado ?? "Pendiente",
+        }));
+      } catch (err) {
+        if (mounted) addToast(err?.message || "No se pudo cargar la solicitud", "error");
+      }
+    }
+    loadSolicitud();
+    return () => {
+      mounted = false;
+    };
+  }, [isEdit, idSolicitud, addToast]);
+
   // Auto-sync numeroMuestras with sum of matriz[].numMuestras
   useEffect(() => {
     const total = Array.isArray(formData.matriz)
@@ -231,8 +305,8 @@ export default function SolicitudServicioPage() {
     if (step === 2) {
       if (!formData.tipoServicio || (Array.isArray(formData.tipoServicio) && formData.tipoServicio.length === 0)) newErrors.tipoServicio = 'Seleccione al menos un servicio';
       if (!formData.matriz || !Array.isArray(formData.matriz) || formData.matriz.length === 0) newErrors.matriz = 'Seleccione al menos una matriz';
-      const analisisValidos = (formData.analisisSolicitados ?? []).some((a) => String(a.tipoAnalisis ?? "").trim());
-      if (!analisisValidos) newErrors.analisisSolicitados = 'Agregue al menos un análisis solicitado';
+      const analisisValidos = (formData.analisisSolicitados ?? []).some((a) => Number(a.idAnalisis) > 0);
+      if (!analisisValidos) newErrors.analisisSolicitados = 'Seleccione al menos un análisis del catálogo';
     }
 
     if (step === 3) {
@@ -259,7 +333,7 @@ export default function SolicitudServicioPage() {
   const handleAddAnalysis = () => {
     setFormData(prev => ({
       ...prev,
-      analisisSolicitados: [...prev.analisisSolicitados, { tipoAnalisis: '', tecnica: '' }],
+      analisisSolicitados: [...prev.analisisSolicitados, { idAnalisis: '', tipoAnalisis: '', tecnica: '', cantidad: 1 }],
     }));
   };
 
@@ -274,6 +348,20 @@ export default function SolicitudServicioPage() {
     setFormData(prev => {
       const updated = [...prev.analisisSolicitados];
       updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, analisisSolicitados: updated };
+    });
+  };
+
+  const handleAnalysisSelect = (index, idAnalisis) => {
+    const item = analisisCatalogo.find((a) => String(a.idAnalisis) === String(idAnalisis));
+    setFormData((prev) => {
+      const updated = [...prev.analisisSolicitados];
+      updated[index] = {
+        ...updated[index],
+        idAnalisis,
+        tipoAnalisis: item?.nombreAnalisis ?? "",
+        tecnica: item?.abreviacionAnalisis ?? "",
+      };
       return { ...prev, analisisSolicitados: updated };
     });
   };
@@ -294,7 +382,12 @@ export default function SolicitudServicioPage() {
     if (!validateStep(3)) return;
 
     if (!idCliente || Number.isNaN(idCliente)) {
-      addToast("Debe crear la solicitud desde un cliente (Gestión de Clientes).", "error");
+      addToast(
+        isEdit
+          ? "No se pudo identificar el cliente de la solicitud."
+          : "Debe crear la solicitud desde un cliente (Gestión de Clientes).",
+        "error",
+      );
       return;
     }
 
@@ -313,8 +406,13 @@ export default function SolicitudServicioPage() {
     try {
       setSaving(true);
       const payload = formToSolicitudPayload(formData, { idCliente, idUsuario });
-      await createSolicitudServicio(payload);
-      addToast("Solicitud registrada correctamente.", "success");
+      if (isEdit) {
+        await updateSolicitudServicio(idSolicitud, payload);
+        addToast("Solicitud actualizada correctamente.", "success");
+      } else {
+        await createSolicitudServicio(payload);
+        addToast("Solicitud registrada correctamente.", "success");
+      }
       navigate(ROUTES.solicitudServicio);
     } catch (err) {
       addToast(err?.message || "No se pudo registrar la solicitud.", "error");
@@ -801,21 +899,26 @@ export default function SolicitudServicioPage() {
                 {formData.analisisSolicitados.map((analysis, index) => (
                   <tr key={index} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
-                      <input
-                        type="text"
-                        placeholder="Ej: Sólidos Suspendidos Totales"
+                      <select
                         className="w-full px-3 py-2 border-2 border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-transparent"
-                        value={analysis.tipoAnalisis}
-                        onChange={(e) => handleAnalysisChange(index, 'tipoAnalisis', e.target.value)}
-                      />
+                        value={analysis.idAnalisis || ""}
+                        onChange={(e) => handleAnalysisSelect(index, e.target.value)}
+                      >
+                        <option value="">Seleccione un análisis</option>
+                        {analisisCatalogo.map((a) => (
+                          <option key={a.idAnalisis} value={a.idAnalisis}>
+                            {a.nombreAnalisis}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                     <td className="px-4 py-3">
                       <input
                         type="text"
-                        placeholder="Ej: Gravimetría"
-                        className="w-full px-3 py-2 border-2 border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-transparent"
+                        readOnly
+                        placeholder="Abreviatura del catálogo"
+                        className="w-full px-3 py-2 border-2 border-gray-200 rounded bg-gray-50 text-gray-600"
                         value={analysis.tecnica}
-                        onChange={(e) => handleAnalysisChange(index, 'tecnica', e.target.value)}
                       />
                     </td>
                     <td className="px-4 py-3 text-center">
@@ -1143,7 +1246,7 @@ export default function SolicitudServicioPage() {
                 disabled={saving}
                 className="flex items-center gap-2 rounded-lg bg-blue-900 px-6 py-2 font-semibold text-white shadow-md transition-all hover:bg-blue-950 hover:shadow-lg disabled:opacity-60"
               >
-                {saving ? "Guardando…" : "Guardar"}
+                {saving ? "Guardando…" : isEdit ? "Actualizar" : "Guardar"}
                 <ChevronRight className="h-5 w-5" />
               </button>
             )}

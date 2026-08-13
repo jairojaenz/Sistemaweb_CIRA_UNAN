@@ -17,10 +17,25 @@ function trimOrNull(value) {
   return text || null;
 }
 
-export function idTipoMuestreoFromModalidad(modalidadMuestreo) {
-  if (modalidadMuestreo === "compuesto") return 2;
-  if (modalidadMuestreo === "otros") return 3;
-  return 1;
+export function modalidadFromTipoNombre(nombre) {
+  const n = String(nombre ?? "").toLowerCase();
+  if (n.includes("compuesto")) return "compuesto";
+  if (n.includes("otro")) return "otros";
+  return "puntual";
+}
+
+export function resolveIdTipoMuestreo(form, tiposMuestreo = []) {
+  const fromForm = Number(form.idTipoMuestreo);
+  if (fromForm > 0) return fromForm;
+
+  const modalidad = form.modalidadMuestreo;
+  const match = tiposMuestreo.find((t) => {
+    const n = String(t.nombreTipoMuestreo ?? t.nombre ?? "").toLowerCase();
+    if (modalidad === "compuesto") return n.includes("compuesto");
+    if (modalidad === "otros") return n.includes("otro");
+    return n.includes("puntual") || n.includes("simple");
+  });
+  return Number(match?.idTipoMuestreo) || 0;
 }
 
 function compuestoHorasFromForm(form) {
@@ -41,29 +56,15 @@ function buildObservacionOrden(form) {
 /**
  * Convierte el estado del formulario web al DTO de la API.
  */
-function resolveIdUsuario(form, usuarios, idUsuarioSesion) {
+function resolveIdUsuario(form, idUsuarioSesion) {
   const fromForm = Number(form.idUsuario);
   if (fromForm > 0) return fromForm;
-
-  const fromSesion = Number(idUsuarioSesion);
-  if (fromSesion > 0) return fromSesion;
-
-  const first = usuarios[0]?.idUsuario ?? usuarios[0]?.IdUsuario ?? 0;
-  return Number(first) || 0;
-}
-
-function resolveIdFormatoCampo(form, formatosCampo) {
-  const fromForm = Number(form.idFormatoCampo);
-  if (fromForm > 0) return fromForm;
-
-  const first = formatosCampo[0]?.idFormatoCampo ?? 0;
-  const resolved = Number(first);
-  return resolved > 0 ? resolved : null;
+  return Number(idUsuarioSesion) || 0;
 }
 
 export function formToOrdenServicioPayload(
   form,
-  { usuarios = [], formatosCampo = [], idFormatoSolicitud = null, idUsuarioSesion = null } = {},
+  { tiposMuestreo = [], idFormatoSolicitud = null, idUsuarioSesion = null } = {},
 ) {
   const fechaIso = form.fecha
     ? new Date(`${form.fecha}T12:00:00`).toISOString()
@@ -90,9 +91,9 @@ export function formToOrdenServicioPayload(
     numeroOrden: Number(form.numeroOrden) || 0,
     fechaRecepcion: fechaIso,
     estadoOrden: form.estadoOrden || "Pendiente",
-    idUsuario: resolveIdUsuario(form, usuarios, idUsuarioSesion),
-    idFormatoCampo: resolveIdFormatoCampo(form, formatosCampo),
-    idTipoMuestreo: idTipoMuestreoFromModalidad(form.modalidadMuestreo),
+    idUsuario: resolveIdUsuario(form, idUsuarioSesion),
+    idFormatoCampo: Number(form.idFormatoCampo) || 0,
+    idTipoMuestreo: resolveIdTipoMuestreo(form, tiposMuestreo),
     tieneAnalisis: !!form.analisisOrden,
     tieneMuestreo: !!form.muestreoOrden,
     tieneHojaObservacion: !!form.hojaObservacionOrden,

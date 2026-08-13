@@ -8,11 +8,14 @@ import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import SignaturePad, { FIRMA_CANVAS_ALTO, FIRMA_CANVAS_ANCHO } from "../../../components/SignaturePad.jsx";
 import FirmaDisplay from "../../../components/FirmaDisplay.jsx";
 import { useToast } from "../../../components/ToastContext.jsx";
-import { getDepartamentos, getMunicipios } from "../../usuarios/service/usuarioService.js";
+import { getDepartamentos } from "../../catalogos/service/departamentosService.js";
+import { getMunicipios } from "../../catalogos/service/municipiosService.js";
+import { getTiposCliente } from "../../catalogos/service/tiposClienteService.js";
 import { CEDULA_NICARAGUA_REGEX, formatCedulaNicaragua } from "../../../utils/cedulaNicaraguaFormat.js";
 import { formatTelefonoLocal } from "../../../utils/phoneFormat.js";
 import {
   createCliente,
+  getClienteById,
   getClientes,
   identificacionCliente,
   normalizeClienteFromApi,
@@ -31,6 +34,16 @@ const ACCIONES_MENU_ALTURA_PX = 132;
 
 /** Tipos jurídicos que identifican con RUC (no cédula de persona natural). */
 const TIPOS_RUC_OBLIGATORIO = new Set(["Empresa", "Institución", "ONG"]);
+
+/** Incluye el valor actual aunque el catálogo lo tenga inactivo (edición). */
+function catalogoConActual(items, nameKey, actual) {
+  const activos = items.filter((item) => item.activo !== false);
+  if (actual && !activos.some((item) => item[nameKey] === actual)) {
+    const extra = items.find((item) => item[nameKey] === actual);
+    if (extra) return [...activos, extra];
+  }
+  return activos;
+}
 
 function tipoRequiereRucObligatorio(tipo) {
   return TIPOS_RUC_OBLIGATORIO.has(tipo);
@@ -90,6 +103,7 @@ export default function GestionClientesPage() {
 
   const [departamentos, setDepartamentos] = useState([]);
   const [allMunicipios, setAllMunicipios] = useState([]);
+  const [tiposCliente, setTiposCliente] = useState([]);
   const [catalogsLoading, setCatalogsLoading] = useState(true);
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -103,6 +117,7 @@ export default function GestionClientesPage() {
   const [form, setForm] = useState({ ...initialForm });
   const [formErrors, setFormErrors] = useState({});
   const [firmaFile, setFirmaFile] = useState(null);
+  const [firmaGuardada, setFirmaGuardada] = useState("");
   const [signatureResetVersion, setSignatureResetVersion] = useState(0);
   const [saving, setSaving] = useState(false);
 
@@ -123,11 +138,12 @@ export default function GestionClientesPage() {
   const loadCatalogs = useCallback(async () => {
     try {
       setCatalogsLoading(true);
-      const [d, m] = await Promise.all([getDepartamentos(), getMunicipios()]);
+      const [d, m, t] = await Promise.all([getDepartamentos(), getMunicipios(), getTiposCliente()]);
       setDepartamentos(d ?? []);
       setAllMunicipios(m ?? []);
+      setTiposCliente(t ?? []);
     } catch {
-      addToast("Error al cargar departamentos y municipios", "error");
+      addToast("Error al cargar departamentos, municipios y tipos de cliente", "error");
     } finally {
       setCatalogsLoading(false);
     }
@@ -194,16 +210,29 @@ export default function GestionClientesPage() {
   const departamentoMap = useMemo(() => {
     const map = {};
     for (const dep of departamentos) {
-      map[dep.nombreDepartamento] = dep.idDepartamento;
+      const nombre = dep.nombreDepartamento ?? dep.nombre ?? "";
+      if (nombre) map[nombre] = dep.idDepartamento;
     }
     return map;
   }, [departamentos]);
 
+  const departamentosOpciones = useMemo(
+    () => catalogoConActual(departamentos, "nombreDepartamento", form.NombreDepartamento),
+    [departamentos, form.NombreDepartamento],
+  );
+
   const filteredMunicipios = useMemo(() => {
     const depId = departamentoMap[form.NombreDepartamento];
     if (!depId) return [];
-    return allMunicipios.filter((m) => m.idDepartamento === depId);
-  }, [allMunicipios, departamentoMap, form.NombreDepartamento]);
+    const delDepto = allMunicipios.filter((m) => Number(m.idDepartamento) === Number(depId));
+    return catalogoConActual(delDepto, "nombreMunicipio", form.NombreMunicipio);
+  }, [allMunicipios, departamentoMap, form.NombreDepartamento, form.NombreMunicipio]);
+
+  const tiposOpciones = useMemo(() => {
+    const fromApi = catalogoConActual(tiposCliente, "nombreTipoCliente", form.NombreTipoCliente);
+    if (fromApi.length > 0) return fromApi;
+    return TIPOS_CLIENTE.map((nombreTipoCliente) => ({ nombreTipoCliente, activo: true }));
+  }, [tiposCliente, form.NombreTipoCliente]);
 
   const filteredClientes = clientes.filter((c) => {
     const q = search.toLowerCase();
@@ -338,6 +367,7 @@ export default function GestionClientesPage() {
     setCreateModalOpen(false);
     setEditingClienteId(null);
     setFirmaFile(null);
+    setFirmaGuardada("");
     setSignatureResetVersion((v) => v + 1);
   }
 
@@ -347,24 +377,40 @@ export default function GestionClientesPage() {
     setForm({ ...initialForm, Activo: true });
     setFormErrors({});
     setFirmaFile(null);
+    setFirmaGuardada("");
     setSignatureResetVersion((v) => v + 1);
     setCreateModalOpen(true);
   }
 
-  function openEditModal(c) {
+  async function openEditModal(c) {
+    const cliente = normalizeClienteFromApi(c);
     setDetailCliente(null);
-    setEditingClienteId(c.idCliente);
-    setForm(mapClienteToForm(c));
+    setEditingClienteId(cliente.idCliente);
+    setForm(mapClienteToForm(cliente));
     setFormErrors({});
     setFirmaFile(null);
+    setFirmaGuardada(cliente.firmaCliente ?? "");
     setSignatureResetVersion((v) => v + 1);
     setCreateModalOpen(true);
+    try {
+      const fresh = await getClienteById(cliente.idCliente);
+      setForm(mapClienteToForm(fresh));
+      setFirmaGuardada(fresh.firmaCliente ?? "");
+    } catch {
+      /* se mantiene el registro del listado */
+    }
   }
 
-  function openDetailModal(c) {
+  async function openDetailModal(c) {
     setCreateModalOpen(false);
     setEditingClienteId(null);
     setDetailCliente(normalizeClienteFromApi(c));
+    try {
+      const fresh = await getClienteById(c.idCliente);
+      setDetailCliente(fresh);
+    } catch {
+      /* se mantiene el registro del listado */
+    }
   }
 
   function closeDetailModal() {
@@ -767,10 +813,10 @@ export default function GestionClientesPage() {
                 value={form.NombreTipoCliente}
                 error={formErrors.NombreTipoCliente}
                 onChange={handleFormChange}
-                options={TIPOS_CLIENTE.map((t) => ({ nombreTipoCliente: t }))}
+                options={tiposOpciones}
                 optionValue="nombreTipoCliente"
                 optionLabel="nombreTipoCliente"
-                loading={false}
+                loading={catalogsLoading}
                 required
               />
 
@@ -845,7 +891,7 @@ export default function GestionClientesPage() {
                   value={form.NombreDepartamento}
                   error={formErrors.NombreDepartamento}
                   onChange={handleFormChange}
-                  options={departamentos}
+                  options={departamentosOpciones}
                   optionValue="nombreDepartamento"
                   optionLabel="nombreDepartamento"
                   loading={catalogsLoading}
@@ -865,6 +911,11 @@ export default function GestionClientesPage() {
                   required
                 />
               </div>
+              {!catalogsLoading && departamentosOpciones.length === 0 && (
+                <p className="text-xs text-amber-700">
+                  No hay departamentos activos. Cárguelos en el catálogo de Departamentos.
+                </p>
+              )}
 
               <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
                 <input
@@ -887,13 +938,16 @@ export default function GestionClientesPage() {
                 </p>
                 {editingClienteId != null && (
                   <p className="mb-2 text-xs text-gray-600">
-                    La firma guardada se conserva. Dibuje de nuevo solo si desea reemplazarla.
+                    {firmaGuardada
+                      ? "Se muestra la firma guardada. Pulse «Limpiar firma» para borrar el recuadro y dibujar una nueva."
+                      : "Este cliente no tiene firma guardada. Puede dibujar una nueva."}
                   </p>
                 )}
                 <SignaturePad
                   resetVersion={signatureResetVersion}
                   disabled={saving}
                   onChange={setFirmaFile}
+                  initialSrc={editingClienteId != null ? firmaGuardada : ""}
                 />
                 {editingClienteId == null && !firmaFile && (
                   <p className="mt-1 text-xs text-amber-700">Debe firmar en el recuadro para crear el cliente.</p>
@@ -1042,11 +1096,13 @@ function SelectField({
         <option value="">
           {loading ? "Cargando..." : disabled ? "Seleccione un departamento primero" : `Seleccione ${label.toLowerCase()}`}
         </option>
-        {options.map((opt, i) => (
-          <option key={opt[optionValue] ?? i} value={opt[optionValue]}>
-            {opt[optionLabel]}
-          </option>
-        ))}
+        {options
+          .filter((opt) => opt[optionValue] || opt[optionLabel])
+          .map((opt, i) => (
+            <option key={opt[optionValue] ?? i} value={opt[optionValue]}>
+              {opt[optionLabel] || opt.nombre || opt.Nombre}
+            </option>
+          ))}
       </select>
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
     </div>

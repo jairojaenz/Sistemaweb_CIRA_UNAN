@@ -82,6 +82,7 @@ export default function DashboardLayout() {
     { label: "Departamentos", to: ROUTES.catalogosDepartamentos },
     { label: "Fuentes", to: ROUTES.catalogosFuentes },
     { label: "Matriz", to: ROUTES.catalogosMatriz },
+    { label: "Muestras", to: ROUTES.catalogosMuestras },
     { label: "Médios de recepción", to: ROUTES.catalogosMediosRecepcion },
     { label: "Municipios", to: ROUTES.catalogosMunicipios },
     { label: "Preservantes", to: ROUTES.catalogosPreservantes },
@@ -96,9 +97,11 @@ export default function DashboardLayout() {
   function getPageTitle(p) {
     if (p === "/dashboard" || p === "/dashboard/") return "Bienvenido al Sistema de Gestión de Información de Campo de Muestras";
     if (p.includes("/info-campo")) return "Información de Campo de Muestras";
+    if (p.includes("/solicitud-servicio/editar/")) return "Editar Solicitud de Servicio";
     if (/\/dashboard\/solicitud-servicio\/\d+/.test(p)) return "Crear Solicitud de Servicio";
     if (p.includes("/solicitud-servicio")) return "Lista de Solicitud de Servicios";
-    if (p.includes("/plan-muestreo")) return "Plan de Muestreo";
+    if (p.includes("/plan-muestreo/paso-")) return "Plan de Muestreo";
+    if (p.includes("/plan-muestreo")) return "Lista de Planes de Muestreo";
     if (p.includes("/gestion-usuarios")) return "Gestión de Usuarios";
     if (p.includes("/gestion-clientes")) return "Gestión de Clientes";
     if (p.includes("/gestion-laboratorios")) return "Gestión de Laboratorios";
@@ -108,6 +111,7 @@ export default function DashboardLayout() {
     if (p.includes("/catalogos/servicios")) return "Catálogo de Servicios";
     if (p.includes("/catalogos/medios-recepcion")) return "Catálogo de Médios de Recepción";
     if (p.includes("/catalogos/matriz")) return "Catálogo de Matriz";
+    if (p.includes("/catalogos/muestras")) return "Catálogo de Muestras";
     if (p.includes("/catalogos/preservantes")) return "Catálogo de Preservantes";
     if (p.includes("/dashboard/proformas")) return "Proformas";
     if (p.includes("/catalogos/cargos")) return "Catálogo de Cargos";
@@ -206,7 +210,7 @@ export default function DashboardLayout() {
           </NavLink>
 
           <Link
-            to={ROUTES.planMuestreoPaso(1)}
+            to={ROUTES.planMuestreo}
             title={!sidebarOpen ? "Plan de Muestreo" : undefined}
             className={[
               "flex w-full items-center rounded-lg py-2.5 text-sm font-medium transition",

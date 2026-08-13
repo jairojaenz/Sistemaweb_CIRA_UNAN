@@ -1,130 +1,276 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Calendar, Clock, FileText, MessageSquare, Phone, User } from "lucide-react";
 import PlanMuestreoLayout from "./PlanMuestreoLayout.jsx";
+import { useAuth } from "../../../auth/AuthContext.jsx";
+import { useToast } from "../../../components/ToastContext.jsx";
 import { clearDraft, loadDraft, saveDraft } from "../service/planMuestreoDraftStorage.js";
+import { createPlanMuestreo } from "../service/planMuestreoService.js";
+import { formToPlanMuestreoPayload } from "../utils/formToPlanMuestreoPayload.js";
 import { ROUTES } from "../../../router/routes.js";
 
-function FirmaBlock({ nameLabel, nameValue, onName, dateValue, onDate, timeValue, onTime }) {
+function SectionHeader({ accent = "bg-blue-900", title, subtitle }) {
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:items-end">
-      <div>
-        <label className="text-xs font-semibold text-gray-700">{nameLabel}</label>
-        <input
-          className="input mt-1 w-full"
-          placeholder="Nombre o firma"
-          value={nameValue}
-          onChange={onName}
-        />
-      </div>
-      <div>
-        <label className="text-xs font-semibold text-gray-700">Fecha de finalización</label>
-        <input
-          className="input mt-1 w-full"
-          type="date"
-          value={dateValue}
-          onChange={onDate}
-        />
-      </div>
-      <div>
-        <label className="text-xs font-semibold text-gray-700">Hora de finalización</label>
-        <input
-          className="input mt-1 w-full"
-          type="time"
-          value={timeValue}
-          onChange={onTime}
-        />
-      </div>
+    <div className="mb-3">
+      <h3 className="mb-0.5 flex items-center gap-3 text-lg font-bold text-blue-900">
+        <span className={`h-6 w-1 shrink-0 rounded-full ${accent}`} />
+        {title}
+      </h3>
+      {subtitle ? <p className="ml-4 text-sm text-[#6a7282]">{subtitle}</p> : null}
     </div>
+  );
+}
+
+function Field({ label, htmlFor, children, className = "" }) {
+  return (
+    <div className={className}>
+      <label htmlFor={htmlFor} className="mb-1.5 block text-sm font-semibold text-gray-700">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function FirmaCard({
+  number,
+  title,
+  subtitle,
+  nameId,
+  nameValue,
+  onName,
+  dateId,
+  dateValue,
+  onDate,
+  timeId,
+  timeValue,
+  onTime,
+}) {
+  return (
+    <article className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <header className="flex items-center gap-3 border-b border-gray-100 bg-slate-50 px-4 py-2">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-900 text-sm font-bold text-white">
+          {number}
+        </span>
+        <div className="min-w-0">
+          <p className="font-semibold text-blue-900">{title}</p>
+          <p className="text-xs text-gray-500">{subtitle}</p>
+        </div>
+      </header>
+      <div className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_11rem_9rem]">
+        <Field label="Nombre y firma" htmlFor={nameId}>
+          <div className="relative">
+            <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-900/50" />
+            <input
+              id={nameId}
+              className="input pl-10"
+              placeholder="Nombre de quien firma"
+              value={nameValue}
+              onChange={onName}
+            />
+          </div>
+        </Field>
+        <Field label="Fecha" htmlFor={dateId}>
+          <div className="relative">
+            <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-900/50" />
+            <input
+              id={dateId}
+              className="input pl-10"
+              type="date"
+              value={dateValue}
+              onChange={onDate}
+            />
+          </div>
+        </Field>
+        <Field label="Hora" htmlFor={timeId}>
+          <div className="relative">
+            <Clock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-900/50" />
+            <input
+              id={timeId}
+              className="input pl-10"
+              type="time"
+              value={timeValue}
+              onChange={onTime}
+            />
+          </div>
+        </Field>
+      </div>
+    </article>
   );
 }
 
 export default function PlanMuestreoPaso3() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { addToast } = useToast();
   const [draft, setDraft] = useState(() => loadDraft());
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     saveDraft(draft);
   }, [draft]);
 
-  const paso3 = draft.paso3;
+  const paso3 = draft?.paso3 ?? {};
   const setPaso3 = (patch) => {
     setDraft((prev) => ({ ...prev, paso3: { ...prev.paso3, ...patch } }));
   };
 
-  const handleCreate = () => {
-    localStorage.setItem("plan_muestreo_last_created_v1", JSON.stringify(draft));
-    alert("Plan de muestreo creado (simulado).");
-    clearDraft();
-    navigate(ROUTES.dashboard);
+  const handleCreate = async () => {
+    const idUsuario = Number(user?.idUsuario ?? user?.id ?? user?.Id ?? 0);
+    if (!idUsuario) {
+      addToast("No se pudo identificar el usuario de sesión.", "error");
+      return;
+    }
+    if (!draft.paso1?.idProforma && !draft.paso1?.proformaNo) {
+      addToast("Seleccione una proforma en el paso 1.", "error");
+      navigate(ROUTES.planMuestreoPaso(1));
+      return;
+    }
+    if (!Number(draft.paso1?.idMuestra)) {
+      addToast("Seleccione una muestra en el paso 1.", "error");
+      navigate(ROUTES.planMuestreoPaso(1));
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const payload = formToPlanMuestreoPayload(draft, { idUsuario });
+      await createPlanMuestreo(payload);
+      addToast("Plan de muestreo creado correctamente.", "success");
+      clearDraft();
+      navigate(ROUTES.planMuestreo);
+    } catch (err) {
+      addToast(err?.message || "No se pudo crear el plan de muestreo.", "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <PlanMuestreoLayout
       step={3}
+      wide
+      compact
       isLastStep
       onPrevious={() => navigate(ROUTES.planMuestreoPaso(2))}
       onSubmit={handleCreate}
-      submitLabel="Crear"
+      submitLabel={saving ? "Guardando…" : "Crear"}
+      submitDisabled={saving}
     >
-      <div className="space-y-6">
+      <div className="space-y-5">
         <div>
-          <label className="text-sm font-semibold text-gray-700">
-            Observaciones relacionadas al muestreo:
-          </label>
-          <textarea
-            className="textarea mt-1"
-            rows={4}
-            value={paso3.observacionesMuestreo}
-            onChange={(e) => setPaso3({ observacionesMuestreo: e.target.value })}
+          <h2 className="text-2xl font-bold text-blue-900">Cierre y firmas</h2>
+          <p className="mt-0.5 text-sm text-[#6a7282]">
+            Observaciones finales y responsables que elaboran, reciben y entregan el plan.
+          </p>
+        </div>
+
+        <section className="rounded-xl border border-gray-100 bg-slate-50/80 p-4">
+          <SectionHeader
+            accent="bg-blue-600"
+            title="Observaciones"
+            subtitle="Notas del muestreo y comentarios del coordinador"
           />
-        </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Field
+              label="Observaciones relacionadas al muestreo"
+              htmlFor="plan-obs-muestreo"
+            >
+              <div className="relative">
+                <FileText className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-blue-900/50" />
+                <textarea
+                  id="plan-obs-muestreo"
+                  className="textarea min-h-[5.5rem] pl-10"
+                  rows={3}
+                  placeholder="Condiciones del sitio, incidencias o notas técnicas…"
+                  value={paso3.observacionesMuestreo ?? ""}
+                  onChange={(e) => setPaso3({ observacionesMuestreo: e.target.value })}
+                />
+              </div>
+            </Field>
+            <Field
+              label="Comentarios del coordinador"
+              htmlFor="plan-obs-coordinador"
+            >
+              <div className="relative">
+                <MessageSquare className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-blue-900/50" />
+                <textarea
+                  id="plan-obs-coordinador"
+                  className="textarea min-h-[5.5rem] pl-10"
+                  rows={3}
+                  placeholder="Observaciones o comentarios del coordinador del muestreo…"
+                  value={paso3.observacionesCoordinador ?? ""}
+                  onChange={(e) =>
+                    setPaso3({ observacionesCoordinador: e.target.value })
+                  }
+                />
+              </div>
+            </Field>
+          </div>
+        </section>
 
-        <div>
-          <label className="text-sm font-semibold text-gray-700">
-            Observaciones / Comentarios del coordinador del muestreo:
-          </label>
-          <textarea
-            className="textarea mt-1"
-            rows={4}
-            value={paso3.observacionesCoordinador}
-            onChange={(e) => setPaso3({ observacionesCoordinador: e.target.value })}
+        <section>
+          <SectionHeader
+            accent="bg-emerald-600"
+            title="Responsables y firmas"
+            subtitle="Nombre, fecha y hora de cada responsable del plan"
           />
-        </div>
+          <div className="space-y-3">
+            <FirmaCard
+              number={1}
+              title="Quien elabora el plan"
+              subtitle="Personal CIRA que prepara el documento"
+              nameId="plan-elabora-nombre"
+              nameValue={paso3.elaboraNombreFirma ?? ""}
+              onName={(e) => setPaso3({ elaboraNombreFirma: e.target.value })}
+              dateId="plan-elabora-fecha"
+              dateValue={paso3.elaboraFecha ?? ""}
+              onDate={(e) => setPaso3({ elaboraFecha: e.target.value })}
+              timeId="plan-elabora-hora"
+              timeValue={paso3.elaboraHora ?? ""}
+              onTime={(e) => setPaso3({ elaboraHora: e.target.value })}
+            />
+            <FirmaCard
+              number={2}
+              title="Usuario o su representante"
+              subtitle="Quien recibe o valida el plan de muestreo"
+              nameId="plan-usuario-nombre"
+              nameValue={paso3.usuarioNombreFirma ?? ""}
+              onName={(e) => setPaso3({ usuarioNombreFirma: e.target.value })}
+              dateId="plan-usuario-fecha"
+              dateValue={paso3.usuarioFecha ?? ""}
+              onDate={(e) => setPaso3({ usuarioFecha: e.target.value })}
+              timeId="plan-usuario-hora"
+              timeValue={paso3.usuarioHora ?? ""}
+              onTime={(e) => setPaso3({ usuarioHora: e.target.value })}
+            />
+            <FirmaCard
+              number={3}
+              title="Quien entrega el plan a APE"
+              subtitle="Entrega del plan al Área de Proyección y Extensión"
+              nameId="plan-entrega-nombre"
+              nameValue={paso3.entregaNombreFirma ?? ""}
+              onName={(e) => setPaso3({ entregaNombreFirma: e.target.value })}
+              dateId="plan-entrega-fecha"
+              dateValue={paso3.entregaFecha ?? ""}
+              onDate={(e) => setPaso3({ entregaFecha: e.target.value })}
+              timeId="plan-entrega-hora"
+              timeValue={paso3.entregaHora ?? ""}
+              onTime={(e) => setPaso3({ entregaHora: e.target.value })}
+            />
+          </div>
+        </section>
 
-        <FirmaBlock
-          nameLabel="Quien elabora el plan de muestreo"
-          nameValue={paso3.elaboraNombreFirma}
-          onName={(e) => setPaso3({ elaboraNombreFirma: e.target.value })}
-          dateValue={paso3.elaboraFecha}
-          onDate={(e) => setPaso3({ elaboraFecha: e.target.value })}
-          timeValue={paso3.elaboraHora}
-          onTime={(e) => setPaso3({ elaboraHora: e.target.value })}
-        />
-
-        <FirmaBlock
-          nameLabel="Usuario o su representante"
-          nameValue={paso3.usuarioNombreFirma}
-          onName={(e) => setPaso3({ usuarioNombreFirma: e.target.value })}
-          dateValue={paso3.usuarioFecha}
-          onDate={(e) => setPaso3({ usuarioFecha: e.target.value })}
-          timeValue={paso3.usuarioHora}
-          onTime={(e) => setPaso3({ usuarioHora: e.target.value })}
-        />
-
-        <FirmaBlock
-          nameLabel="Quien entrega el plan de muestreo a APE"
-          nameValue={paso3.entregaNombreFirma}
-          onName={(e) => setPaso3({ entregaNombreFirma: e.target.value })}
-          dateValue={paso3.entregaFecha}
-          onDate={(e) => setPaso3({ entregaFecha: e.target.value })}
-          timeValue={paso3.entregaHora}
-          onTime={(e) => setPaso3({ entregaHora: e.target.value })}
-        />
-
-        <div className="text-xs text-gray-600">
-          Contactos APE: Oficinas: 2278-8987/82, Ext. 8318 y 8317. Denis Herrera:
-          8391-2846 (logo). Sandra Vásquez 8994-6598 (logo).
-        </div>
+        <aside className="flex gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-2.5 text-sm text-blue-900">
+          <Phone className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          <div>
+            <p className="font-semibold">Contactos APE</p>
+            <p className="mt-0.5 text-blue-800/80">
+              Oficinas: 2278-8987 / 82, ext. 8318 y 8317. Denis Herrera: 8391-2846.
+              Sandra Vásquez: 8994-6598.
+            </p>
+          </div>
+        </aside>
       </div>
     </PlanMuestreoLayout>
   );

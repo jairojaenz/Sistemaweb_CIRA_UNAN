@@ -7,13 +7,16 @@ import { useToast } from "../../../components/ToastContext.jsx";
 import { ROUTES } from "../../../router/routes.js";
 import { getDepartamentos, getMunicipios, getUsuarios } from "../../usuarios/service/usuarioService.js";
 import { getFormatosCampo, labelFormatoCampo } from "../service/catalogosOrdenService.js";
+import { getTiposMuestreo } from "../../catalogos/service/tiposMuestreoService.js";
+import { modalidadFromTipoNombre } from "../utils/formToOrdenServicioPayload.js";
 import {
   createOrdenServicio,
   deleteOrdenServicio,
   getOrdenesServicio,
   updateOrdenServicio,
 } from "../service/formatoOrdenServicioService.js";
-import { formatTelefonoLocal, telefonoLocalError } from "../../../utils/phoneFormat.js";
+import { formatTelefonoLocal } from "../../../utils/phoneFormat.js";
+import { collectOrdenIssues, issuesToFormErrors } from "../utils/ordenValidation.js";
 import { getSolicitudById } from "../../solicitud-servicio/service/solicitudServicioService.js";
 import {
   assignCodigosAsignados,
@@ -70,6 +73,7 @@ const initialForm = {
   controlRecepcion: [emptyControlRecepcionRow()],
   idUsuario: "",
   idFormatoCampo: "",
+  idTipoMuestreo: "",
   estadoOrden: "Pendiente",
   muestreoPor: "usuario",
   transportePor: "usuario",
@@ -116,8 +120,9 @@ function mapOrdenToForm(orden, usuarios) {
     usuarioEmpresa: orden.usuario ?? "",
     modalidadMuestreo,
     estadoOrden: orden.estadoOrden || "Pendiente",
-    idUsuario: String(u?.idUsuario ?? u?.IdUsuario ?? ""),
-    idFormatoCampo: String(orden.formatoCampo ?? ""),
+    idUsuario: String(orden.idUsuario || u?.idUsuario || u?.IdUsuario || ""),
+    idFormatoCampo: String(orden.idFormatoCampo || orden.formatoCampo || ""),
+    idTipoMuestreo: String(orden.idTipoMuestreo || ""),
     analisisOrden: !!orden.analisisOrden,
     muestreoOrden: !!orden.muestreoOrden,
     hojaObservacionOrden: !!orden.hojaObservacionOrden,
@@ -128,30 +133,8 @@ function mapOrdenToForm(orden, usuarios) {
   };
 }
 
-function validateForm(form) {
-  const errors = {};
-  if (!String(form.numeroOrden).trim()) errors.numeroOrden = "Requerido";
-  if (!form.fecha) errors.fecha = "Requerido";
-  if (!String(form.usuarioEmpresa).trim()) errors.usuarioEmpresa = "Requerido";
-
-  const errTelefono = telefonoLocalError(form.telefono, { label: "Teléfono" });
-  if (errTelefono) errors.telefono = errTelefono;
-
-  const errCelular = telefonoLocalError(form.celular, { label: "Celular" });
-  if (errCelular) errors.celular = errCelular;
-
-  if (form.modalidadMuestreo === "compuesto") {
-    const seleccionadas = COMPOUESTO_OPTION_KEYS.filter((key) => form[key]).length;
-    if (seleccionadas !== 1) {
-      errors.compuestoOpcion = "Seleccione una sola opción para muestreo compuesto";
-    }
-  }
-
-  if (form.modalidadMuestreo === "otros" && !String(form.modalidadMuestreoOtros ?? "").trim()) {
-    errors.modalidadMuestreoOtros = "Especifique el tipo de muestreo";
-  }
-
-  return errors;
+function validateForm(form, extras) {
+  return issuesToFormErrors(collectOrdenIssues(form, extras));
 }
 
 function firstUsuarioId(usuarios) {
@@ -215,6 +198,7 @@ export default function FormatosOrdenServicioPage() {
   const [ordenes, setOrdenes] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
   const [formatosCampo, setFormatosCampo] = useState([]);
+  const [tiposMuestreo, setTiposMuestreo] = useState([]);
   const [departamentos, setDepartamentos] = useState([]);
   const [municipios, setMunicipios] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -246,14 +230,16 @@ export default function FormatosOrdenServicioPage() {
   const loadCatalogs = useCallback(async () => {
     try {
       setCatalogsLoading(true);
-      const [users, campos, deps, muns] = await Promise.all([
+      const [users, campos, tipos, deps, muns] = await Promise.all([
         getUsuarios(),
         getFormatosCampo(),
+        getTiposMuestreo(),
         getDepartamentos(),
         getMunicipios(),
       ]);
       setUsuarios((users ?? []).filter((u) => u.activo !== false && u.Activo !== false));
       setFormatosCampo(campos);
+      setTiposMuestreo((tipos ?? []).filter((t) => t.activo !== false));
       setDepartamentos(deps ?? []);
       setMunicipios(muns ?? []);
     } catch (err) {
@@ -294,17 +280,23 @@ export default function FormatosOrdenServicioPage() {
 
           setEditingOrden(null);
           setSolicitudOrigen(data);
-          setForm(
-            mapSolicitudToOrdenForm(data, {
-              initialForm: base,
-              usuarios,
-              idUsuarioSesion,
-              numeroOrden,
-              proformaNo,
-              tipoMuestreoNombre,
-              proforma,
-            }),
-          );
+          const mapped = mapSolicitudToOrdenForm(data, {
+            initialForm: base,
+            usuarios,
+            idUsuarioSesion,
+            numeroOrden,
+            proformaNo,
+            tipoMuestreoNombre,
+            proforma,
+          });
+          if (tipoMuestreoNombre) {
+            const match = tiposMuestreo.find((t) => {
+              const n = String(t.nombreTipoMuestreo ?? t.nombre ?? "").toLowerCase();
+              return n && tipoMuestreoNombre.toLowerCase().includes(n);
+            });
+            if (match) mapped.idTipoMuestreo = String(match.idTipoMuestreo);
+          }
+          setForm(mapped);
           if (!tipoMuestreoNombre) {
             addToast(
               "La solicitud no tiene proforma con tipo de muestreo. Complételo manualmente en la sección 2.",
@@ -345,6 +337,7 @@ export default function FormatosOrdenServicioPage() {
               ...initialForm,
               fecha: today,
               numeroOrden: nextOrden,
+              idUsuario: idUsuarioSesion ? String(idUsuarioSesion) : "",
             },
       );
       setFormErrors({});
@@ -369,6 +362,7 @@ export default function FormatosOrdenServicioPage() {
     solicitudIdParam,
     ordenes,
     usuarios,
+    tiposMuestreo,
     catalogsLoading,
     loading,
     addToast,
@@ -420,6 +414,10 @@ export default function FormatosOrdenServicioPage() {
         compuesto16h: false,
         compuesto24h: false,
         modalidadMuestreoOtros: value === "otros" ? prev.modalidadMuestreoOtros : "",
+        idTipoMuestreo: (() => {
+          const match = tiposMuestreo.find((t) => modalidadFromTipoNombre(t.nombreTipoMuestreo ?? t.nombre) === value);
+          return match ? String(match.idTipoMuestreo) : prev.idTipoMuestreo;
+        })(),
       }));
       setFormErrors((prev) => ({
         ...prev,
@@ -453,6 +451,23 @@ export default function FormatosOrdenServicioPage() {
 
     if (name === "departamento") {
       setForm((prev) => ({ ...prev, departamento: value, municipio: "" }));
+      return;
+    }
+
+    if (name === "idTipoMuestreo") {
+      const tipo = tiposMuestreo.find((t) => String(t.idTipoMuestreo) === String(value));
+      const modalidad = modalidadFromTipoNombre(tipo?.nombreTipoMuestreo ?? tipo?.nombre);
+      setForm((prev) => ({
+        ...prev,
+        idTipoMuestreo: value,
+        modalidadMuestreo: modalidad,
+        compuesto8h: modalidad === "compuesto" ? prev.compuesto8h : false,
+        compuesto12h: modalidad === "compuesto" ? prev.compuesto12h : false,
+        compuesto16h: modalidad === "compuesto" ? prev.compuesto16h : false,
+        compuesto24h: modalidad === "compuesto" ? prev.compuesto24h : false,
+        modalidadMuestreoOtros: modalidad === "otros" ? prev.modalidadMuestreoOtros : "",
+      }));
+      setFormErrors((prev) => ({ ...prev, idTipoMuestreo: "", compuestoOpcion: "", modalidadMuestreoOtros: "" }));
       return;
     }
 
@@ -540,28 +555,38 @@ export default function FormatosOrdenServicioPage() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    const errors = validateForm(form);
-    setFormErrors(errors);
-    if (Object.keys(errors).length > 0) {
-      addToast("Complete los campos requeridos", "error");
-      return;
+    const extras = {
+      usuarios,
+      formatosCampo,
+      idUsuarioSesion,
+      catalogsReady: !catalogsLoading,
+    };
+    const issues = collectOrdenIssues(form, extras);
+    setFormErrors(issuesToFormErrors(issues));
+    if (issues.length > 0) {
+      const validationError = new Error("Revise los campos indicados para crear la orden.");
+      validationError.issues = issues;
+      throw validationError;
     }
 
     try {
       setSaving(true);
       const payload = formToOrdenServicioPayload(form, {
-        usuarios,
-        formatosCampo,
+        tiposMuestreo,
         idUsuarioSesion,
         idFormatoSolicitud:
           solicitudOrigen?.idFormatoSolicitud ?? solicitudOrigen?.IdFormatoSolicitud ?? null,
       });
       if (!payload.idUsuario) {
-        addToast(
-          "No se pudo determinar el usuario responsable. Inicie sesión con su cuenta de la API o registre usuarios activos.",
-          "error",
+        throw new Error(
+          "No se pudo determinar el usuario responsable. Inicie sesión o seleccione un usuario en el paso 1.",
         );
-        return;
+      }
+      if (!payload.idFormatoCampo) {
+        throw new Error("Seleccione un formato de campo en el paso 1.");
+      }
+      if (!payload.idTipoMuestreo) {
+        throw new Error("Seleccione el tipo de muestreo del catálogo en el paso 2.");
       }
       if (editingOrden?.idFormatoOrden) {
         await updateOrdenServicio(editingOrden.idFormatoOrden, payload);
@@ -573,8 +598,6 @@ export default function FormatosOrdenServicioPage() {
       }
       closeFormView();
       await loadOrdenes();
-    } catch (err) {
-      addToast(err.message, "error");
     } finally {
       setSaving(false);
     }
@@ -640,10 +663,12 @@ export default function FormatosOrdenServicioPage() {
         saving={saving}
         isEditing={Boolean(editingOrden?.idFormatoOrden)}
         catalogsLoading={catalogsLoading}
+        idUsuarioSesion={idUsuarioSesion}
         departamentos={departamentos}
         municipiosFiltrados={municipiosFiltrados}
         usuarios={usuarios}
         formatosCampo={formatosCampo}
+        tiposMuestreo={tiposMuestreo}
         solicitudOrigen={solicitudOrigen?.numeroSolicitud ?? solicitudOrigen?.NumeroSolicitud ?? null}
       />
     );

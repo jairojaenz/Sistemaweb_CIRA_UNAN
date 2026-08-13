@@ -28,6 +28,11 @@
 .animate-slide-in {
   animation: slide-in 0.3s ease-out;
 }
+
+.nicaragua-map-pin {
+  background: transparent !important;
+  border: none !important;
+}
 /*
 #root {
   max-width: 1280px;

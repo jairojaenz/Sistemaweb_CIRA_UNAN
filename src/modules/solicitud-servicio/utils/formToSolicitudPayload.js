@@ -3,6 +3,7 @@ function trimOrNull(value) {
   return text || null;
 }
 
+/** Convierte yyyy-mm-dd del input date a ISO que bindéa DateTime en la API. */
 function toIsoDate(value, fallback = new Date()) {
   if (value) {
     const d = new Date(`${value}T12:00:00`);
@@ -12,7 +13,8 @@ function toIsoDate(value, fallback = new Date()) {
 }
 
 /**
- * Mapea el estado del formulario web al DTO de creación de solicitud.
+ * Mapea el formulario web al DTO de Create/UpdateSolicitudServicioRequestDto.
+ * Los nombres deben coincidir con la API (fechaRecepcion, direccionMuestreo, …).
  */
 export function formToSolicitudPayload(form, { idCliente, idUsuario } = {}) {
   const servicios = Array.isArray(form.tipoServicio)
@@ -23,23 +25,25 @@ export function formToSolicitudPayload(form, { idCliente, idUsuario } = {}) {
 
   const matrices = Array.isArray(form.matriz) ? form.matriz : [];
 
+  // Cada fila debe tener idAnalisis o idGrupoAnalisis (el API no acepta texto libre).
   const detallesSolicitud = (form.analisisSolicitados ?? [])
-    .filter((a) => trimOrNull(a.tipoAnalisis))
     .map((a) => ({
-      tipoAnalisisTexto: trimOrNull(a.tipoAnalisis),
-      tecnicaTexto: trimOrNull(a.tecnica),
-      cantidad: 1,
-    }));
+      idAnalisis: Number(a.idAnalisis) || null,
+      idGrupoAnalisis: Number(a.idGrupoAnalisis) || null,
+      cantidad: Number(a.cantidad) > 0 ? Number(a.cantidad) : 1,
+    }))
+    .filter((d) => d.idAnalisis || d.idGrupoAnalisis);
 
   return {
     idCliente: Number(idCliente) || 0,
-    fechaRecepcionSolicitud: toIsoDate(form.fechaRecepcion),
+    fechaRecepcion: toIsoDate(form.fechaRecepcion),
     idMedioRecepcion: Number(form.medioRecepcion) || 0,
     totalMuestrasSolicitud: Number(form.numeroMuestras) || 0,
-    direccionMuestreoSolicitud: trimOrNull(form.ubicacionMuestreo) || trimOrNull(form.direccionUsuario) || "",
-    observacionSolicitud: trimOrNull(form.observaciones),
+    numMuestras: Number(form.numeroMuestras) || 0,
+    direccionMuestreo: trimOrNull(form.ubicacionMuestreo) || trimOrNull(form.direccionUsuario) || "",
+    observacion: trimOrNull(form.observaciones),
     fechaEnvioProforma: toIsoDate(form.fechaProforma),
-    estado: "Pendiente",
+    estado: form.estado || "Pendiente",
     idServicios: servicios.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0),
     matrices: matrices
       .filter((m) => Number(m.numMuestras) > 0)
@@ -48,9 +52,19 @@ export function formToSolicitudPayload(form, { idCliente, idUsuario } = {}) {
         numMuestras: Number(m.numMuestras),
       })),
     idUsuario: Number(idUsuario) || 0,
-    firmaSolicitud: trimOrNull(form.firma),
-    recibidoPorSolicitud: trimOrNull(form.recibidoPor),
-    inicialesAnalistaSolicitud: trimOrNull(form.inicialesAnalista),
     detallesSolicitud,
   };
+}
+
+/** yyyy-mm-dd para inputs type="date" a partir de DateOnly/ISO de la API. */
+export function toInputDate(value) {
+  if (!value) return "";
+  const text = String(value);
+  if (/^\d{4}-\d{2}-\d{2}/.test(text)) return text.slice(0, 10);
+  const d = new Date(text);
+  if (Number.isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }

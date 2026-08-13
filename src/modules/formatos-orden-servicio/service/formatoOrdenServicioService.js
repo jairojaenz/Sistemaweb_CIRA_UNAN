@@ -52,6 +52,9 @@ export function normalizeOrdenFromApi(raw) {
     fechaCreacionOrden: raw.fechaCreacionOrden ?? raw.FechaCreacionOrden ?? raw.fechaCreacion ?? raw.FechaCreacion,
     usuarioCreacionOrden: raw.usuarioCreacionOrden ?? raw.UsuarioCreacionOrden ?? raw.usuarioCreacion ?? raw.UsuarioCreacion ?? "",
     formatoCampo,
+    idFormatoCampo: raw.idFormatoCampo ?? raw.IdFormatoCampo ?? raw.formatoCampo ?? raw.FormatoCampo ?? "",
+    idUsuario: raw.idUsuario ?? raw.IdUsuario ?? "",
+    idTipoMuestreo: raw.idTipoMuestreo ?? raw.IdTipoMuestreo ?? "",
     tipoMuestreo: raw.tipoMuestreo ?? raw.TipoMuestreo ?? "",
     usuario: raw.usuario ?? raw.Usuario ?? "",
   };

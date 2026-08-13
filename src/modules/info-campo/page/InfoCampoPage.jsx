@@ -1,7 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { useAuth } from '../../../auth/AuthContext.jsx';
+import { useToast } from '../../../components/ToastContext.jsx';
+import { getProformas } from '../../proforma/service/proformaService.js';
+import { getMuestras } from '../../catalogos/service/muestrasService.js';
+import { getMatrices } from '../../catalogos/service/matrizService.js';
+import { getFuentesMatriz } from '../../catalogos/service/fuentesMatrizService.js';
+import { getTiposMuestreo } from '../../catalogos/service/tiposMuestreoService.js';
+import { getEquiposMuestreo } from '../../catalogos/service/equiposMuestreoService.js';
+import { createInfoCampo, formToCampoPayload } from '../service/infoCampoService.js';
 
 const fuentesPorMatriz = {
   'agua-natural': ['Río', 'Lago', 'Mar', 'Pozo excavado', 'Pozo perforado', 'Manantial', 'Estero', 'Lluvia', 'Otro'],
@@ -55,9 +64,53 @@ export default function FormWizard() {
     verificacionFecha: '',
     inicialesAnalista: '',
     codigoMuestra: '',
+    idProforma: '',
+    idMuestra: '',
+    idMatriz: '',
+    idFuente: '',
+    idTipoMuestreo: '',
+    idsEquipos: [],
   });
 
+  const { user } = useAuth();
+  const { addToast } = useToast();
+  const [saving, setSaving] = useState(false);
+  const [proformas, setProformas] = useState([]);
+  const [muestras, setMuestras] = useState([]);
+  const [matricesApi, setMatricesApi] = useState([]);
+  const [fuentesApi, setFuentesApi] = useState([]);
+  const [tiposApi, setTiposApi] = useState([]);
+  const [equiposApi, setEquiposApi] = useState([]);
   const [errors, setErrors] = useState({});
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadCatalogos() {
+      try {
+        const [p, m, mats, ftes, tipos, eqs] = await Promise.all([
+          getProformas(),
+          getMuestras(),
+          getMatrices(),
+          getFuentesMatriz(),
+          getTiposMuestreo(),
+          getEquiposMuestreo(),
+        ]);
+        if (!mounted) return;
+        setProformas(p ?? []);
+        setMuestras((m ?? []).filter((x) => x.activo !== false));
+        setMatricesApi((mats ?? []).filter((x) => x.activo !== false));
+        setFuentesApi((ftes ?? []).filter((x) => x.activo !== false));
+        setTiposApi((tipos ?? []).filter((x) => x.activo !== false));
+        setEquiposApi(eqs ?? []);
+      } catch {
+        if (mounted) addToast("No se pudieron cargar los catálogos de campo", "error");
+      }
+    }
+    loadCatalogos();
+    return () => {
+      mounted = false;
+    };
+  }, [addToast]);
 
   const requiredFields = {
     usuario: true,
@@ -186,10 +239,26 @@ export default function FormWizard() {
     });
   };
 
-  const handleSubmit = () => {
-    if (validateStep(3)) {
-      console.log('Formulario completado:', formData);
-      alert('Formulario enviado exitosamente. Datos guardados en la consola.');
+  const handleSubmit = async () => {
+    if (!validateStep(3)) return;
+    if (!formData.idProforma || !formData.idMuestra || !formData.idMatriz || !formData.idFuente || !formData.idTipoMuestreo) {
+      addToast("Complete proforma, muestra, matriz, fuente y tipo de muestreo (vínculos con la API).", "error");
+      setCurrentStep(1);
+      return;
+    }
+    const idUsuario = Number(user?.idUsuario ?? user?.id ?? user?.Id ?? 0);
+    if (!idUsuario) {
+      addToast("No se pudo identificar el usuario de sesión.", "error");
+      return;
+    }
+    try {
+      setSaving(true);
+      await createInfoCampo(formToCampoPayload(formData, { idUsuario }));
+      addToast("Información de campo guardada correctamente.", "success");
+    } catch (err) {
+      addToast(err?.message || "No se pudo guardar la información de campo.", "error");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -249,6 +318,105 @@ export default function FormWizard() {
               <div>
                 <h2 className="text-3xl font-bold text-primary mb-2">Información de la Muestra</h2>
                 <p className="text-gray-600">Complete los datos de identificación y ubicación de la muestra</p>
+              </div>
+
+              <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-4">
+                <h3 className="mb-3 text-sm font-semibold text-blue-900">Vínculos con la API (obligatorios para guardar)</h3>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Proforma
+                    <select
+                      className="input mt-1 w-full"
+                      value={formData.idProforma}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, idProforma: e.target.value }))}
+                    >
+                      <option value="">Seleccione</option>
+                      {proformas.map((p) => (
+                        <option key={p.idProforma} value={p.idProforma}>
+                          {p.numeroProforma ?? `Proforma #${p.idProforma}`}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-sm font-medium text-gray-700">
+                    Muestra
+                    <select
+                      className="input mt-1 w-full"
+                      value={formData.idMuestra}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, idMuestra: e.target.value }))}
+                    >
+                      <option value="">Seleccione</option>
+                      {muestras.map((m) => (
+                        <option key={m.idMuestra} value={m.idMuestra}>
+                          {m.identificacion || `Muestra #${m.idMuestra}`}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-sm font-medium text-gray-700">
+                    Matriz
+                    <select
+                      className="input mt-1 w-full"
+                      value={formData.idMatriz}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, idMatriz: e.target.value, idFuente: "" }))}
+                    >
+                      <option value="">Seleccione</option>
+                      {matricesApi.map((m) => (
+                        <option key={m.idMatriz} value={m.idMatriz}>{m.nombreMatriz}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-sm font-medium text-gray-700">
+                    Fuente
+                    <select
+                      className="input mt-1 w-full"
+                      value={formData.idFuente}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, idFuente: e.target.value }))}
+                    >
+                      <option value="">Seleccione</option>
+                      {fuentesApi
+                        .filter((f) => !formData.idMatriz || String(f.idMatriz) === String(formData.idMatriz))
+                        .map((f) => (
+                          <option key={f.idFuente} value={f.idFuente}>{f.nombreFuente || f.nombre}</option>
+                        ))}
+                    </select>
+                  </label>
+                  <label className="text-sm font-medium text-gray-700">
+                    Tipo de muestreo
+                    <select
+                      className="input mt-1 w-full"
+                      value={formData.idTipoMuestreo}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, idTipoMuestreo: e.target.value }))}
+                    >
+                      <option value="">Seleccione</option>
+                      {tiposApi.map((t) => (
+                        <option key={t.idTipoMuestreo} value={t.idTipoMuestreo}>
+                          {t.nombreTipoMuestreo || t.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-sm font-medium text-gray-700">
+                    Equipos (opcional)
+                    <select
+                      multiple
+                      className="input mt-1 h-24 w-full"
+                      value={formData.idsEquipos}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          idsEquipos: Array.from(e.target.selectedOptions).map((o) => o.value),
+                        }))
+                      }
+                    >
+                      {equiposApi.map((eq) => (
+                        <option key={eq.idEquipo} value={eq.idEquipo}>
+                          {eq.nombreEquipo || eq.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
               </div>
 
               {/* Datos principales */}
@@ -1214,9 +1382,10 @@ export default function FormWizard() {
             ) : (
               <button
                 onClick={handleSubmit}
-                className="flex items-center gap-2 px-6 py-2 bg-blue-900 text-white rounded-lg hover:bg-green-700 transition-all shadow-md hover:shadow-lg font-semibold"
+                disabled={saving}
+                className="flex items-center gap-2 px-6 py-2 bg-blue-900 text-white rounded-lg hover:bg-green-700 transition-all shadow-md hover:shadow-lg font-semibold disabled:opacity-60"
               >
-                Guardar
+                {saving ? "Guardando…" : "Guardar"}
                 <ChevronRight className="w-5 h-5" />
               </button>
             )}
