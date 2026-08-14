@@ -167,8 +167,15 @@ export default function ProformaPage() {
       estado: p.estado || "Pendiente",
       nombreFuente: p.fuentesMatriz || "",
       nombreTipoMuestreo: p.tiposMuestreo || "",
-      idFormatoSolicitud: p.formatoSolicitud ?? 0,
+      idFormatoSolicitud: p.formatoSolicitud ?? p.idFormatoSolicitud ?? 0,
       idUsuario: user?.idUsuario ?? user?.id ?? 0,
+      detallesTecnicas: (p.detalles ?? []).map((d) => ({
+        idAnalisis: Number(d.idAnalisis ?? d.IdAnalisis) || 0,
+        idTecnicaAnalisis: Number(d.idTecnicaAnalisis ?? d.IdTecnicaAnalisis) || 0,
+        cantidad: Number(d.cantidad ?? d.cantidadDetalleProforma) > 0
+          ? Number(d.cantidad ?? d.cantidadDetalleProforma)
+          : 1,
+      })).filter((d) => d.idAnalisis > 0 && d.idTecnicaAnalisis > 0),
     });
     setEditFormErrors({});
   }
