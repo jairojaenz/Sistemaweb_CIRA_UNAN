@@ -5,11 +5,13 @@ import {
   FaChevronDown,
   FaClipboardCheck,
   FaClipboardList,
+  FaExchangeAlt,
   FaFileInvoiceDollar,
   FaFolder,
   FaFlask,
   FaHome,
   FaKey,
+  FaMicroscope,
   FaSignOutAlt,
   FaTasks,
   FaUniversity,
@@ -92,6 +94,7 @@ export default function DashboardLayout() {
     { label: "Técnicas de análisis", to: ROUTES.catalogosTecnicasAnalisis },
     { label: "Tipos de muestreo", to: ROUTES.catalogosTiposMuestreo },
     { label: "Equipos de muestreo", to: ROUTES.catalogosEquiposMuestreo },
+    { label: "Análisis", to: ROUTES.catalogosAnalisis },
   ];
 
   function getPageTitle(p) {
@@ -107,6 +110,12 @@ export default function DashboardLayout() {
     if (p.includes("/gestion-usuarios")) return "Gestión de Usuarios";
     if (p.includes("/gestion-clientes")) return "Gestión de Clientes";
     if (p.includes("/gestion-laboratorios")) return "Gestión de Laboratorios";
+    if (p.includes("/custodia/editar/")) return "Editar Cadena de Custodia";
+    if (p.includes("/custodia/nueva")) return "Nueva Cadena de Custodia";
+    if (p.includes("/custodia")) return "Lista de Cadenas de Custodia";
+    if (p.includes("/ensayos/editar/")) return "Editar Formato de Ensayo";
+    if (p.includes("/ensayos/nuevo")) return "Nuevo Formato de Ensayo";
+    if (p.includes("/ensayos")) return "Lista de Formatos de Ensayo";
     if (p.includes("/formatos-orden-servicio/nueva")) return "Nueva Orden de Servicio";
     if (p.includes("/formatos-orden-servicio") && p.includes("/editar")) return "Editar Orden de Servicio";
     if (p.includes("/formatos-orden-servicio")) return "Órdenes de Servicio";
@@ -125,6 +134,7 @@ export default function DashboardLayout() {
     if (p.includes("/catalogos/tecnicas-analisis")) return "Catálogo de Técnicas de Análisis";
     if (p.includes("/catalogos/tipos-muestreo")) return "Catálogo de Tipos de Muestreo";
     if (p.includes("/catalogos/equipos-muestreo")) return "Catálogo de Equipos de Muestreo";
+    if (p.includes("/catalogos/analisis")) return "Catálogo de Análisis";
     return "INFORMACIÓN DE CAMPO DE MUESTRAS";
   }
 
@@ -225,6 +235,36 @@ export default function DashboardLayout() {
             <FaTasks className="h-5 w-5 flex-shrink-0 opacity-90" />
             {sidebarOpen && <span className="truncate">Plan de Muestreo</span>}
           </Link>
+
+          {/* Cadena de custodia: nace del formato de campo. */}
+          <NavLink
+            to={ROUTES.custodia}
+            title={!sidebarOpen ? "Cadena de Custodia" : undefined}
+            className={({ isActive }) =>
+              [
+                navLinkClass({ isActive }),
+                sidebarOpen ? "gap-3 px-4" : "justify-center px-0",
+              ].join(" ")
+            }
+          >
+            <FaExchangeAlt className="h-5 w-5 flex-shrink-0 opacity-90" />
+            {sidebarOpen && <span className="truncate">Cadena de Custodia</span>}
+          </NavLink>
+
+          {/* Ensayos: captura de resultados ligados a una orden. */}
+          <NavLink
+            to={ROUTES.ensayos}
+            title={!sidebarOpen ? "Ensayos" : undefined}
+            className={({ isActive }) =>
+              [
+                navLinkClass({ isActive }),
+                sidebarOpen ? "gap-3 px-4" : "justify-center px-0",
+              ].join(" ")
+            }
+          >
+            <FaMicroscope className="h-5 w-5 flex-shrink-0 opacity-90" />
+            {sidebarOpen && <span className="truncate">Ensayos</span>}
+          </NavLink>
 
           <NavLink
             to={ROUTES.formatosOrdenServicio}

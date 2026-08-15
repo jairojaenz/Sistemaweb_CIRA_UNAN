@@ -40,7 +40,10 @@ export function formToSolicitudPayload(form, { idCliente, idUsuario } = {}) {
     idMedioRecepcion: Number(form.medioRecepcion) || 0,
     totalMuestrasSolicitud: Number(form.numeroMuestras) || 0,
     numMuestras: Number(form.numeroMuestras) || 0,
-    direccionMuestreo: trimOrNull(form.ubicacionMuestreo) || trimOrNull(form.direccionUsuario) || "",
+    direccionMuestreo:
+      form.modoUbicacion === "gps"
+        ? trimOrNull(form.coordenadasGps) || ""
+        : trimOrNull(form.ubicacionMuestreo) || "",
     observacion: trimOrNull(form.observaciones),
     fechaEnvioProforma: toIsoDate(form.fechaProforma),
     estado: form.estado || "Pendiente",

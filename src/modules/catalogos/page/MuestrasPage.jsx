@@ -1,9 +1,16 @@
+/**
+ * Catálogo de Muestras.
+ * Fuente depende de Matriz y Municipio depende de Departamento:
+ * esos drops no se llenan ni se habilitan hasta que el padre tenga valor.
+ * El mapa abre el pin en el departamento elegido (o en las coordenadas ya guardadas).
+ */
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { FaEdit, FaEye, FaPlus, FaSearch, FaSpinner, FaTimes } from "react-icons/fa";
 import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import ElevationField, { fetchElevacion } from "../../../components/ElevationField.jsx";
-import { parseLatLng } from "../../../components/NicaraguaMapModal.jsx";
+import { formatLatLng, parseLatLng } from "../../../components/NicaraguaMapModal.jsx";
 import { useToast } from "../../../components/ToastContext.jsx";
+import { getCentroDepartamento } from "../../../utils/nicaraguaUbicaciones.js";
 
 const NicaraguaMapModal = lazy(() => import("../../../components/NicaraguaMapModal.jsx"));
 import { getDepartamentos } from "../service/departamentosService.js";
@@ -57,22 +64,21 @@ export default function MuestrasPage() {
   const [togglingId, setTogglingId] = useState(null);
   const [detailItem, setDetailItem] = useState(null);
   const [mapOpen, setMapOpen] = useState(false);
+  const [loadingFuentes, setLoadingFuentes] = useState(false); // Spinner del drop Fuente.
+  const [loadingMunicipios, setLoadingMunicipios] = useState(false); // Spinner del drop Municipio.
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [muestrasData, matricesData, fuentesData, deptosData, munisData] = await Promise.all([
+      // Solo catálogos "padre". Fuente y municipio se piden después, según la selección.
+      const [muestrasData, matricesData, deptosData] = await Promise.all([
         getMuestras(),
         getMatrices(),
-        getFuentesMatriz(),
         getDepartamentos(),
-        getMunicipios(),
       ]);
       setItems(muestrasData);
       setMatrices(matricesData);
-      setFuentes(fuentesData);
       setDepartamentos(deptosData);
-      setMunicipios(munisData);
     } catch (err) {
       addToast(err.message, "error");
     } finally {
@@ -84,6 +90,78 @@ export default function MuestrasPage() {
     loadData();
   }, [loadData]);
 
+  // Corre cada vez que cambia la matriz. Sin matriz → drop vacío; con matriz → solo sus fuentes.
+  useEffect(() => {
+    if (!form.idMatriz) {
+      setFuentes([]);
+      return;
+    }
+    let cancelled = false; // Evita setState si el usuario cambia de matriz antes de que termine el fetch.
+    (async () => {
+      try {
+        setLoadingFuentes(true);
+        const todas = await getFuentesMatriz();
+        if (cancelled) return;
+        setFuentes(
+          todas.filter(
+            (f) => String(f.idMatriz) === String(form.idMatriz) && f.activo !== false,
+          ),
+        );
+      } catch (err) {
+        if (!cancelled) {
+          setFuentes([]);
+          addToast(err.message || "No se pudieron cargar las fuentes", "error");
+        }
+      } finally {
+        if (!cancelled) setLoadingFuentes(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [form.idMatriz, addToast]);
+
+  // Corre cada vez que cambia el departamento. GET /municipios?idDepartamento=...
+  useEffect(() => {
+    if (!form.idDepartamento) {
+      setMunicipios([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoadingMunicipios(true);
+        const lista = await getMunicipios(form.idDepartamento);
+        if (cancelled) return;
+        setMunicipios(lista.filter((m) => m.activo !== false));
+      } catch (err) {
+        if (!cancelled) {
+          setMunicipios([]);
+          addToast(err.message || "No se pudieron cargar los municipios", "error");
+        }
+      } finally {
+        if (!cancelled) setLoadingMunicipios(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [form.idDepartamento, addToast]);
+
+  // Si ya hay coordenadas, el mapa abre ahí. Si no, el pin cae en el centro del departamento.
+  const mapStart = useMemo(() => {
+    const existentes = parseLatLng(
+      form.latitud && form.longitud ? `${form.latitud}, ${form.longitud}` : "",
+    );
+    if (existentes) return { coords: formatLatLng(existentes), zoom: 13 };
+    const depto = departamentos.find(
+      (d) => String(d.idDepartamento) === String(form.idDepartamento),
+    );
+    const centro = getCentroDepartamento(depto?.nombreDepartamento);
+    if (centro) return { coords: formatLatLng(centro), zoom: 10 };
+    return { coords: "", zoom: 7 };
+  }, [form.latitud, form.longitud, form.idDepartamento, departamentos]);
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
     if (!q) return items;
@@ -93,20 +171,11 @@ export default function MuestrasPage() {
     );
   }, [items, search]);
 
-  const fuentesFiltradas = useMemo(() => {
-    if (!form.idMatriz) return fuentes;
-    return fuentes.filter((f) => String(f.idMatriz) === String(form.idMatriz));
-  }, [fuentes, form.idMatriz]);
-
-  const municipiosFiltrados = useMemo(() => {
-    if (!form.idDepartamento) return municipios;
-    return municipios.filter((m) => String(m.idDepartamento) === String(form.idDepartamento));
-  }, [municipios, form.idDepartamento]);
-
   function handleFormChange(e) {
     const { name, value } = e.target;
     setForm((p) => {
       const next = { ...p, [name]: value };
+      // Si cambia el padre, se limpia el hijo para no dejar una combinación inválida.
       if (name === "idMatriz") next.idFuente = "";
       if (name === "idDepartamento") next.idMunicipio = "";
       return next;
@@ -334,7 +403,15 @@ export default function MuestrasPage() {
                   error={formErrors.idFuente}
                   onChange={handleFormChange}
                   required
-                  options={fuentesFiltradas.map((f) => ({
+                  disabled={!form.idMatriz} // Bloqueado hasta elegir Matriz.
+                  placeholder={
+                    loadingFuentes
+                      ? "Cargando fuentes..."
+                      : form.idMatriz
+                        ? "Seleccione..."
+                        : "Seleccione una matriz primero"
+                  }
+                  options={fuentes.map((f) => ({
                     value: String(f.idFuente),
                     label: f.nombreFuente,
                   }))}
@@ -358,7 +435,15 @@ export default function MuestrasPage() {
                   error={formErrors.idMunicipio}
                   onChange={handleFormChange}
                   required
-                  options={municipiosFiltrados.map((m) => ({
+                  disabled={!form.idDepartamento} // Bloqueado hasta elegir Departamento.
+                  placeholder={
+                    loadingMunicipios
+                      ? "Cargando municipios..."
+                      : form.idDepartamento
+                        ? "Seleccione..."
+                        : "Seleccione un departamento primero"
+                  }
+                  options={municipios.map((m) => ({
                     value: String(m.idMunicipio),
                     label: m.nombreMunicipio,
                   }))}
@@ -371,7 +456,11 @@ export default function MuestrasPage() {
                     <input
                       className="input cursor-pointer flex-1"
                       readOnly
-                      placeholder="Marque el punto en el mapa"
+                      placeholder={
+                        form.idDepartamento
+                          ? "Se abrirá en el departamento seleccionado"
+                          : "Marque el punto en el mapa"
+                      }
                       value={
                         form.latitud && form.longitud
                           ? `${form.latitud}, ${form.longitud}`
@@ -485,11 +574,8 @@ export default function MuestrasPage() {
         <Suspense fallback={null}>
           <NicaraguaMapModal
             open
-            initialValue={
-              form.latitud && form.longitud
-                ? `${form.latitud}, ${form.longitud}`
-                : ""
-            }
+            initialValue={mapStart.coords}
+            initialZoom={mapStart.zoom}
             onConfirm={async (coords) => {
               const parsed = parseLatLng(coords);
               if (parsed) {
@@ -544,7 +630,18 @@ function InputField({ label, name, value, error, onChange, required, type = "tex
   );
 }
 
-function SelectField({ label, name, value, error, onChange, required, options }) {
+/** Select reutilizable. `disabled` apaga el drop hijo hasta que el padre tenga valor. */
+function SelectField({
+  label,
+  name,
+  value,
+  error,
+  onChange,
+  required,
+  options,
+  disabled = false,
+  placeholder = "Seleccione...",
+}) {
   const id = `muestra-${name}`;
   return (
     <div>
@@ -557,9 +654,12 @@ function SelectField({ label, name, value, error, onChange, required, options })
         name={name}
         value={value}
         onChange={onChange}
-        className={`input ${error ? "border-red-400 ring-1 ring-red-400" : ""}`}
+        disabled={disabled}
+        className={`input ${error ? "border-red-400 ring-1 ring-red-400" : ""} ${
+          disabled ? "cursor-not-allowed bg-gray-100 text-gray-500" : ""
+        }`}
       >
-        <option value="">Seleccione...</option>
+        <option value="">{placeholder}</option>
         {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}

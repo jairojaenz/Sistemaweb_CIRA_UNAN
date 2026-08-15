@@ -44,6 +44,11 @@ const GruposAnalisisPage = lazy(() => import("../modules/catalogos/page/GruposAn
 const TecnicasAnalisisPage = lazy(() => import("../modules/catalogos/page/TecnicasAnalisisPage.jsx"));
 const TiposMuestreoPage = lazy(() => import("../modules/catalogos/page/TiposMuestreoPage.jsx"));
 const EquiposMuestreoPage = lazy(() => import("../modules/catalogos/page/EquiposMuestreoPage.jsx"));
+const AnalisisPage = lazy(() => import("../modules/catalogos/page/AnalisisPage.jsx"));
+const ListaCustodiaPage = lazy(() => import("../modules/custodia/page/ListaCustodiaPage.jsx"));
+const CustodiaPage = lazy(() => import("../modules/custodia/page/CustodiaPage.jsx"));
+const ListaEnsayosPage = lazy(() => import("../modules/ensayo/page/ListaEnsayosPage.jsx"));
+const EnsayoPage = lazy(() => import("../modules/ensayo/page/EnsayoPage.jsx"));
 const FormatosOrdenServicioPage = lazy(() =>
   import("../modules/formatos-orden-servicio/page/FormatosOrdenServicioPage.jsx")
 );
@@ -105,6 +110,13 @@ export default function AppRoutes() {
               }
             />
             <Route path="gestion-laboratorios" element={<GestionLaboratoriosPage />} />
+            <Route path="custodia" element={<ListaCustodiaPage />} />
+            {/* :idCustodia lo lee CustodiaPage con useParams para saber si es edición. */}
+            <Route path="custodia/nueva" element={<CustodiaPage />} />
+            <Route path="custodia/editar/:idCustodia" element={<CustodiaPage />} />
+            <Route path="ensayos" element={<ListaEnsayosPage />} />
+            <Route path="ensayos/nuevo" element={<EnsayoPage />} />
+            <Route path="ensayos/editar/:idEnsayo" element={<EnsayoPage />} />
             <Route path="formatos-orden-servicio" element={<FormatosOrdenServicioPage />} />
             <Route path="formatos-orden-servicio/nueva" element={<FormatosOrdenServicioPage />} />
             <Route path="formatos-orden-servicio/nueva/:idSolicitud" element={<FormatosOrdenServicioPage />} />
@@ -126,6 +138,7 @@ export default function AppRoutes() {
             <Route path="catalogos/tecnicas-analisis" element={<TecnicasAnalisisPage />} />
             <Route path="catalogos/tipos-muestreo" element={<TiposMuestreoPage />} />
             <Route path="catalogos/equipos-muestreo" element={<EquiposMuestreoPage />} />
+            <Route path="catalogos/analisis" element={<AnalisisPage />} />
           </Route>
 
           <Route path="/info-campo" element={<Navigate to="/dashboard/info-campo" replace />} />

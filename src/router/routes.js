@@ -37,4 +37,13 @@ export const ROUTES = {
   catalogosTecnicasAnalisis: "/dashboard/catalogos/tecnicas-analisis",
   catalogosTiposMuestreo: "/dashboard/catalogos/tipos-muestreo",
   catalogosEquiposMuestreo: "/dashboard/catalogos/equipos-muestreo",
+  catalogosAnalisis: "/dashboard/catalogos/analisis",
+  // Cadena de custodia (Fase 3).
+  custodia: "/dashboard/custodia",
+  custodiaNueva: "/dashboard/custodia/nueva",
+  custodiaEditar: (id) => `/dashboard/custodia/editar/${id}`,
+  // Formatos de ensayo y captura de resultados (Fase 3).
+  ensayos: "/dashboard/ensayos",
+  ensayoNuevo: "/dashboard/ensayos/nuevo",
+  ensayoEditar: (id) => `/dashboard/ensayos/editar/${id}`,
 };

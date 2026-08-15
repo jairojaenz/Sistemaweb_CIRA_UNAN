@@ -21,6 +21,29 @@ function notifyAuthLost() {
   }
 }
 
+/** Une message/title, detalle de BD y errores de validación en un texto para el usuario. */
+export function mensajeErrorApi(errorData, fallback = "Error en la petición") {
+  if (!errorData || typeof errorData !== "object") return fallback;
+
+  const partes = [];
+  if (errorData.message) partes.push(String(errorData.message));
+  else if (errorData.title) partes.push(String(errorData.title));
+
+  const detail = errorData.data?.detail ?? errorData.detail;
+  if (detail && !partes.includes(String(detail))) {
+    partes.push(String(detail));
+  }
+
+  if (errorData.errors && typeof errorData.errors === "object") {
+    for (const [campo, msgs] of Object.entries(errorData.errors)) {
+      const texto = Array.isArray(msgs) ? msgs.filter(Boolean).join(" ") : String(msgs ?? "");
+      if (texto) partes.push(`${campo}: ${texto}`);
+    }
+  }
+
+  return partes.filter(Boolean).join("\n") || fallback;
+}
+
 export function setAccessToken(token) {
   accessToken = token || null;
 }
@@ -112,7 +135,7 @@ async function request(url, { method = "GET", body, formData = false, skipAuth =
     let errorMessage = "Error en la petición";
     try {
       const errorData = await res.json();
-      errorMessage = errorData.message || errorData.title || errorMessage;
+      errorMessage = mensajeErrorApi(errorData, errorMessage);
     } catch {
       // ignore parse error
     }

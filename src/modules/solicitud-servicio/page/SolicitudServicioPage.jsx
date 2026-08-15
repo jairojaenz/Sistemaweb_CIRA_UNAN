@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../../auth/AuthContext.jsx";
-import { ChevronLeft, ChevronRight, FileCheck, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileCheck, MapPin, Plus, Trash2 } from "lucide-react";
 import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
+import { parseLatLng } from "../../../components/NicaraguaMapModal.jsx";
 import { useToast } from "../../../components/ToastContext.jsx";
 import WizardStepIndicator from "../../../components/WizardStepIndicator.jsx";
 import { ROUTES } from "../../../router/routes.js";
@@ -18,9 +19,18 @@ import { getMediosRecepcion } from "../../catalogos/service/medioRecepcionServic
 import { getServicios } from "../../catalogos/service/servicioService.js";
 import { getMatrices } from "../../catalogos/service/matrizService.js";
 import { getAnalisis } from "../../catalogos/service/analisisService.js";
+import { getUsuarios } from "../../usuarios/service/usuarioService.js";
+
+const NicaraguaMapModal = lazy(() => import("../../../components/NicaraguaMapModal.jsx"));
 
 function isClienteActivo(c) {
   return c?.activo !== false;
+}
+
+function nombreUsuarioLista(u) {
+  const nombre = u?.nombreUsuario ?? u?.nombre ?? u?.Nombre ?? "";
+  const apellido = u?.apellidoUsuario ?? u?.apellido ?? u?.Apellido ?? "";
+  return `${nombre} ${apellido}`.trim() || u?.correoUsuario || u?.correo || `Usuario #${u?.idUsuario ?? u?.id ?? ""}`;
 }
 
 const initialFormData = {
@@ -41,12 +51,13 @@ const initialFormData = {
   matrizOtra: "",
   numeroMuestras: 0,
   analisisSolicitados: [],
+  modoUbicacion: "direccion", // "direccion" | "gps" — basta con una de las dos.
   ubicacionMuestreo: "",
+  coordenadasGps: "",
   observaciones: "",
   firma: "",
   recibidoPor: "",
   fechaProforma: "",
-  inicialesAnalista: "",
 };
 
 export default function SolicitudServicioPage() {
@@ -71,6 +82,8 @@ export default function SolicitudServicioPage() {
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [avisoClienteInactivo, setAvisoClienteInactivo] = useState(false);
+  const [errorGuardado, setErrorGuardado] = useState("");
+  const [mapOpen, setMapOpen] = useState(false);
 
   const clienteDesdeNavegacion = useMemo(() => {
     if (!idCliente || Number.isNaN(idCliente)) return null;
@@ -115,99 +128,138 @@ export default function SolicitudServicioPage() {
     navigate(ROUTES.gestionClientes);
   }
 
-  // Medios de recepción (desde API)
+  // Medios de recepción: catálogo GET /api/catalogos/medios-recepcion (solo activos).
   const [receptionMethods, setReceptionMethods] = useState([]);
   const [loadingReceptionMethods, setLoadingReceptionMethods] = useState(false);
   const [receptionMethodsError, setReceptionMethodsError] = useState(null);
 
   useEffect(() => {
-    let mounted = true;
-    async function loadMedios() {
-      setLoadingReceptionMethods(true);
-      setReceptionMethodsError(null);
+    let cancelled = false;
+    (async () => {
       try {
-        const data = await getMediosRecepcion();
-        if (!mounted) return;
-        const list = Array.isArray(data) ? data : [];
-        const normalized = list.map((m) => ({
-          id: Number(m.idMedioRecepcion ?? m.id ?? m.value ?? 0) || (m.idMedioRecepcion ?? m.id),
-          label: m.nombreMedioRecepcion ?? m.nombre ?? m.label ?? String(m.idMedioRecepcion ?? m.id ?? ""),
-        }));
-        setReceptionMethods(normalized);
+        setLoadingReceptionMethods(true);
+        setReceptionMethodsError(null);
+        const lista = await getMediosRecepcion();
+        if (cancelled) return;
+        setReceptionMethods(
+          lista.filter((m) => m.activo !== false && Number(m.idMedioRecepcion) > 0),
+        );
       } catch (err) {
-        if (!mounted) return;
-        setReceptionMethodsError("No se pudo cargar los medios de recepción");
+        if (!cancelled) {
+          setReceptionMethods([]);
+          setReceptionMethodsError(err.message || "No se pudieron cargar los medios de recepción");
+        }
       } finally {
-        if (!mounted) return;
-        setLoadingReceptionMethods(false);
+        if (!cancelled) setLoadingReceptionMethods(false);
       }
-    }
-    loadMedios();
+    })();
     return () => {
-      mounted = false;
+      cancelled = true;
     };
   }, []);
 
-  // Tipos de servicio (desde API)
+  // Usuarios activos para Firma y Recibido por (GET /api/User/get-users).
+  const [usuarios, setUsuarios] = useState([]);
+  const [loadingUsuarios, setLoadingUsuarios] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoadingUsuarios(true);
+        const lista = await getUsuarios();
+        if (cancelled) return;
+        const activos = lista.filter((u) => u.activo !== false && Number(u.idUsuario) > 0);
+        setUsuarios(activos);
+      } catch {
+        if (cancelled) return;
+        const idSesion = Number(user?.idUsuario ?? user?.id ?? user?.Id ?? 0);
+        setUsuarios(
+          idSesion
+            ? [
+                {
+                  idUsuario: idSesion,
+                  nombreUsuario: user?.nombre ?? user?.Nombre ?? "",
+                  apellidoUsuario: user?.apellido ?? user?.Apellido ?? "",
+                  correoUsuario: user?.correo ?? user?.Correo ?? "",
+                },
+              ]
+            : [],
+        );
+      } finally {
+        if (!cancelled) setLoadingUsuarios(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  // Prefill firma con el usuario de sesión si aún no hay selección.
+  useEffect(() => {
+    const idSesion = Number(user?.idUsuario ?? user?.id ?? user?.Id ?? 0);
+    if (!idSesion) return;
+    setFormData((p) => (p.firma ? p : { ...p, firma: String(idSesion) }));
+  }, [user]);
+
+  // Servicios: GET /api/catalogos/servicios (solo activos). Se pueden elegir varios.
   const [serviceTypes, setServiceTypes] = useState([]);
   const [loadingServiceTypes, setLoadingServiceTypes] = useState(false);
   const [serviceTypesError, setServiceTypesError] = useState(null);
 
   useEffect(() => {
-    let mounted = true;
-    async function loadServicios() {
-      setLoadingServiceTypes(true);
-      setServiceTypesError(null);
+    let cancelled = false;
+    (async () => {
       try {
-        const data = await getServicios();
-        if (!mounted) return;
-        const list = Array.isArray(data) ? data : [];
-        const normalized = list.map((s) => ({
-          id: Number(s.idServicio ?? s.id ?? s.value ?? 0) || (s.idServicio ?? s.id),
-          label: s.nombreServicio ?? s.nombre ?? s.label ?? String(s.idServicio ?? s.id ?? ""),
-        }));
-        setServiceTypes(normalized);
+        setLoadingServiceTypes(true);
+        setServiceTypesError(null);
+        const lista = await getServicios();
+        if (cancelled) return;
+        setServiceTypes(
+          lista.filter((s) => s.activo !== false && Number(s.idServicio) > 0),
+        );
       } catch (err) {
-        if (!mounted) return;
-        setServiceTypesError("No se pudo cargar los tipos de servicio");
+        if (!cancelled) {
+          setServiceTypes([]);
+          setServiceTypesError(err.message || "No se pudieron cargar los servicios");
+        }
       } finally {
-        if (!mounted) return;
-        setLoadingServiceTypes(false);
+        if (!cancelled) setLoadingServiceTypes(false);
       }
-    }
-    loadServicios();
-    return () => { mounted = false; };
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // Matrices (desde API)
+  // Matrices: GET /api/catalogos/matrices (solo activas). Cada una lleva idMatriz + cantidad.
   const [matrices, setMatrices] = useState([]);
   const [loadingMatrices, setLoadingMatrices] = useState(false);
   const [errorMatrices, setErrorMatrices] = useState(null);
 
   useEffect(() => {
-    let mounted = true;
-    async function loadMatrices() {
-      setLoadingMatrices(true);
-      setErrorMatrices(null);
+    let cancelled = false;
+    (async () => {
       try {
-        const data = await getMatrices();
-        if (!mounted) return;
-        const list = Array.isArray(data) ? data : [];
-        const normalized = list.map((m) => ({
-          id: m.idMatriz ?? m.id ?? m.value ?? m.codigo ?? m.nombreMatriz ?? m.nombre ?? m.label,
-          label: m.nombreMatriz ?? m.nombre ?? m.label ?? String(m.idMatriz ?? m.id ?? ""),
-        }));
-        setMatrices(normalized);
+        setLoadingMatrices(true);
+        setErrorMatrices(null);
+        const lista = await getMatrices();
+        if (cancelled) return;
+        setMatrices(
+          lista.filter((m) => m.activo !== false && Number(m.idMatriz) > 0),
+        );
       } catch (err) {
-        if (!mounted) return;
-        setErrorMatrices('No se pudo cargar las matrices');
+        if (!cancelled) {
+          setMatrices([]);
+          setErrorMatrices(err.message || "No se pudieron cargar las matrices");
+        }
       } finally {
-        if (!mounted) return;
-        setLoadingMatrices(false);
+        if (!cancelled) setLoadingMatrices(false);
       }
-    }
-    loadMatrices();
-    return () => { mounted = false; };
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Catálogo de análisis: el POST exige idAnalisis, no texto libre.
@@ -265,9 +317,14 @@ export default function SolicitudServicioPage() {
             tecnica: d.abreviacionAnalisis ?? d.AbreviacionAnalisis ?? "",
             cantidad: d.cantidad ?? 1,
           })),
-          ubicacionMuestreo: s.direccionMuestreo ?? "",
+          ubicacionMuestreo: parseLatLng(s.direccionMuestreo) ? "" : (s.direccionMuestreo ?? ""),
+          coordenadasGps: parseLatLng(s.direccionMuestreo)
+            ? String(s.direccionMuestreo).trim()
+            : "",
+          modoUbicacion: parseLatLng(s.direccionMuestreo) ? "gps" : "direccion",
           observaciones: s.observacion ?? "",
           fechaProforma: toInputDate(s.fechaEnvioProforma),
+          firma: s.idUsuario ? String(s.idUsuario) : prev.firma,
           estado: s.estado ?? "Pendiente",
         }));
       } catch (err) {
@@ -289,17 +346,30 @@ export default function SolicitudServicioPage() {
   }, [formData.matriz]);
 
   function selectedServiceLabels() {
-    const ids = Array.isArray(formData.tipoServicio) ? formData.tipoServicio : (formData.tipoServicio ? [formData.tipoServicio] : []);
-    if (!ids || ids.length === 0) return 'No especificado';
-    return ids.map(id => (serviceTypes.find(s => Number(s.id) === Number(id))?.label || id)).join(', ');
+    const ids = Array.isArray(formData.tipoServicio)
+      ? formData.tipoServicio
+      : formData.tipoServicio
+        ? [formData.tipoServicio]
+        : [];
+    if (ids.length === 0) return "No especificado";
+    return ids
+      .map(
+        (id) =>
+          serviceTypes.find((s) => Number(s.idServicio) === Number(id))?.nombreServicio || id,
+      )
+      .join(", ");
   }
   function selectedMatrixLabels() {
-    const entries = Array.isArray(formData.matriz) ? formData.matriz : (formData.matriz ? [formData.matriz] : []);
-    if (!entries || entries.length === 0) return 'No especificada';
-    return entries.map(e => {
-      const label = matrices.find(m => m.id === e.idMatriz)?.label || e.idMatriz;
-      return `${label} (${e.numMuestras})`;
-    }).join(', ');
+    const entries = Array.isArray(formData.matriz) ? formData.matriz : [];
+    if (entries.length === 0) return "No especificada";
+    return entries
+      .map((e) => {
+        const label =
+          matrices.find((m) => Number(m.idMatriz) === Number(e.idMatriz))
+            ?.nombreMatriz || e.idMatriz;
+        return `${label} (${e.numMuestras})`;
+      })
+      .join(", ");
   }
 
   // Validation
@@ -310,17 +380,30 @@ export default function SolicitudServicioPage() {
       if (!formData.nombreUsuario?.trim()) newErrors.nombreUsuario = 'Campo requerido';
       if (!formData.direccionUsuario?.trim()) newErrors.direccionUsuario = 'Campo requerido';
       if (!formData.correo?.trim()) newErrors.correo = 'Campo requerido';
+      if (!Number(formData.medioRecepcion)) newErrors.medioRecepcion = 'Seleccione un medio de recepción';
     }
 
     if (step === 2) {
-      if (!formData.tipoServicio || (Array.isArray(formData.tipoServicio) && formData.tipoServicio.length === 0)) newErrors.tipoServicio = 'Seleccione al menos un servicio';
-      if (!formData.matriz || !Array.isArray(formData.matriz) || formData.matriz.length === 0) newErrors.matriz = 'Seleccione al menos una matriz';
+      if (!Array.isArray(formData.tipoServicio) || formData.tipoServicio.length === 0) {
+        newErrors.tipoServicio = "Seleccione al menos un servicio";
+      }
+      if (!formData.matriz || !Array.isArray(formData.matriz) || formData.matriz.length === 0) {
+        newErrors.matriz = "Seleccione al menos una matriz";
+      }
       const analisisValidos = (formData.analisisSolicitados ?? []).some((a) => Number(a.idAnalisis) > 0);
-      if (!analisisValidos) newErrors.analisisSolicitados = 'Seleccione al menos un análisis del catálogo';
+      if (!analisisValidos) newErrors.analisisSolicitados = "Seleccione al menos un análisis del catálogo";
+      const tieneDireccion = String(formData.ubicacionMuestreo ?? "").trim();
+      const tieneGps = !!parseLatLng(formData.coordenadasGps);
+      if (formData.modoUbicacion === "gps") {
+        if (!tieneGps) newErrors.ubicacionMuestreo = "Marque el punto de muestreo en el mapa";
+      } else if (!tieneDireccion) {
+        newErrors.ubicacionMuestreo = "Escriba la dirección o marque el GPS en el mapa";
+      }
     }
 
     if (step === 3) {
-      if (!formData.firma?.trim()) newErrors.firma = 'Campo requerido';
+      if (!Number(formData.firma)) newErrors.firma = "Seleccione la firma del usuario";
+      if (!Number(formData.recibidoPor)) newErrors.recibidoPor = "Seleccione quién recibió la solicitud";
     }
 
     setErrors(newErrors);
@@ -401,9 +484,10 @@ export default function SolicitudServicioPage() {
       return;
     }
 
-    const idUsuario = Number(user?.idUsuario ?? user?.id ?? user?.Id ?? 0);
+    const idUsuario = Number(formData.firma) || Number(user?.idUsuario ?? user?.id ?? user?.Id ?? 0);
     if (!idUsuario) {
-      addToast("No se pudo identificar el usuario de sesión. Inicie sesión con su cuenta.", "error");
+      addToast("Seleccione la firma del usuario en el paso 3.", "error");
+      setCurrentStep(3);
       return;
     }
 
@@ -415,6 +499,7 @@ export default function SolicitudServicioPage() {
 
     try {
       setSaving(true);
+      setErrorGuardado("");
       const payload = formToSolicitudPayload(formData, { idCliente, idUsuario });
       if (isEdit) {
         await updateSolicitudServicio(idSolicitud, payload);
@@ -425,7 +510,8 @@ export default function SolicitudServicioPage() {
       }
       navigate(ROUTES.solicitudServicio);
     } catch (err) {
-      addToast(err?.message || "No se pudo registrar la solicitud.", "error");
+      const mensaje = err?.message || "No se pudo registrar la solicitud.";
+      setErrorGuardado(mensaje);
     } finally {
       setSaving(false);
     }
@@ -499,26 +585,43 @@ export default function SolicitudServicioPage() {
               </button>
             ))
           ) : receptionMethods.length > 0 ? (
-            receptionMethods.map((method) => (
-              <button
-                key={method.id}
-                type="button"
-                onClick={() => setFormData(prev => ({ ...prev, medioRecepcion: Number(method.id) }))}
-                className={`p-4 rounded-lg border-2 transition-all font-semibold ${Number(formData.medioRecepcion) === Number(method.id)}
-                  ? 'border-blue-900 bg-blue-100 shadow-md text-blue-900'
-                  : 'border-gray-300 hover:border-blue-900/50 bg-white text-gray-700'
+            receptionMethods.map((method) => {
+              const id = Number(method.idMedioRecepcion);
+              const seleccionado = Number(formData.medioRecepcion) === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  aria-pressed={seleccionado}
+                  onClick={() => {
+                    setFormData((prev) => ({ ...prev, medioRecepcion: id }));
+                    setErrors((prev) => {
+                      const next = { ...prev };
+                      delete next.medioRecepcion;
+                      return next;
+                    });
+                  }}
+                  className={`p-4 rounded-lg border-2 transition-all font-semibold ${
+                    seleccionado
+                      ? "border-blue-900 bg-blue-100 shadow-md text-blue-900"
+                      : "border-gray-300 hover:border-blue-900/50 bg-white text-gray-700"
                   }`}
-              >
-                {method.label}
-              </button>
-            ))
+                >
+                  {method.nombreMedioRecepcion || method.nombre}
+                </button>
+              );
+            })
           ) : (
             <div className="col-span-2 md:col-span-4">
               <p className="text-sm text-[#6a7282]">No hay medios de recepción disponibles.</p>
             </div>
           )}
         </div>
-        {receptionMethodsError && <p className="text-red-500 text-xs mt-2 ml-4">{receptionMethodsError}</p>}
+        {(receptionMethodsError || errors.medioRecepcion) && (
+          <p className="text-red-500 text-xs mt-2 ml-4">
+            {errors.medioRecepcion || receptionMethodsError}
+          </p>
+        )}
       </div>
 
       {/* Información del Usuario */}
@@ -609,7 +712,7 @@ export default function SolicitudServicioPage() {
       </div>
 
       {/* Datos de Contacto */}
-      <div className="bg-gray-50 p-6 rounded-lg">
+      <div>
         <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
           <div className="w-1 h-7 bg-blue-900 rounded-full"></div>
           Datos de Contacto
@@ -692,7 +795,7 @@ export default function SolicitudServicioPage() {
           <div className="w-1 h-7 bg-blue-900 rounded-full"></div>
           Servicio Solicitado <span className="text-red-500">*</span>
         </h3>
-        <p className="text-sm text-[#6a7282] mb-4 ml-4">Seleccione solo 1</p>
+        <p className="text-sm text-[#6a7282] mb-4 ml-4">Puede seleccionar más de uno</p>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 ml-4">
           {loadingServiceTypes ? (
@@ -708,33 +811,44 @@ export default function SolicitudServicioPage() {
             ))
           ) : serviceTypes.length > 0 ? (
             serviceTypes.map((service) => {
-              const isSelected = Array.isArray(formData.tipoServicio)
-                ? formData.tipoServicio.some((id) => Number(id) === Number(service.id))
-                : Number(formData.tipoServicio) === Number(service.id);
+              const id = Number(service.idServicio);
+              const seleccionados = Array.isArray(formData.tipoServicio) ? formData.tipoServicio : [];
+              const seleccionado = seleccionados.some((x) => Number(x) === id);
               return (
                 <button
-                  key={service.id}
+                  key={id}
                   type="button"
-                  onClick={() => setFormData(prev => {
-                    const current = Array.isArray(prev.tipoServicio) ? prev.tipoServicio : (prev.tipoServicio ? [prev.tipoServicio] : []);
-                    const exists = current.some((id) => Number(id) === Number(service.id));
-                    const next = exists
-                      ? current.filter((i) => Number(i) !== Number(service.id))
-                      : [...current, Number(service.id)];
-                    return { ...prev, tipoServicio: next };
-                  })}
-                  className={`p-4 rounded-lg border-2 transition-all font-semibold ${isSelected
-                    ? 'border-blue-900 bg-blue-100 shadow-md text-blue-900'
-                    : 'border-gray-300 hover:border-blue-900/50 bg-white text-gray-700'
-                    }`}
+                  aria-pressed={seleccionado}
+                  onClick={() => {
+                    setFormData((prev) => {
+                      const actual = Array.isArray(prev.tipoServicio) ? prev.tipoServicio : [];
+                      const yaEsta = actual.some((x) => Number(x) === id);
+                      return {
+                        ...prev,
+                        tipoServicio: yaEsta
+                          ? actual.filter((x) => Number(x) !== id)
+                          : [...actual, id],
+                      };
+                    });
+                    setErrors((prev) => {
+                      const next = { ...prev };
+                      delete next.tipoServicio;
+                      return next;
+                    });
+                  }}
+                  className={`p-4 rounded-lg border-2 transition-all font-semibold ${
+                    seleccionado
+                      ? "border-blue-900 bg-blue-100 shadow-md text-blue-900"
+                      : "border-gray-300 hover:border-blue-900/50 bg-white text-gray-700"
+                  }`}
                 >
-                  {service.label}
+                  {service.nombreServicio || service.nombre}
                 </button>
               );
             })
           ) : (
             <div className="col-span-2 md:col-span-4">
-              <p className="text-sm text-[#6a7282]">No hay tipos de servicio disponibles.</p>
+              <p className="text-sm text-[#6a7282]">No hay servicios disponibles.</p>
             </div>
           )}
         </div>
@@ -752,41 +866,60 @@ export default function SolicitudServicioPage() {
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 ml-4">
           {loadingMatrices ? (
-            [1,2,3,4].map(i => (
+            [1, 2, 3, 4].map((i) => (
               <div key={i} className="p-4 rounded-lg border-2 bg-white text-gray-400">Cargando...</div>
             ))
           ) : matrices.length > 0 ? (
-            matrices.map(matrix => {
-              const entry = (formData.matriz || []).find(m => m.idMatriz === matrix.id);
+            matrices.map((matrix) => {
+              const id = Number(matrix.idMatriz);
+              const entry = (formData.matriz || []).find((m) => Number(m.idMatriz) === id);
               const count = entry?.numMuestras ?? 0;
               const isActive = count > 0;
+
+              function setCantidad(deltaOrStart) {
+                setFormData((prev) => {
+                  const arr = Array.isArray(prev.matriz) ? [...prev.matriz] : [];
+                  const idx = arr.findIndex((x) => Number(x.idMatriz) === id);
+                  if (deltaOrStart === "start") {
+                    if (idx < 0) arr.push({ idMatriz: id, numMuestras: 1 });
+                    else arr[idx] = { ...arr[idx], numMuestras: arr[idx].numMuestras + 1 };
+                  } else if (idx >= 0) {
+                    const next = arr[idx].numMuestras + deltaOrStart;
+                    if (next <= 0) arr.splice(idx, 1);
+                    else arr[idx] = { ...arr[idx], numMuestras: next };
+                  } else if (deltaOrStart > 0) {
+                    arr.push({ idMatriz: id, numMuestras: 1 });
+                  }
+                  return { ...prev, matriz: arr };
+                });
+                setErrors((prev) => {
+                  const next = { ...prev };
+                  delete next.matriz;
+                  return next;
+                });
+              }
+
               return (
                 <div
-                  key={matrix.id}
-                  onClick={() => {
-                    const id = matrix.id;
-                    setFormData(prev => {
-                      const arr = Array.isArray(prev.matriz) ? [...prev.matriz] : [];
-                      const idx = arr.findIndex(x => x.idMatriz === id);
-                      if (idx >= 0) {
-                        arr[idx] = { ...arr[idx], numMuestras: arr[idx].numMuestras + 1 };
-                      } else {
-                        arr.push({ idMatriz: id, numMuestras: 1 });
-                      }
-                      return { ...prev, matriz: arr };
-                    });
-                  }}
-                  className={`relative p-4 rounded-xl border-2 transition-all text-left cursor-pointer ${
-                    isActive ? 'border-blue-900 bg-blue-50 shadow-sm' : 'border-gray-300 bg-white hover:border-blue-900/50'
+                  key={id}
+                  onClick={() => setCantidad("start")}
+                  className={`relative cursor-pointer rounded-xl border-2 p-4 text-left transition-all ${
+                    isActive
+                      ? "border-blue-900 bg-blue-50 shadow-sm"
+                      : "border-gray-300 bg-white hover:border-blue-900/50"
                   }`}
                 >
                   {count > 0 && (
                     <div className="absolute right-3 top-3">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">{count}</span>
+                      <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">
+                        {count}
+                      </span>
                     </div>
                   )}
                   <div className="flex h-16 items-center justify-center">
-                    <span className="font-semibold text-gray-800">{matrix.label}</span>
+                    <span className="font-semibold text-gray-800">
+                      {matrix.nombreMatriz || matrix.nombre}
+                    </span>
                   </div>
                   {count > 0 && (
                     <div className="mt-4 flex items-center justify-center gap-2">
@@ -794,41 +927,20 @@ export default function SolicitudServicioPage() {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          const id = matrix.id;
-                          setFormData(prev => {
-                            const arr = Array.isArray(prev.matriz) ? [...prev.matriz] : [];
-                            const idx = arr.findIndex(x => x.idMatriz === id);
-                            if (idx >= 0) {
-                              const current = arr[idx].numMuestras;
-                              if (current <= 1) {
-                                arr.splice(idx, 1);
-                              } else {
-                                arr[idx] = { ...arr[idx], numMuestras: current - 1 };
-                              }
-                            }
-                            return { ...prev, matriz: arr };
-                          });
+                          setCantidad(-1);
                         }}
                         className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-100"
                       >
                         -
                       </button>
-                      <div className="min-w-8 rounded-full bg-slate-100 px-3 py-1 text-center text-sm font-semibold text-slate-700">{count}</div>
+                      <div className="min-w-8 rounded-full bg-slate-100 px-3 py-1 text-center text-sm font-semibold text-slate-700">
+                        {count}
+                      </div>
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          const id = matrix.id;
-                          setFormData(prev => {
-                            const arr = Array.isArray(prev.matriz) ? [...prev.matriz] : [];
-                            const idx = arr.findIndex(x => x.idMatriz === id);
-                            if (idx >= 0) {
-                              arr[idx] = { ...arr[idx], numMuestras: arr[idx].numMuestras + 1 };
-                            } else {
-                              arr.push({ idMatriz: id, numMuestras: 1 });
-                            }
-                            return { ...prev, matriz: arr };
-                          });
+                          setCantidad(1);
                         }}
                         className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-100"
                       >
@@ -957,24 +1069,89 @@ export default function SolicitudServicioPage() {
         )}
       </div>
 
-      {/* Sampling Location */}
+      {/* Dirección escrita o GPS: basta con una de las dos. */}
       <div>
         <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
           <div className="w-1 h-7 bg-primary rounded-full"></div>
-          Ubicación de Muestreo
+          Ubicación de Muestreo <span className="text-red-500">*</span>
         </h3>
-        <p className="text-sm text-[#6a7282] mb-6 ml-4">Dirección y/o coordenadas de los puntos</p>
+        <p className="text-sm text-[#6a7282] mb-4 ml-4">
+          Indique la dirección o marque el punto en el mapa (GPS)
+        </p>
+
+        <div className="ml-4 mb-4 flex overflow-hidden rounded-lg border-2 border-gray-200">
+          <button
+            type="button"
+            onClick={() => {
+              setFormData((p) => ({ ...p, modoUbicacion: "direccion" }));
+              setErrors((p) => {
+                const next = { ...p };
+                delete next.ubicacionMuestreo;
+                return next;
+              });
+            }}
+            className={`flex-1 px-4 py-2.5 text-sm font-semibold ${
+              formData.modoUbicacion === "direccion"
+                ? "bg-blue-900 text-white"
+                : "bg-white text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            Escribir dirección
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setFormData((p) => ({ ...p, modoUbicacion: "gps" }));
+              setErrors((p) => {
+                const next = { ...p };
+                delete next.ubicacionMuestreo;
+                return next;
+              });
+            }}
+            className={`flex-1 px-4 py-2.5 text-sm font-semibold ${
+              formData.modoUbicacion === "gps"
+                ? "bg-blue-900 text-white"
+                : "bg-white text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            Marcar GPS en el mapa
+          </button>
+        </div>
 
         <div className="ml-4">
-          <textarea
-            name="ubicacionMuestreo"
-            value={formData.ubicacionMuestreo}
-            onChange={handleChange}
-            placeholder="Especifique la ubicación exacta donde se realizará el muestreo..."
-            className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg bg-transparent focus:outline-none focus:border-blue-900 transition-colors resize-none"
-            rows={4}
-          />
-          <p className="mt-2 text-xs text-[#6a7282]">Incluya coordenadas GPS si están disponibles (formato: Latitud, Longitud)</p>
+          {formData.modoUbicacion === "gps" ? (
+            <div className="flex gap-2">
+              <input
+                className={`input cursor-pointer flex-1 ${errors.ubicacionMuestreo ? "border-red-400 ring-1 ring-red-400" : ""}`}
+                readOnly
+                placeholder="Marque el punto en el mapa"
+                value={formData.coordenadasGps}
+                onClick={() => setMapOpen(true)}
+              />
+              <button
+                type="button"
+                className="inline-flex shrink-0 items-center gap-2 rounded-md bg-blue-900 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+                onClick={() => setMapOpen(true)}
+              >
+                <MapPin className="h-4 w-4" />
+                Mapa
+              </button>
+            </div>
+          ) : (
+            <textarea
+              name="ubicacionMuestreo"
+              value={formData.ubicacionMuestreo}
+              onChange={handleChange}
+              placeholder="Ej. Barrio X, frente a la iglesia, Managua"
+              className={`w-full resize-none rounded-lg border-2 bg-transparent px-4 py-3 focus:border-blue-900 focus:outline-none ${
+                errors.ubicacionMuestreo ? "border-red-400" : "border-gray-300"
+              }`}
+              rows={3}
+            />
+          )}
+          {errors.ubicacionMuestreo && (
+            <p className="mt-2 text-xs text-red-500">{errors.ubicacionMuestreo}</p>
+          )}
         </div>
       </div>
 
@@ -994,177 +1171,165 @@ export default function SolicitudServicioPage() {
   );
 
   const renderStep3 = () => (
-    <div className="space-y-10">
-      {/* Success Icon */}
-      <div className="flex justify-center mb-4">
-        <div className="w-24 h-24 bg-gradient-to-br from-green-100 to-green-200 rounded-full flex items-center justify-center shadow-lg">
-          <FileCheck className="w-12 h-12 text-green-600" />
+    <div className="space-y-8">
+      <div className="flex items-center gap-4">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-green-100 to-green-200 shadow">
+          <FileCheck className="h-7 w-7 text-green-600" />
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold text-blue-900">Observaciones y Confirmación</h2>
+          <p className="text-sm text-[#6a7282]">Revise su solicitud y agregue comentarios adicionales</p>
         </div>
       </div>
 
-      {/* Title */}
-      <div className="text-center">
-        <h2 className="text-3xl font-bold text-blue-900 mb-2">Observaciones y Confirmación</h2>
-        <p className="text-[#6a7282]">Revise su solicitud y agregue comentarios adicionales</p>
+      <div className="rounded-lg border-l-4 border-blue-900 bg-blue-50 p-6">
+        <h3 className="mb-4 flex items-center gap-3 text-lg font-bold text-blue-900">
+          <div className="h-7 w-1 rounded-full bg-blue-900" />
+          Resumen de su Solicitud
+        </h3>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div>
+            <p className="mb-1 text-xs text-gray-500">Solicitud No.</p>
+            <p className="font-semibold text-gray-800">{formData.solicitudNo || "No especificado"}</p>
+          </div>
+          <div>
+            <p className="mb-1 text-xs text-gray-500">Nombre</p>
+            <p className="font-semibold text-gray-800">{formData.nombreUsuario || "No especificado"}</p>
+          </div>
+          <div>
+            <p className="mb-1 text-xs text-gray-500">Correo</p>
+            <p className="font-semibold text-gray-800">{formData.correo || "No especificado"}</p>
+          </div>
+          <div>
+            <p className="mb-1 text-xs text-gray-500">Tipo de servicio</p>
+            <p className="font-semibold text-gray-800">{selectedServiceLabels()}</p>
+          </div>
+          <div className="sm:col-span-2">
+            <p className="mb-1 text-xs text-gray-500">Matriz</p>
+            <p className="font-semibold text-gray-800">{selectedMatrixLabels()}</p>
+          </div>
+          <div className="sm:col-span-2">
+            <p className="mb-1 text-xs text-gray-500">Ubicación de muestreo</p>
+            <p className="font-semibold text-gray-800">
+              {formData.modoUbicacion === "gps"
+                ? formData.coordenadasGps || "No especificado"
+                : formData.ubicacionMuestreo || "No especificado"}
+            </p>
+          </div>
+        </div>
+        {formData.analisisSolicitados.length > 0 && (
+          <div className="mt-5 overflow-hidden rounded-lg border border-blue-100 bg-white">
+            <table className="w-full text-sm">
+              <thead className="bg-white text-left text-xs font-semibold uppercase text-gray-500">
+                <tr>
+                  <th className="px-4 py-2">Tipo de análisis</th>
+                  <th className="px-4 py-2">Técnica</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {formData.analisisSolicitados.map((analysis, index) => (
+                  <tr key={index}>
+                    <td className="px-4 py-2 text-gray-700">{analysis.tipoAnalisis || "—"}</td>
+                    <td className="px-4 py-2 text-gray-700">{analysis.tecnica || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      {/* Observations */}
-      <div className="bg-gray-50 p-6 rounded-lg">
-        <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
-          <div className="w-1 h-7 bg-[#fbbf24] rounded-full"></div>
-          Observaciones
-        </h3>
-        <p className="text-sm text-[#6a7282] mb-6 ml-4">Opcional</p>
-
-        <div className="ml-4">
+      <div className="space-y-8">
+        <div className="rounded-lg bg-gray-50 p-6">
+          <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
+            <div className="h-7 w-1 rounded-full bg-[#fbbf24]" />
+            Observaciones
+          </h3>
+          <p className="mb-4 ml-4 text-sm text-[#6a7282]">Opcional · máximo 200 caracteres</p>
           <textarea
             name="observaciones"
             value={formData.observaciones}
             onChange={handleChange}
+            maxLength={200}
             placeholder="Agregue cualquier observación, comentario o requerimiento especial para esta solicitud..."
-            className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg bg-transparent focus:outline-none focus:border-blue-900 transition-colors resize-none"
-            rows={4}
+            className="ml-4 w-[calc(100%-1rem)] resize-none rounded-lg border-2 border-gray-300 bg-white px-4 py-3 focus:border-blue-900 focus:outline-none"
+            rows={5}
           />
-        </div>
-      </div>
-
-      {/* Summary Section */}
-      <div className="bg-blue-50 border-l-4 border-blue-900 p-6 rounded-lg">
-        <h3 className="text-lg font-bold text-blue-900 mb-4">Resumen de su Solicitud</h3>
-
-        <div className="space-y-4 text-sm">
-          <div>
-            <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">INFORMACIÓN DEL SOLICITANTE</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-gray-500 text-xs mb-1">Solicitud No.</p>
-                <p className="font-semibold text-gray-800">{formData.solicitudNo || 'No especificado'}</p>
-              </div>
-              <div>
-                <p className="text-gray-500 text-xs mb-1">Correo</p>
-                <p className="font-semibold text-gray-800">{formData.correo || 'No especificado'}</p>
-              </div>
-              <div className="md:col-span-2">
-                <p className="text-gray-500 text-xs mb-1">Nombre</p>
-                <p className="font-semibold text-gray-800">{formData.nombreUsuario || 'No especificado'}</p>
-              </div>
-            </div>
-          </div>
-
-          <hr className="border-gray-300" />
-
-          <div>
-            <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">SERVICIO SOLICITADO</h4>
-            <div>
-              <p className="text-gray-500 text-xs mb-1">Tipo de servicio</p>
-              <p className="font-semibold text-gray-800">{selectedServiceLabels()}</p>
-            </div>
-            <div className="mt-3">
-              <p className="text-gray-500 text-xs mb-1">Matriz</p>
-              <p className="font-semibold text-gray-800">{selectedMatrixLabels()}</p>
-            </div>
-
-            {formData.analisisSolicitados.length > 0 && (
-              <div className="mt-4">
-                <p className="text-gray-500 text-xs mb-2">Análisis solicitados:</p>
-                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                  <table className="w-full text-xs">
-                    <thead className="bg-gray-100">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Tipo de Análisis</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Técnica</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {formData.analisisSolicitados.map((analysis, index) => (
-                        <tr key={index}>
-                          <td className="px-3 py-2 text-gray-700">{analysis.tipoAnalisis || '—'}</td>
-                          <td className="px-3 py-2 text-gray-700">{analysis.tecnica || '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Digital Signature */}
-      <div>
-        <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
-          <div className="w-1 h-7 bg-primary rounded-full"></div>
-          Verificación Final
-        </h3>
-        <p className="text-sm text-[#6a7282] mb-6 ml-4">Complete la información de verificación</p>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 ml-4">
-          <div className="relative group">
-            <input
-              type="text"
-              name="firma"
-              value={formData.firma}
-              onChange={handleChange}
-              placeholder="Nombre completo como firma digital"
-              className={`w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors ${errors.firma ? 'border-red-500' : 'border-gray-300 focus:border-blue-900'
-                } peer`}
-            />
-            <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 transition-all peer-focus:-top-4 peer-focus:text-blue-900">
-              Firma del usuario
-            </label>
-            {errors.firma && <p className="text-red-500 text-xs mt-1">{errors.firma}</p>}
-          </div>
-
-          <div className="relative group">
-            <input
-              type="text"
-              name="recibidoPor"
-              value={formData.recibidoPor}
-              onChange={handleChange}
-              placeholder="Nombre del funcionario"
-              className="w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors border-gray-300 focus:border-blue-900 peer"
-            />
-            <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 transition-all peer-focus:-top-4 peer-focus:text-blue-900">
-              Solicitud recibida por
-            </label>
-          </div>
-
-          <div className="relative group">
-            <input
-              type="date"
-              name="fechaProforma"
-              value={formData.fechaProforma}
-              onChange={handleChange}
-              className="w-full px-0 py-3 border-b-2 bg-transparent focus:outline-none transition-colors border-gray-300 focus:border-blue-900"
-            />
-            <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 transition-all group-focus-within:text-blue-900">
-              Fecha de envío de la proforma
-            </label>
-          </div>
-
-          <div className="relative group">
-            <input
-              type="text"
-              name="inicialesAnalista"
-              value={formData.inicialesAnalista}
-              onChange={handleChange}
-              placeholder="Ej: ABC"
-              className="w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors border-gray-300 focus:border-blue-900 peer uppercase"
-            />
-            <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 transition-all peer-focus:-top-4 peer-focus:text-blue-900">
-              Iniciales del Analista
-            </label>
-          </div>
+          <p className="mt-1 ml-4 text-right text-xs text-gray-400">
+            {String(formData.observaciones ?? "").length}/200
+          </p>
         </div>
 
-        <p className="mt-4 ml-4 text-xs text-[#6a7282]">Al ingresar su firma acepta los términos y condiciones del servicio</p>
+        <div className="rounded-lg bg-gray-50 p-6">
+          <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
+            <div className="h-7 w-1 rounded-full bg-blue-900" />
+            Verificación Final
+          </h3>
+          <p className="mb-6 ml-4 text-sm text-[#6a7282]">Complete la información de verificación</p>
+          <div className="ml-4 grid grid-cols-1 gap-8 sm:grid-cols-2">
+            <div className="relative group">
+              <select
+                name="firma"
+                value={formData.firma}
+                onChange={handleChange}
+                disabled={loadingUsuarios}
+                className={`w-full border-b-2 bg-transparent px-0 py-3 focus:outline-none ${errors.firma ? "border-red-500" : "border-gray-300 focus:border-blue-900"}`}
+              >
+                <option value="">{loadingUsuarios ? "Cargando usuarios…" : "Seleccione un usuario"}</option>
+                {usuarios.map((u) => (
+                  <option key={u.idUsuario} value={u.idUsuario}>
+                    {nombreUsuarioLista(u)}
+                  </option>
+                ))}
+              </select>
+              <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 group-focus-within:text-blue-900">
+                Firma del usuario
+              </label>
+              {errors.firma && <p className="mt-1 text-xs text-red-500">{errors.firma}</p>}
+            </div>
+            <div className="relative group">
+              <select
+                name="recibidoPor"
+                value={formData.recibidoPor}
+                onChange={handleChange}
+                disabled={loadingUsuarios}
+                className={`w-full border-b-2 bg-transparent px-0 py-3 focus:outline-none ${errors.recibidoPor ? "border-red-500" : "border-gray-300 focus:border-blue-900"}`}
+              >
+                <option value="">{loadingUsuarios ? "Cargando usuarios…" : "Seleccione un usuario"}</option>
+                {usuarios.map((u) => (
+                  <option key={u.idUsuario} value={u.idUsuario}>
+                    {nombreUsuarioLista(u)}
+                  </option>
+                ))}
+              </select>
+              <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 group-focus-within:text-blue-900">
+                Solicitud recibida por
+              </label>
+              {errors.recibidoPor && <p className="mt-1 text-xs text-red-500">{errors.recibidoPor}</p>}
+            </div>
+            <div className="relative group sm:col-span-2">
+              <input
+                type="date"
+                name="fechaProforma"
+                value={formData.fechaProforma}
+                onChange={handleChange}
+                className="w-full border-b-2 border-gray-300 bg-transparent px-0 py-3 focus:border-blue-900 focus:outline-none"
+              />
+              <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 group-focus-within:text-blue-900">
+                Fecha de envío de la proforma
+              </label>
+            </div>
+          </div>
+          <p className="mt-5 ml-4 text-xs text-[#6a7282]">
+            Al seleccionar la firma acepta los términos y condiciones del servicio
+          </p>
+        </div>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+    <div className="flex min-h-full flex-1 flex-col bg-gray-100">
       {/* Header  
       <header className="bg-blue-900 text-white py-4">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between px-4">
@@ -1180,7 +1345,7 @@ export default function SolicitudServicioPage() {
         ÁREA DE PROYECCIÓN Y EXTENSIÓN
       </div>
 
-      <div className="max-w-5xl mx-auto px-6 py-12">
+      <div className="mx-auto w-full max-w-6xl px-6 py-12">
         <WizardStepIndicator currentStep={currentStep} />
 
         {/* Form Container */}
@@ -1200,7 +1365,7 @@ export default function SolicitudServicioPage() {
             {currentStep === 3 && renderStep3()}
           </div>
 
-          <div className="bg-gray-50 px-8 md:px-10 py-6 border-t border-gray-200 flex justify-center items-center gap-3">
+          <div className="flex justify-center items-center gap-3 border-t border-gray-200 bg-white px-8 py-6 md:px-10">
             {[1, 2, 3].map((step, index) => (
               <div key={step} className="flex items-center gap-3">
                 <div
@@ -1223,7 +1388,7 @@ export default function SolicitudServicioPage() {
             ))}
           </div>
 
-          <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-8 py-6 md:px-10">
+          <div className="flex items-center justify-between border-t border-gray-200 bg-white px-8 py-6 md:px-10">
             <button
               type="button"
               onClick={handlePrevious}
@@ -1270,6 +1435,26 @@ export default function SolicitudServicioPage() {
         </div>
       </div>
 
+      {mapOpen ? (
+        <Suspense fallback={null}>
+          <NicaraguaMapModal
+            open
+            initialValue={formData.coordenadasGps}
+            initialZoom={formData.coordenadasGps ? 13 : 7}
+            onConfirm={(coords) => {
+              setFormData((p) => ({ ...p, coordenadasGps: coords, modoUbicacion: "gps" }));
+              setErrors((p) => {
+                const next = { ...p };
+                delete next.ubicacionMuestreo;
+                return next;
+              });
+              setMapOpen(false);
+            }}
+            onCancel={() => setMapOpen(false)}
+          />
+        </Suspense>
+      ) : null}
+
       <ConfirmDialog
         open={avisoClienteInactivo}
         title="Usuario inactivo"
@@ -1279,6 +1464,17 @@ export default function SolicitudServicioPage() {
         confirmClass="bg-amber-600 hover:bg-amber-700"
         onConfirm={cerrarAvisoInactivo}
         onCancel={cerrarAvisoInactivo}
+      />
+
+      <ConfirmDialog
+        open={!!errorGuardado}
+        title={isEdit ? "No se pudo actualizar la solicitud" : "No se pudo crear la solicitud"}
+        message={errorGuardado}
+        confirmText="Entendido"
+        showCancel={false}
+        confirmClass="bg-red-600 hover:bg-red-700"
+        onConfirm={() => setErrorGuardado("")}
+        onCancel={() => setErrorGuardado("")}
       />
     </div>
   );

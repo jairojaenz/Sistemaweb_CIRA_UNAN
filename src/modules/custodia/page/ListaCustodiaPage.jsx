@@ -1,3 +1,7 @@
+/**
+ * Listado de cadenas de custodia.
+ * Tabla + menú de acciones (ver / editar / eliminar) igual que Info Campo y Planes.
+ */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { FaEllipsisV, FaPlus, FaSearch, FaSpinner, FaTimes } from "react-icons/fa";
@@ -5,11 +9,11 @@ import { useNavigate } from "react-router-dom";
 import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import { useToast } from "../../../components/ToastContext.jsx";
 import { ROUTES } from "../../../router/routes.js";
-import { deleteInfoCampo, getFormatoCampoById, getFormatosCampo } from "../service/infoCampoService.js";
+import { deleteCustodia, getCustodiaById, getCustodias } from "../service/custodiaService.js";
 
-const ACCIONES_MENU_ALTURA_PX = 168;
+const ACCIONES_MENU_ALTURA_PX = 168; // Si no hay espacio abajo, el menú se abre hacia arriba.
 
-export default function ListaInfoCampoPage() {
+export default function ListaCustodiaPage() {
   const navigate = useNavigate();
   const { addToast } = useToast();
   const [registros, setRegistros] = useState([]);
@@ -23,9 +27,9 @@ export default function ListaInfoCampoPage() {
   const loadRegistros = useCallback(async () => {
     try {
       setLoading(true);
-      setRegistros(await getFormatosCampo());
+      setRegistros(await getCustodias());
     } catch (err) {
-      addToast(err?.message || "Error al cargar la información de campo", "error");
+      addToast(err?.message || "Error al cargar las custodias", "error");
     } finally {
       setLoading(false);
     }
@@ -39,7 +43,7 @@ export default function ListaInfoCampoPage() {
     const q = search.toLowerCase().trim();
     if (!q) return registros;
     return registros.filter((r) =>
-      [r.identificacionMuestra, r.numeroProforma, r.comunidad, r.matriz, r.usuario, r.estado]
+      [r.identificacionMuestra, r.usuario, r.estado, r.usuarioCreacion]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q)),
     );
@@ -47,7 +51,7 @@ export default function ListaInfoCampoPage() {
 
   function abrirMenu(e, registro) {
     e.stopPropagation();
-    if (accionesMenu?.registro?.idFormatoCampo === registro.idFormatoCampo) {
+    if (accionesMenu?.registro?.idFormatoCustodia === registro.idFormatoCustodia) {
       setAccionesMenu(null);
       return;
     }
@@ -75,20 +79,28 @@ export default function ListaInfoCampoPage() {
     };
   }, [accionesMenu]);
 
+  async function abrirDetalle(registro) {
+    try {
+      setDetail(await getCustodiaById(registro.idFormatoCustodia));
+    } catch {
+      setDetail(registro);
+    }
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-4 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-blue-900">Información de Campo</h1>
-          <p className="text-sm text-slate-500">Consulta los formatos de campo y registra uno nuevo.</p>
+          <h1 className="text-2xl font-semibold text-blue-900">Cadena de Custodia</h1>
+          <p className="text-sm text-slate-500">Consulta las custodias y registra una nueva.</p>
         </div>
         <button
           type="button"
-          onClick={() => navigate(ROUTES.infoCampoNueva)}
+          onClick={() => navigate(ROUTES.custodiaNueva)}
           className="inline-flex items-center gap-2 rounded-lg bg-blue-900 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
         >
           <FaPlus className="h-4 w-4" />
-          Nuevo formato
+          Nueva custodia
         </button>
       </div>
 
@@ -96,7 +108,7 @@ export default function ListaInfoCampoPage() {
         <FaSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-900" />
         <input
           type="text"
-          placeholder="Buscar formato de campo..."
+          placeholder="Buscar custodia..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="input w-full pl-10"
@@ -108,9 +120,7 @@ export default function ListaInfoCampoPage() {
           <thead className="bg-gray-50 text-xs uppercase text-gray-600">
             <tr>
               <th className="px-4 py-3 font-semibold sm:px-6">Muestra</th>
-              <th className="px-4 py-3 font-semibold sm:px-6">Proforma</th>
-              <th className="px-4 py-3 font-semibold sm:px-6">Comunidad</th>
-              <th className="px-4 py-3 font-semibold sm:px-6">Matriz</th>
+              <th className="px-4 py-3 font-semibold sm:px-6">Campo</th>
               <th className="px-4 py-3 font-semibold sm:px-6">Usuario</th>
               <th className="px-4 py-3 font-semibold sm:px-6">Estado</th>
               <th className="px-4 py-3 font-semibold sm:px-6">Acciones</th>
@@ -119,25 +129,25 @@ export default function ListaInfoCampoPage() {
           <tbody className="divide-y divide-gray-200">
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-gray-500">
+                <td colSpan={5} className="px-4 py-10 text-center text-gray-500">
                   <FaSpinner className="mx-auto h-6 w-6 animate-spin" />
-                  <span className="mt-2 block">Cargando formatos...</span>
+                  <span className="mt-2 block">Cargando custodias...</span>
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-gray-500">
-                  {search ? "No se encontraron formatos" : "No hay información de campo registrada"}
+                <td colSpan={5} className="px-4 py-10 text-center text-gray-500">
+                  {search ? "No se encontraron custodias" : "No hay custodias registradas"}
                 </td>
               </tr>
             ) : (
               filtered.map((registro) => (
-                <tr key={registro.idFormatoCampo} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-900 sm:px-6">{registro.identificacionMuestra}</td>
-                  <td className="px-4 py-3 sm:px-6">{registro.numeroProforma}</td>
-                  <td className="px-4 py-3 sm:px-6">{registro.comunidad || "—"}</td>
-                  <td className="px-4 py-3 sm:px-6">{registro.matriz}</td>
-                  <td className="px-4 py-3 sm:px-6">{registro.usuario}</td>
+                <tr key={registro.idFormatoCustodia} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 font-medium text-gray-900 sm:px-6">
+                    {registro.identificacionMuestra || "—"}
+                  </td>
+                  <td className="px-4 py-3 sm:px-6">#{registro.idFormatoCampo}</td>
+                  <td className="px-4 py-3 sm:px-6">{registro.usuario || "—"}</td>
                   <td className="px-4 py-3 sm:px-6">{registro.estado}</td>
                   <td className="px-4 py-3 sm:px-6">
                     <button
@@ -173,15 +183,9 @@ export default function ListaInfoCampoPage() {
               type="button"
               role="menuitem"
               className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-              onClick={async () => {
-                // GET by id para mostrar ensayos y parámetros, no solo la fila de la tabla.
-                const registro = accionesMenu.registro;
+              onClick={() => {
+                abrirDetalle(accionesMenu.registro);
                 setAccionesMenu(null);
-                try {
-                  setDetail(await getFormatoCampoById(registro.idFormatoCampo));
-                } catch {
-                  setDetail(registro);
-                }
               }}
             >
               Ver detalle
@@ -191,7 +195,7 @@ export default function ListaInfoCampoPage() {
               role="menuitem"
               className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
               onClick={() => {
-                navigate(ROUTES.infoCampoEditar(accionesMenu.registro.idFormatoCampo));
+                navigate(ROUTES.custodiaEditar(accionesMenu.registro.idFormatoCustodia));
                 setAccionesMenu(null);
               }}
             >
@@ -214,20 +218,20 @@ export default function ListaInfoCampoPage() {
 
       <ConfirmDialog
         open={!!confirmDelete}
-        title="Eliminar formato de campo"
-        message={`¿Eliminar el formato de ${confirmDelete?.identificacionMuestra || "campo"}?`}
+        title="Eliminar custodia"
+        message={`¿Eliminar la custodia de ${confirmDelete?.identificacionMuestra || "muestra"}?`}
         confirmText="Eliminar"
         loading={deleting}
         onCancel={() => setConfirmDelete(null)}
         onConfirm={async () => {
           try {
             setDeleting(true);
-            await deleteInfoCampo(confirmDelete.idFormatoCampo);
-            addToast("Formato de campo eliminado", "success");
+            await deleteCustodia(confirmDelete.idFormatoCustodia);
+            addToast("Custodia eliminada", "success");
             setConfirmDelete(null);
             await loadRegistros();
           } catch (err) {
-            addToast(err?.message || "No se pudo eliminar el formato", "error");
+            addToast(err?.message || "No se pudo eliminar la custodia", "error");
           } finally {
             setDeleting(false);
           }
@@ -238,22 +242,18 @@ export default function ListaInfoCampoPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-lg bg-white shadow-xl">
             <div className="flex items-center justify-between border-b px-6 py-4">
-              <h2 className="text-lg font-semibold text-gray-800">Detalle de campo</h2>
+              <h2 className="text-lg font-semibold text-gray-800">Detalle de custodia</h2>
               <button type="button" onClick={() => setDetail(null)} className="rounded p-1 text-gray-400 hover:bg-gray-100">
                 <FaTimes className="h-5 w-5" />
               </button>
             </div>
             <div className="space-y-3 p-6 text-sm">
-              <p><span className="font-medium text-gray-600">Muestra:</span> {detail.identificacionMuestra}</p>
-              <p><span className="font-medium text-gray-600">Proforma:</span> {detail.numeroProforma}</p>
-              <p><span className="font-medium text-gray-600">Comunidad:</span> {detail.comunidad || "—"}</p>
-              <p><span className="font-medium text-gray-600">Matriz:</span> {detail.matriz}</p>
-              <p><span className="font-medium text-gray-600">Fuente:</span> {detail.fuente}</p>
-              <p><span className="font-medium text-gray-600">Tipo de muestreo:</span> {detail.tipoMuestreo || "—"}</p>
+              <p><span className="font-medium text-gray-600">Muestra:</span> {detail.identificacionMuestra || "—"}</p>
+              <p><span className="font-medium text-gray-600">Campo:</span> #{detail.idFormatoCampo}</p>
               <p><span className="font-medium text-gray-600">Usuario:</span> {detail.usuario || "—"}</p>
-              <p><span className="font-medium text-gray-600">Estado:</span> {detail.estado || "—"}</p>
-              <p><span className="font-medium text-gray-600">Ensayos:</span> {(detail.ensayos ?? []).map((e) => e.nombreAnalisis).filter(Boolean).join(", ") || "—"}</p>
-              <p><span className="font-medium text-gray-600">Observación:</span> {detail.observacion || "—"}</p>
+              <p><span className="font-medium text-gray-600">Estado:</span> {detail.estado}</p>
+              <p><span className="font-medium text-gray-600">Muestras en cadena:</span> {(detail.detalles ?? []).length}</p>
+              <p><span className="font-medium text-gray-600">Entregas:</span> {(detail.entregas ?? []).length}</p>
             </div>
           </div>
         </div>
