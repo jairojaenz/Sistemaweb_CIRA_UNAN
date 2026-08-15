@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { FaEllipsisV, FaPlus, FaSearch, FaSpinner, FaTimes } from "react-icons/fa";
+import { FaEllipsisV, FaPlus, FaSearch, FaSpinner } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import { useToast } from "../../../components/ToastContext.jsx";
 import { ROUTES } from "../../../router/routes.js";
+import PlanMuestreoDetalleModal from "../components/PlanMuestreoDetalleModal.jsx";
 import { clearDraft, saveDraft } from "../service/planMuestreoDraftStorage.js";
 import { deletePlanMuestreo, getPlanMuestreoById, getPlanesMuestreo } from "../service/planMuestreoService.js";
 import { mapPlanToDraft } from "../utils/mapPlanToDraft.js";
@@ -18,6 +19,7 @@ export default function ListaPlanesMuestreoPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [accionesMenu, setAccionesMenu] = useState(null);
@@ -178,9 +180,20 @@ export default function ListaPlanesMuestreoPage() {
               type="button"
               role="menuitem"
               className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-              onClick={() => {
-                setDetail(accionesMenu.plan);
+              onClick={async () => {
+                const plan = accionesMenu.plan;
                 setAccionesMenu(null);
+                setLoadingDetail(true);
+                setDetail(plan);
+                try {
+                  const detalle = await getPlanMuestreoById(plan.idFormatoMuestreo);
+                  setDetail(detalle);
+                } catch (err) {
+                  setDetail(null);
+                  addToast(err?.message || "No se pudo cargar el detalle del plan", "error");
+                } finally {
+                  setLoadingDetail(false);
+                }
               }}
             >
               Ver detalle
@@ -240,25 +253,15 @@ export default function ListaPlanesMuestreoPage() {
         }}
       />
 
-      {detail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-lg bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b px-6 py-4">
-              <h2 className="text-lg font-semibold text-gray-800">Detalle del plan</h2>
-              <button type="button" onClick={() => setDetail(null)} className="rounded p-1 text-gray-400 hover:bg-gray-100">
-                <FaTimes className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="space-y-3 p-6 text-sm">
-              <p><span className="font-medium text-gray-600">Referencia:</span> {detail.codReferencia}</p>
-              <p><span className="font-medium text-gray-600">Proforma:</span> {detail.formatosProforma}</p>
-              <p><span className="font-medium text-gray-600">Coordinador:</span> {detail.coordinador}</p>
-              <p><span className="font-medium text-gray-600">Tipo:</span> {detail.tiposMuestreo}</p>
-              <p><span className="font-medium text-gray-600">Muestra:</span> {detail.muestra}</p>
-              <p><span className="font-medium text-gray-600">Observaciones:</span> {detail.observaciones || "—"}</p>
-            </div>
-          </div>
-        </div>
+      {(detail || loadingDetail) && (
+        <PlanMuestreoDetalleModal
+          plan={detail}
+          loading={loadingDetail && !detail}
+          onClose={() => {
+            setDetail(null);
+            setLoadingDetail(false);
+          }}
+        />
       )}
     </div>
   );

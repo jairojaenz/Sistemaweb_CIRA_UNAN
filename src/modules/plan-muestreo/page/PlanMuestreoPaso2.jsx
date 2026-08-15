@@ -6,10 +6,14 @@ import EnsayosMultiSelect, {
   idsEnsayosFromRow,
   labelsEnsayos,
 } from "../components/EnsayosMultiSelect.jsx";
+import { useToast } from "../../../components/ToastContext.jsx";
 import { loadDraft, saveDraft } from "../service/planMuestreoDraftStorage.js";
 import { ROUTES } from "../../../router/routes.js";
 import { getUsuarios } from "../../usuarios/service/usuarioService.js";
 import { getAnalisis } from "../../catalogos/service/analisisService.js";
+import { getMatrices } from "../../catalogos/service/matrizService.js";
+import { getFuentesMatriz } from "../../catalogos/service/fuentesMatrizService.js";
+import { getPreservantes } from "../../catalogos/service/preservanteServicio.js";
 
 const NicaraguaMapModal = lazy(() => import("../components/NicaraguaMapModal.jsx"));
 
@@ -86,10 +90,7 @@ function TipoMuestreoModal({
   );
 }
 
-const MATRICES = ["Agua Natural", "Agua Residual", "Sedimento", "Suelo", "Lodo", "Otro"];
-const FUENTES = ["Río", "Lago", "Pozo", "Mar", "Manantial", "Otro"];
 const ENVASES = ["Plástico", "Vidrio", "Bolsa", "No aplica", "Otro"];
-const PRESERVANTES = ["Hielo", "Ácido nítrico", "Ácido sulfúrico", "No aplica", "Otro"];
 
 function ToggleChip({ checked, label, onChange }) {
   return (
@@ -100,9 +101,17 @@ function ToggleChip({ checked, label, onChange }) {
   );
 }
 
+function mismosCoordinadores(paso2) {
+  const coordinador = String(paso2?.coordinador ?? "").trim().toLowerCase();
+  const reemplazo = String(paso2?.reemplazoCoordinador ?? "").trim().toLowerCase();
+  return Boolean(coordinador && reemplazo && coordinador === reemplazo);
+}
+
 export default function PlanMuestreoPaso2() {
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const [draft, setDraft] = useState(() => loadDraft());
+  const [errorCoordinadores, setErrorCoordinadores] = useState("");
   const [usuarios, setUsuarios] = useState([]);
   const [modalPuntualOpen, setModalPuntualOpen] = useState(false);
   const [modalOtroOpen, setModalOtroOpen] = useState(false);
@@ -110,6 +119,9 @@ export default function PlanMuestreoPaso2() {
   const [otroTiempoDraft, setOtroTiempoDraft] = useState("");
   const [mapRowIdx, setMapRowIdx] = useState(null);
   const [analisisCatalogo, setAnalisisCatalogo] = useState([]);
+  const [matrices, setMatrices] = useState([]);
+  const [fuentes, setFuentes] = useState([]);
+  const [preservantes, setPreservantes] = useState([]);
 
   const loadUsuarios = useCallback(async () => {
     try {
@@ -126,11 +138,13 @@ export default function PlanMuestreoPaso2() {
 
   useEffect(() => {
     let mounted = true;
-    getAnalisis()
-      .then((data) => {
-        if (mounted) {
-          setAnalisisCatalogo((data ?? []).filter((a) => a.activo !== false));
-        }
+    Promise.all([getAnalisis(), getMatrices(), getFuentesMatriz(), getPreservantes()])
+      .then(([analisisData, matricesData, fuentesData, preservantesData]) => {
+        if (!mounted) return;
+        setAnalisisCatalogo((analisisData ?? []).filter((a) => a.activo !== false));
+        setMatrices((matricesData ?? []).filter((m) => m.activo !== false && Number(m.idMatriz) > 0));
+        setFuentes((fuentesData ?? []).filter((f) => f.activo !== false && Number(f.idFuente) > 0));
+        setPreservantes((preservantesData ?? []).filter((p) => p.activo !== false && Number(p.idPreservante) > 0));
       })
       .catch(() => {});
     return () => {
@@ -176,11 +190,14 @@ export default function PlanMuestreoPaso2() {
     identificacionMuestra: "",
     coordenadas: "",
     matriz: "",
+    idMatriz: "",
     fuente: "",
+    idFuente: "",
     ensayosSolicitados: "",
     idsEnsayos: [],
     tipoEnvaseVolumen: "",
     preservantes: "",
+    idPreservante: "",
   });
 
   const addRow = () => {
@@ -252,6 +269,17 @@ export default function PlanMuestreoPaso2() {
     setModalOtroOpen(true);
   };
 
+  const irAlPaso3 = () => {
+    if (mismosCoordinadores(paso2)) {
+      const mensaje = "El reemplazo no puede ser la misma persona que el coordinador del muestreo.";
+      setErrorCoordinadores(mensaje);
+      addToast(mensaje, "error");
+      return;
+    }
+    setErrorCoordinadores("");
+    navigate(ROUTES.planMuestreoPaso(3));
+  };
+
   const confirmarOtroTiempo = () => {
     const valor = otroTiempoDraft.trim();
     if (!valor) return;
@@ -268,7 +296,7 @@ export default function PlanMuestreoPaso2() {
       step={2}
       wide
       onPrevious={() => navigate(ROUTES.planMuestreoPaso(1))}
-      onNext={() => navigate(ROUTES.planMuestreoPaso(3))}
+      onNext={irAlPaso3}
     >
       <div className="space-y-6">
           <div className="border border-gray-200 rounded-md">
@@ -370,16 +398,20 @@ export default function PlanMuestreoPaso2() {
                     Coordinador del muestreo
                   </label>
                   <select
-                    className="select mt-1"
+                    className={`select mt-1 ${errorCoordinadores ? "border-red-500" : ""}`}
                     value={paso2.coordinador}
-                    onChange={(e) => setPaso2({ coordinador: e.target.value })}
+                    onChange={(e) => {
+                      setPaso2({ coordinador: e.target.value });
+                      setErrorCoordinadores("");
+                    }}
                   >
                     <option value="">— Seleccionar —</option>
                     {usuarios.map((u) => {
                       const id = u.idUsuario ?? u.IdUsuario;
+                      const nombre = labelUsuario(u);
                       return (
-                        <option key={id} value={labelUsuario(u)}>
-                          {labelUsuario(u)}
+                        <option key={id} value={nombre} disabled={nombre === paso2.reemplazoCoordinador}>
+                          {nombre}
                         </option>
                       );
                     })}
@@ -390,23 +422,28 @@ export default function PlanMuestreoPaso2() {
                     Reemplazo del coordinador del muestreo
                   </label>
                   <select
-                    className="select mt-1"
+                    className={`select mt-1 ${errorCoordinadores ? "border-red-500" : ""}`}
                     value={paso2.reemplazoCoordinador}
-                    onChange={(e) =>
-                      setPaso2({ reemplazoCoordinador: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setPaso2({ reemplazoCoordinador: e.target.value });
+                      setErrorCoordinadores("");
+                    }}
                   >
                     <option value="">— Seleccionar —</option>
                     {usuarios.map((u) => {
                       const id = u.idUsuario ?? u.IdUsuario;
+                      const nombre = labelUsuario(u);
                       return (
-                        <option key={id} value={labelUsuario(u)}>
-                          {labelUsuario(u)}
+                        <option key={id} value={nombre} disabled={nombre === paso2.coordinador}>
+                          {nombre}
                         </option>
                       );
                     })}
                   </select>
                 </div>
+                {errorCoordinadores ? (
+                  <p className="text-sm text-red-600 md:col-span-2">{errorCoordinadores}</p>
+                ) : null}
               </div>
             </div>
           </div>
@@ -517,15 +554,22 @@ export default function PlanMuestreoPaso2() {
                         <select
                           id={`detalle-matriz-${idx}`}
                           className="select"
-                          value={row.matriz}
-                          onChange={(e) =>
-                            updateDetalleRow(idx, { matriz: e.target.value })
-                          }
+                          value={row.idMatriz || ""}
+                          onChange={(e) => {
+                            const id = e.target.value;
+                            const item = matrices.find((m) => String(m.idMatriz) === String(id));
+                            updateDetalleRow(idx, {
+                              idMatriz: id,
+                              matriz: item?.nombreMatriz ?? "",
+                              idFuente: "",
+                              fuente: "",
+                            });
+                          }}
                         >
                           <option value="">Seleccionar</option>
-                          {MATRICES.map((m) => (
-                            <option key={m} value={m}>
-                              {m}
+                          {matrices.map((m) => (
+                            <option key={m.idMatriz} value={m.idMatriz}>
+                              {m.nombreMatriz}
                             </option>
                           ))}
                         </select>
@@ -535,17 +579,27 @@ export default function PlanMuestreoPaso2() {
                         <select
                           id={`detalle-fuente-${idx}`}
                           className="select"
-                          value={row.fuente}
-                          onChange={(e) =>
-                            updateDetalleRow(idx, { fuente: e.target.value })
-                          }
+                          value={row.idFuente || ""}
+                          disabled={!row.idMatriz}
+                          onChange={(e) => {
+                            const id = e.target.value;
+                            const item = fuentes.find((f) => String(f.idFuente) === String(id));
+                            updateDetalleRow(idx, {
+                              idFuente: id,
+                              fuente: item?.nombreFuente ?? "",
+                            });
+                          }}
                         >
-                          <option value="">Seleccionar</option>
-                          {FUENTES.map((f) => (
-                            <option key={f} value={f}>
-                              {f}
-                            </option>
-                          ))}
+                          <option value="">
+                            {row.idMatriz ? "Seleccionar" : "Seleccione una matriz primero"}
+                          </option>
+                          {fuentes
+                            .filter((f) => String(f.idMatriz) === String(row.idMatriz))
+                            .map((f) => (
+                              <option key={f.idFuente} value={f.idFuente}>
+                                {f.nombreFuente}
+                              </option>
+                            ))}
                         </select>
                       </Field>
 
@@ -579,15 +633,20 @@ export default function PlanMuestreoPaso2() {
                         <select
                           id={`detalle-preservantes-${idx}`}
                           className="select"
-                          value={row.preservantes}
-                          onChange={(e) =>
-                            updateDetalleRow(idx, { preservantes: e.target.value })
-                          }
+                          value={row.idPreservante || ""}
+                          onChange={(e) => {
+                            const id = e.target.value;
+                            const item = preservantes.find((p) => String(p.idPreservante) === String(id));
+                            updateDetalleRow(idx, {
+                              idPreservante: id,
+                              preservantes: item?.nombrePreservante ?? "",
+                            });
+                          }}
                         >
                           <option value="">Seleccionar</option>
-                          {PRESERVANTES.map((x) => (
-                            <option key={x} value={x}>
-                              {x}
+                          {preservantes.map((p) => (
+                            <option key={p.idPreservante} value={p.idPreservante}>
+                              {p.nombrePreservante}
                             </option>
                           ))}
                         </select>

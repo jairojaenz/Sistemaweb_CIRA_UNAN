@@ -63,11 +63,14 @@ export default function PlanMuestreoPaso1() {
       identificacionMuestra: "",
       coordenadas: "",
       matriz: "",
+      idMatriz: "",
       fuente: "",
+      idFuente: "",
       ensayosSolicitados: d.nombreAnalisis || "",
       idsEnsayos: d.idAnalisis ? [String(d.idAnalisis)] : [],
       tipoEnvaseVolumen: "",
       preservantes: "",
+      idPreservante: "",
     }));
 
     return {

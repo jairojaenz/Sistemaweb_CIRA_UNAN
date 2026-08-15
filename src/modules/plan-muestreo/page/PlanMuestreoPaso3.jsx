@@ -7,7 +7,31 @@ import { useToast } from "../../../components/ToastContext.jsx";
 import { clearDraft, loadDraft, saveDraft } from "../service/planMuestreoDraftStorage.js";
 import { createPlanMuestreo, updatePlanMuestreo } from "../service/planMuestreoService.js";
 import { formToPlanMuestreoPayload } from "../utils/formToPlanMuestreoPayload.js";
+import { getUsuarios } from "../../usuarios/service/usuarioService.js";
 import { ROUTES } from "../../../router/routes.js";
+
+function labelUsuario(u) {
+  const nombre = u?.nombreUsuario ?? u?.nombre ?? u?.Nombre ?? "";
+  const apellido = u?.apellidoUsuario ?? u?.apellido ?? u?.Apellido ?? "";
+  return `${nombre} ${apellido}`.trim() || u?.correoUsuario || u?.correo || `Usuario #${u?.idUsuario ?? u?.id ?? ""}`;
+}
+
+function idUsuarioSesion(user) {
+  return Number(user?.idUsuario ?? user?.id ?? user?.Id ?? 0);
+}
+
+function usuariosConSeleccion(usuarios, selectedId, fallbackNombre) {
+  const id = Number(selectedId);
+  if (!id || usuarios.some((u) => Number(u.idUsuario) === id)) return usuarios;
+  return [
+    ...usuarios,
+    {
+      idUsuario: id,
+      nombreUsuario: fallbackNombre || `Usuario #${id}`,
+      apellidoUsuario: "",
+    },
+  ];
+}
 
 function SectionHeader({ accent = "bg-blue-900", title, subtitle }) {
   return (
@@ -37,8 +61,10 @@ function FirmaCard({
   title,
   subtitle,
   nameId,
-  nameValue,
-  onName,
+  userId,
+  onUserChange,
+  usuarios,
+  loadingUsuarios,
   dateId,
   dateValue,
   onDate,
@@ -57,17 +83,26 @@ function FirmaCard({
           <p className="text-xs text-gray-500">{subtitle}</p>
         </div>
       </header>
-      <div className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_11rem_9rem]">
+      <div className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_13rem_14rem]">
         <Field label="Nombre y firma" htmlFor={nameId}>
           <div className="relative">
             <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-900/50" />
-            <input
+            <select
               id={nameId}
-              className="input pl-10"
-              placeholder="Nombre de quien firma"
-              value={nameValue}
-              onChange={onName}
-            />
+              className="input max-w-full pl-10"
+              value={userId}
+              onChange={onUserChange}
+              disabled={loadingUsuarios}
+            >
+              <option value="">
+                {loadingUsuarios ? "Cargando usuarios…" : "Seleccione un usuario"}
+              </option>
+              {usuariosConSeleccion(usuarios, userId, "").map((u) => (
+                <option key={u.idUsuario} value={u.idUsuario}>
+                  {labelUsuario(u)}
+                </option>
+              ))}
+            </select>
           </div>
         </Field>
         <Field label="Fecha" htmlFor={dateId}>
@@ -105,20 +140,83 @@ export default function PlanMuestreoPaso3() {
   const { addToast } = useToast();
   const [draft, setDraft] = useState(() => loadDraft());
   const [saving, setSaving] = useState(false);
+  const [usuarios, setUsuarios] = useState([]);
+  const [loadingUsuarios, setLoadingUsuarios] = useState(false);
 
   useEffect(() => {
     saveDraft(draft);
   }, [draft]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoadingUsuarios(true);
+        const lista = await getUsuarios();
+        if (cancelled) return;
+        setUsuarios((lista ?? []).filter((u) => u.activo !== false && Number(u.idUsuario) > 0));
+      } catch {
+        if (cancelled) return;
+        const idSesion = idUsuarioSesion(user);
+        setUsuarios(
+          idSesion
+            ? [
+                {
+                  idUsuario: idSesion,
+                  nombreUsuario: user?.nombre ?? user?.Nombre ?? "",
+                  apellidoUsuario: user?.apellido ?? user?.Apellido ?? "",
+                  correoUsuario: user?.correo ?? user?.Correo ?? "",
+                },
+              ]
+            : [],
+        );
+      } finally {
+        if (!cancelled) setLoadingUsuarios(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  useEffect(() => {
+    const idSesion = idUsuarioSesion(user);
+    if (!idSesion) return;
+    setDraft((prev) => {
+      if (prev.paso3?.elaboraIdUsuario) return prev;
+      return {
+        ...prev,
+        paso3: {
+          ...prev.paso3,
+          elaboraIdUsuario: String(idSesion),
+          elaboraNombreFirma: labelUsuario({
+            nombreUsuario: user?.nombre ?? user?.Nombre ?? "",
+            apellidoUsuario: user?.apellido ?? user?.Apellido ?? "",
+          }),
+        },
+      };
+    });
+  }, [user]);
 
   const paso3 = draft?.paso3 ?? {};
   const setPaso3 = (patch) => {
     setDraft((prev) => ({ ...prev, paso3: { ...prev.paso3, ...patch } }));
   };
 
+  const setFirmaUsuario = (idKey, nombreKey, rawId) => {
+    const id = String(rawId ?? "");
+    const u = usuarios.find((x) => String(x.idUsuario) === id);
+    setPaso3({ [idKey]: id, [nombreKey]: u ? labelUsuario(u) : "" });
+  };
+
   const handleCreate = async () => {
-    const idUsuario = Number(user?.idUsuario ?? user?.id ?? user?.Id ?? 0);
+    const idUsuario = idUsuarioSesion(user);
     if (!idUsuario) {
       addToast("No se pudo identificar el usuario de sesión.", "error");
+      return;
+    }
+    if (!Number(paso3.elaboraIdUsuario) || !Number(paso3.usuarioIdUsuario) || !Number(paso3.entregaIdUsuario)) {
+      addToast("Seleccione el usuario de cada firma en el paso 3.", "error");
       return;
     }
     if (!draft.paso1?.idProforma && !draft.paso1?.proformaNo) {
@@ -129,6 +227,13 @@ export default function PlanMuestreoPaso3() {
     if (!Number(draft.paso1?.idMuestra)) {
       addToast("Seleccione una muestra en el paso 1.", "error");
       navigate(ROUTES.planMuestreoPaso(1));
+      return;
+    }
+    const coordinador = String(draft.paso2?.coordinador ?? "").trim().toLowerCase();
+    const reemplazo = String(draft.paso2?.reemplazoCoordinador ?? "").trim().toLowerCase();
+    if (coordinador && reemplazo && coordinador === reemplazo) {
+      addToast("El reemplazo no puede ser la misma persona que el coordinador del muestreo.", "error");
+      navigate(ROUTES.planMuestreoPaso(2));
       return;
     }
 
@@ -227,8 +332,12 @@ export default function PlanMuestreoPaso3() {
               title="Quien elabora el plan"
               subtitle="Personal CIRA que prepara el documento"
               nameId="plan-elabora-nombre"
-              nameValue={paso3.elaboraNombreFirma ?? ""}
-              onName={(e) => setPaso3({ elaboraNombreFirma: e.target.value })}
+              userId={paso3.elaboraIdUsuario ?? ""}
+              onUserChange={(e) =>
+                setFirmaUsuario("elaboraIdUsuario", "elaboraNombreFirma", e.target.value)
+              }
+              usuarios={usuarios}
+              loadingUsuarios={loadingUsuarios}
               dateId="plan-elabora-fecha"
               dateValue={paso3.elaboraFecha ?? ""}
               onDate={(e) => setPaso3({ elaboraFecha: e.target.value })}
@@ -241,8 +350,12 @@ export default function PlanMuestreoPaso3() {
               title="Usuario o su representante"
               subtitle="Quien recibe o valida el plan de muestreo"
               nameId="plan-usuario-nombre"
-              nameValue={paso3.usuarioNombreFirma ?? ""}
-              onName={(e) => setPaso3({ usuarioNombreFirma: e.target.value })}
+              userId={paso3.usuarioIdUsuario ?? ""}
+              onUserChange={(e) =>
+                setFirmaUsuario("usuarioIdUsuario", "usuarioNombreFirma", e.target.value)
+              }
+              usuarios={usuarios}
+              loadingUsuarios={loadingUsuarios}
               dateId="plan-usuario-fecha"
               dateValue={paso3.usuarioFecha ?? ""}
               onDate={(e) => setPaso3({ usuarioFecha: e.target.value })}
@@ -255,8 +368,12 @@ export default function PlanMuestreoPaso3() {
               title="Quien entrega el plan a APE"
               subtitle="Entrega del plan al Área de Proyección y Extensión"
               nameId="plan-entrega-nombre"
-              nameValue={paso3.entregaNombreFirma ?? ""}
-              onName={(e) => setPaso3({ entregaNombreFirma: e.target.value })}
+              userId={paso3.entregaIdUsuario ?? ""}
+              onUserChange={(e) =>
+                setFirmaUsuario("entregaIdUsuario", "entregaNombreFirma", e.target.value)
+              }
+              usuarios={usuarios}
+              loadingUsuarios={loadingUsuarios}
               dateId="plan-entrega-fecha"
               dateValue={paso3.entregaFecha ?? ""}
               onDate={(e) => setPaso3({ entregaFecha: e.target.value })}
