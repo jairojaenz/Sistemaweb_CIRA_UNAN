@@ -40,14 +40,19 @@ export function resolveIdTipoMuestreo(form, tiposMuestreo = []) {
 
 function compuestoHorasFromForm(form) {
   if (form.modalidadMuestreo !== "compuesto") return null;
-  const match = COMPOUESTO_KEYS.find(({ key }) => form[key]);
-  return match?.value ?? null;
+  const horas = COMPOUESTO_KEYS.filter(({ key }) => form[key]).map(({ value }) => value);
+  return horas.length ? horas.join(", ") : null;
 }
 
 function buildObservacionOrden(form) {
   const partes = [];
   if (form.modalidadMuestreo === "otros" && form.modalidadMuestreoOtros?.trim()) {
     partes.push(`Tipo de muestreo (otros): ${form.modalidadMuestreoOtros.trim()}`);
+  }
+  const horas = compuestoHorasFromForm(form);
+  if (horas) partes.push(`Duración compuesto: ${horas}`);
+  if (form.modalidadMuestreo === "compuesto" && form.compuestoOtroTiempo?.trim()) {
+    partes.push(`Duración compuesto (otro): ${form.compuestoOtroTiempo.trim()}`);
   }
   if (form.observacionOrden?.trim()) partes.push(form.observacionOrden.trim());
   return partes.length > 0 ? partes.join("\n") : null;

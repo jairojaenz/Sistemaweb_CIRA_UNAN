@@ -1,11 +1,41 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../../auth/AuthContext.jsx";
-import { ChevronLeft, ChevronRight, FileCheck, MapPin, Plus, Trash2 } from "lucide-react";
+import {
+  Building2,
+  CalendarCheck,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  Compass,
+  FlaskConical,
+  House,
+  IdCard,
+  Layers,
+  Mail,
+  MapPin,
+  PenLine,
+  Phone,
+  PhoneCall,
+  Plus,
+  Receipt,
+  StickyNote,
+  Trash2,
+  UserCheck,
+  UserRound,
+  Users,
+} from "lucide-react";
 import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import { parseLatLng } from "../../../components/NicaraguaMapModal.jsx";
 import { useToast } from "../../../components/ToastContext.jsx";
+import ValidationIssuesModal from "../../../components/ValidationIssuesModal.jsx";
 import WizardStepIndicator from "../../../components/WizardStepIndicator.jsx";
+import {
+  collectSolicitudIssues,
+  issuesToFormErrors,
+  SOLICITUD_STEP_LABELS,
+} from "../utils/solicitudValidation.js";
 import { ROUTES } from "../../../router/routes.js";
 import { getClienteById, normalizeClienteFromApi } from "../../clientes/service/clienteService.js";
 import {
@@ -15,6 +45,7 @@ import {
 } from "../service/solicitudServicioService.js";
 import { formToSolicitudPayload, toInputDate } from "../utils/formToSolicitudPayload.js";
 import { mapClienteToSolicitudPrefill, nombreCompletoCliente } from "../utils/mapClienteToSolicitud.js";
+import { asignarEstilosUnicos, estiloMatriz, estiloMedio, estiloServicio } from "../../../utils/catalogIcons.js";
 import { getMediosRecepcion } from "../../catalogos/service/medioRecepcionService.js";
 import { getServicios } from "../../catalogos/service/servicioService.js";
 import { getMatrices } from "../../catalogos/service/matrizService.js";
@@ -31,6 +62,56 @@ function nombreUsuarioLista(u) {
   const nombre = u?.nombreUsuario ?? u?.nombre ?? u?.Nombre ?? "";
   const apellido = u?.apellidoUsuario ?? u?.apellido ?? u?.Apellido ?? "";
   return `${nombre} ${apellido}`.trim() || u?.correoUsuario || u?.correo || `Usuario #${u?.idUsuario ?? u?.id ?? ""}`;
+}
+
+function CatalogChoiceCard({ selected, onClick, icon: Icon, tone, label, disabled }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      aria-pressed={selected}
+      onClick={onClick}
+      className={`rounded-xl border p-4 text-left transition ${
+        disabled
+          ? "cursor-not-allowed border-gray-200 bg-white text-gray-400"
+          : selected
+            ? "border-blue-900 bg-blue-50 shadow-sm"
+            : "border-gray-200 bg-gray-50/80 hover:border-blue-300"
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${tone}`}>
+          <Icon className="h-5 w-5" aria-hidden />
+        </span>
+        <span className={`text-sm font-semibold leading-snug ${selected ? "text-blue-900" : "text-gray-800"}`}>
+          {label}
+        </span>
+      </div>
+    </button>
+  );
+}
+
+const ICON_INPUT =
+  "w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-900 outline-none placeholder:text-gray-400 focus:border-blue-800 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400";
+
+function IconField({ id, icon: Icon, tone, label, required, error, hint, children, className = "" }) {
+  return (
+    <div className={`rounded-xl border bg-gray-50/80 p-4 ${error ? "border-red-300" : "border-gray-200"} ${className}`}>
+      <div className="mb-3 flex items-start gap-2.5">
+        <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tone}`}>
+          <Icon className="h-4 w-4" aria-hidden />
+        </span>
+        <div>
+          <label htmlFor={id} className="text-sm font-semibold text-gray-800">
+            {label} {required ? <span className="text-red-500">*</span> : null}
+          </label>
+          {hint ? <p className="text-xs font-normal text-gray-500">{hint}</p> : null}
+        </div>
+      </div>
+      {children}
+      {error ? <p className="mt-2 text-xs font-medium text-red-500">{error}</p> : null}
+    </div>
+  );
 }
 
 const initialFormData = {
@@ -82,8 +163,12 @@ export default function SolicitudServicioPage() {
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [avisoClienteInactivo, setAvisoClienteInactivo] = useState(false);
-  const [errorGuardado, setErrorGuardado] = useState("");
   const [mapOpen, setMapOpen] = useState(false);
+  const [validationOpen, setValidationOpen] = useState(false);
+  const [validationIssues, setValidationIssues] = useState([]);
+  const [validationApiMessage, setValidationApiMessage] = useState("");
+  const [validationTitle, setValidationTitle] = useState("");
+  const [validationDescription, setValidationDescription] = useState("");
 
   const clienteDesdeNavegacion = useMemo(() => {
     if (!idCliente || Number.isNaN(idCliente)) return null;
@@ -372,43 +457,20 @@ export default function SolicitudServicioPage() {
       .join(", ");
   }
 
-  // Validation
-  const validateStep = (step) => {
-    const newErrors = {};
+  function mostrarValidacion({ issues = [], apiMessage = "", title, description }) {
+    setErrors(issuesToFormErrors(issues));
+    setValidationIssues(issues);
+    setValidationApiMessage(apiMessage);
+    setValidationTitle(title);
+    setValidationDescription(description);
+    setValidationOpen(true);
+  }
 
-    if (step === 1) {
-      if (!formData.nombreUsuario?.trim()) newErrors.nombreUsuario = 'Campo requerido';
-      if (!formData.direccionUsuario?.trim()) newErrors.direccionUsuario = 'Campo requerido';
-      if (!formData.correo?.trim()) newErrors.correo = 'Campo requerido';
-      if (!Number(formData.medioRecepcion)) newErrors.medioRecepcion = 'Seleccione un medio de recepción';
-    }
-
-    if (step === 2) {
-      if (!Array.isArray(formData.tipoServicio) || formData.tipoServicio.length === 0) {
-        newErrors.tipoServicio = "Seleccione al menos un servicio";
-      }
-      if (!formData.matriz || !Array.isArray(formData.matriz) || formData.matriz.length === 0) {
-        newErrors.matriz = "Seleccione al menos una matriz";
-      }
-      const analisisValidos = (formData.analisisSolicitados ?? []).some((a) => Number(a.idAnalisis) > 0);
-      if (!analisisValidos) newErrors.analisisSolicitados = "Seleccione al menos un análisis del catálogo";
-      const tieneDireccion = String(formData.ubicacionMuestreo ?? "").trim();
-      const tieneGps = !!parseLatLng(formData.coordenadasGps);
-      if (formData.modoUbicacion === "gps") {
-        if (!tieneGps) newErrors.ubicacionMuestreo = "Marque el punto de muestreo en el mapa";
-      } else if (!tieneDireccion) {
-        newErrors.ubicacionMuestreo = "Escriba la dirección o marque el GPS en el mapa";
-      }
-    }
-
-    if (step === 3) {
-      if (!Number(formData.firma)) newErrors.firma = "Seleccione la firma del usuario";
-      if (!Number(formData.recibidoPor)) newErrors.recibidoPor = "Seleccione quién recibió la solicitud";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  function irAlPasoDesdeModal(step) {
+    setValidationOpen(false);
+    setCurrentStep(step);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   // Handlers
   const handleChange = (e) => {
@@ -460,10 +522,18 @@ export default function SolicitudServicioPage() {
   };
 
   const handleNext = () => {
-    if (validateStep(currentStep)) {
-      setCurrentStep(currentStep + 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+    const issues = collectSolicitudIssues(formData, { steps: [currentStep] });
+    if (issues.length > 0) {
+      mostrarValidacion({
+        issues,
+        title: "No puede continuar al siguiente paso",
+        description: `Revise los campos pendientes del paso ${currentStep} — ${SOLICITUD_STEP_LABELS[currentStep - 1]}.`,
+      });
+      return;
     }
+    setErrors({});
+    setCurrentStep(currentStep + 1);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handlePrevious = () => {
@@ -472,34 +542,36 @@ export default function SolicitudServicioPage() {
   };
 
   const handleSubmit = async () => {
-    if (!validateStep(3)) return;
+    const issues = collectSolicitudIssues(formData, { steps: [1, 2, 3] });
 
     if (!idCliente || Number.isNaN(idCliente)) {
-      addToast(
-        isEdit
-          ? "No se pudo identificar el cliente de la solicitud."
-          : "Debe crear la solicitud desde un cliente (Gestión de Clientes).",
-        "error",
-      );
+      issues.unshift({
+        step: 1,
+        stepLabel: `Paso 1 — ${SOLICITUD_STEP_LABELS[0]}`,
+        field: "idCliente",
+        label: "Cliente vinculado",
+        tipo: "formato",
+        detalle: isEdit
+          ? "No se pudo identificar el cliente de esta solicitud."
+          : "La solicitud debe crearse desde un cliente activo.",
+        formato: "Abra Gestión de Clientes y cree la solicitud desde un usuario activo.",
+      });
+    }
+
+    if (issues.length > 0) {
+      mostrarValidacion({
+        issues,
+        title: isEdit ? "No se pudo actualizar la solicitud" : "No se pudo crear la solicitud",
+        description:
+          "Faltan datos requeridos o hay un valor inválido. Corrija los campos indicados e intente de nuevo.",
+      });
       return;
     }
 
     const idUsuario = Number(formData.firma) || Number(user?.idUsuario ?? user?.id ?? user?.Id ?? 0);
-    if (!idUsuario) {
-      addToast("Seleccione la firma del usuario en el paso 3.", "error");
-      setCurrentStep(3);
-      return;
-    }
-
-    if (!formData.medioRecepcion) {
-      addToast("Seleccione el medio de recepción en el paso 1.", "error");
-      setCurrentStep(1);
-      return;
-    }
 
     try {
       setSaving(true);
-      setErrorGuardado("");
       const payload = formToSolicitudPayload(formData, { idCliente, idUsuario });
       if (isEdit) {
         await updateSolicitudServicio(idSolicitud, payload);
@@ -511,7 +583,12 @@ export default function SolicitudServicioPage() {
       navigate(ROUTES.solicitudServicio);
     } catch (err) {
       const mensaje = err?.message || "No se pudo registrar la solicitud.";
-      setErrorGuardado(mensaje);
+      mostrarValidacion({
+        issues: [],
+        apiMessage: mensaje,
+        title: isEdit ? "No se pudo actualizar la solicitud" : "No se pudo crear la solicitud",
+        description: "El servidor rechazó el registro. Revise el motivo e intente de nuevo.",
+      });
     } finally {
       setSaving(false);
     }
@@ -519,80 +596,83 @@ export default function SolicitudServicioPage() {
 
   // Contenido por paso (funciones de render, no componentes, para no remontar al escribir)
   const renderStep1 = () => (
-    <div className="space-y-10">
-      {/* Title */}
+    <div className="space-y-8">
       <div>
-        <h2 className="text-3xl font-bold text-blue-900 mb-2">Información del Solicitante</h2>
-        <p className="text-[#6a7282]">Complete los datos del cliente, empresa o institución</p>
+        <h2 className="mb-1 text-2xl font-bold text-blue-900 sm:text-3xl">Información del Solicitante</h2>
+        <p className="text-gray-600">Complete los datos del cliente, empresa o institución</p>
       </div>
 
-      {/* Datos principales */}
-      <div>
-        <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
-          <div className="w-1 h-7 bg-blue-900 rounded-full"></div>
+      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
+          <span className="h-7 w-1 rounded-full bg-blue-900" />
           Datos principales
         </h3>
-        <p className="text-sm text-[#6a7282] mb-6 ml-4">Información básica de la solicitud</p>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 ml-4">
-          <div className="relative group">
+        <p className="mb-5 ml-4 text-sm text-gray-500">Información básica de la solicitud</p>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <IconField
+            id="solicitud-no"
+            icon={ClipboardList}
+            tone="bg-blue-50 text-blue-800"
+            label="Solicitud No."
+            hint="Identificador interno de la solicitud"
+          >
             <input
+              id="solicitud-no"
               type="text"
               name="solicitudNo"
               value={formData.solicitudNo}
               onChange={handleChange}
               placeholder="Ej: SOL-2024-001"
-              className="w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors border-gray-300 focus:border-blue-900 peer"
+              className={ICON_INPUT}
             />
-            <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 transition-all peer-focus:-top-4 peer-focus:text-blue-900 peer-placeholder-shown:top-3">
-              Solicitud No.
-            </label>
-          </div>
-
-          <div className="relative group">
+          </IconField>
+          <IconField
+            id="fecha-recepcion"
+            icon={CalendarDays}
+            tone="bg-amber-50 text-amber-700"
+            label="Fecha de recepción"
+            hint="Día en que se recibió la solicitud"
+          >
             <input
+              id="fecha-recepcion"
               type="date"
               name="fechaRecepcion"
               value={formData.fechaRecepcion}
               onChange={handleChange}
-              className="w-full px-0 py-3 border-b-2 bg-transparent focus:outline-none transition-colors border-gray-300 focus:border-blue-900"
+              className={ICON_INPUT}
             />
-            <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 transition-all group-focus-within:text-blue-900">
-              Fecha de recepción
-            </label>
-          </div>
+          </IconField>
         </div>
-      </div>
+      </section>
 
-      {/* Medio de recepción */}
-      <div>
-        <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
-          <div className="w-1 h-7 bg-accent rounded-full"></div>
+      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
+          <span className="h-7 w-1 rounded-full bg-yellow-400" />
           Medio de recepción
         </h3>
-        <p className="text-sm text-[#6a7282] mb-4 ml-4">Seleccione solo 1</p>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 ml-4">
+        <p className="mb-5 ml-4 text-sm text-gray-500">Seleccione solo 1</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {loadingReceptionMethods ? (
             [1, 2, 3, 4].map((i) => (
-              <button
-                key={i}
-                type="button"
-                disabled
-                className="p-4 rounded-lg border-2 transition-all font-semibold border-gray-300 bg-white text-gray-400"
-              >
+              <div key={i} className="rounded-xl border border-gray-200 bg-gray-50/80 p-4 text-sm text-gray-400">
                 Cargando...
-              </button>
+              </div>
             ))
           ) : receptionMethods.length > 0 ? (
-            receptionMethods.map((method) => {
+            asignarEstilosUnicos(
+              receptionMethods,
+              (method) => method.nombreMedioRecepcion || method.nombre,
+              estiloMedio,
+            ).map(({ item: method, estilo }) => {
               const id = Number(method.idMedioRecepcion);
-              const seleccionado = Number(formData.medioRecepcion) === id;
+              const label = method.nombreMedioRecepcion || method.nombre;
               return (
-                <button
+                <CatalogChoiceCard
                   key={id}
-                  type="button"
-                  aria-pressed={seleccionado}
+                  selected={Number(formData.medioRecepcion) === id}
+                  icon={estilo.icon}
+                  tone={estilo.tone}
+                  label={label}
                   onClick={() => {
                     setFormData((prev) => ({ ...prev, medioRecepcion: id }));
                     setErrors((prev) => {
@@ -601,224 +681,242 @@ export default function SolicitudServicioPage() {
                       return next;
                     });
                   }}
-                  className={`p-4 rounded-lg border-2 transition-all font-semibold ${
-                    seleccionado
-                      ? "border-blue-900 bg-blue-100 shadow-md text-blue-900"
-                      : "border-gray-300 hover:border-blue-900/50 bg-white text-gray-700"
-                  }`}
-                >
-                  {method.nombreMedioRecepcion || method.nombre}
-                </button>
+                />
               );
             })
           ) : (
-            <div className="col-span-2 md:col-span-4">
-              <p className="text-sm text-[#6a7282]">No hay medios de recepción disponibles.</p>
-            </div>
+            <p className="col-span-full text-sm text-gray-500">No hay medios de recepción disponibles.</p>
           )}
         </div>
         {(receptionMethodsError || errors.medioRecepcion) && (
-          <p className="text-red-500 text-xs mt-2 ml-4">
+          <p className="mt-3 text-xs font-medium text-red-500">
             {errors.medioRecepcion || receptionMethodsError}
           </p>
         )}
-      </div>
+      </section>
 
-      {/* Información del Usuario */}
-      <div>
-        <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
-          <div className="w-1 h-7 bg-primary rounded-full"></div>
+      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
+          <span className="h-7 w-1 rounded-full bg-blue-900" />
           Información del Usuario
         </h3>
-        <p className="text-sm text-[#6a7282] mb-6 ml-4">Datos del cliente, empresa o institución</p>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 ml-4">
-          <div className="relative group md:col-span-2">
+        <p className="mb-5 ml-4 text-sm text-gray-500">Datos del cliente, empresa o institución</p>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <IconField
+            id="nombre-usuario"
+            icon={Building2}
+            tone="bg-slate-100 text-slate-700"
+            label="Nombre del usuario"
+            hint="Cliente, empresa o institución"
+            required
+            error={errors.nombreUsuario}
+            className="md:col-span-2"
+          >
             <input
+              id="nombre-usuario"
               type="text"
               name="nombreUsuario"
               value={formData.nombreUsuario}
               onChange={handleChange}
               placeholder="Nombre completo"
-              className={`w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors ${errors.nombreUsuario ? 'border-red-500' : 'border-gray-300 focus:border-blue-900'
-                } peer`}
+              className={ICON_INPUT}
             />
-            <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 transition-all peer-focus:-top-4 peer-focus:text-blue-900">
-              Nombre del usuario <span className="text-red-500">*</span>
-            </label>
-            {errors.nombreUsuario && <p className="text-red-500 text-xs mt-1">{errors.nombreUsuario}</p>}
-          </div>
-
-          <div className="relative group md:col-span-2">
+          </IconField>
+          <IconField
+            id="direccion-usuario"
+            icon={House}
+            tone="bg-amber-50 text-amber-800"
+            label="Dirección"
+            hint="Dirección completa del solicitante"
+            required
+            error={errors.direccionUsuario}
+            className="md:col-span-2"
+          >
             <input
+              id="direccion-usuario"
               type="text"
               name="direccionUsuario"
               value={formData.direccionUsuario}
               onChange={handleChange}
               placeholder="Dirección completa"
-              className={`w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors ${errors.direccionUsuario ? 'border-red-500' : 'border-gray-300 focus:border-blue-900'
-                } peer`}
+              className={ICON_INPUT}
             />
-            <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 transition-all peer-focus:-top-4 peer-focus:text-blue-900">
-              Dirección <span className="text-red-500">*</span>
-            </label>
-            {errors.direccionUsuario && <p className="text-red-500 text-xs mt-1">{errors.direccionUsuario}</p>}
-          </div>
-
-          <div className="relative group">
+          </IconField>
+          <IconField
+            id="ruc-usuario"
+            icon={Receipt}
+            tone="bg-indigo-50 text-indigo-700"
+            label="No. RUC"
+            hint="Registro único de contribuyente"
+          >
             <input
+              id="ruc-usuario"
               type="text"
               name="ruc"
               value={formData.ruc}
               onChange={handleChange}
               placeholder="RUC"
-              className="w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors border-gray-300 focus:border-blue-900 peer"
+              className={ICON_INPUT}
             />
-            <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 transition-all peer-focus:-top-4 peer-focus:text-blue-900">
-              No. RUC
-            </label>
-          </div>
-
-          <div className="relative group">
+          </IconField>
+          <IconField
+            id="cedula-usuario"
+            icon={IdCard}
+            tone="bg-sky-50 text-sky-700"
+            label="No. de cédula"
+            hint="Documento de identidad"
+          >
             <input
+              id="cedula-usuario"
               type="text"
               name="cedula"
               value={formData.cedula}
               onChange={handleChange}
               placeholder="Cédula"
-              className="w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors border-gray-300 focus:border-blue-900 peer"
+              className={ICON_INPUT}
             />
-            <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 transition-all peer-focus:-top-4 peer-focus:text-blue-900">
-              No. de cédula
-            </label>
-          </div>
-
-          <div className="relative group md:col-span-2">
+          </IconField>
+          <IconField
+            id="correo-usuario"
+            icon={Mail}
+            tone="bg-violet-50 text-violet-700"
+            label="Correo electrónico"
+            hint="Correo de contacto del solicitante"
+            required
+            error={errors.correo}
+            className="md:col-span-2"
+          >
             <input
+              id="correo-usuario"
               type="email"
               name="correo"
               value={formData.correo}
               onChange={handleChange}
               placeholder="correo@ejemplo.com"
-              className={`w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors ${errors.correo ? 'border-red-500' : 'border-gray-300 focus:border-blue-900'
-                } peer`}
+              className={ICON_INPUT}
             />
-            <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 transition-all peer-focus:-top-4 peer-focus:text-blue-900">
-              Correo electrónico <span className="text-red-500">*</span>
-            </label>
-            {errors.correo && <p className="text-red-500 text-xs mt-1">{errors.correo}</p>}
-          </div>
+          </IconField>
         </div>
-      </div>
+      </section>
 
-      {/* Datos de Contacto */}
-      <div>
-        <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
-          <div className="w-1 h-7 bg-blue-900 rounded-full"></div>
+      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
+          <span className="h-7 w-1 rounded-full bg-yellow-400" />
           Datos de Contacto
         </h3>
-        <p className="text-sm text-[#6a7282] mb-6 ml-4">Información de contacto principal y secundario</p>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 ml-4">
-          <div className="bg-blue-50 p-5 rounded-lg border-l-4 border-blue-900">
-            <p className="text-sm font-semibold text-blue-900 mb-4">Contacto 1 - Principal</p>
-            <div className="space-y-4">
-              <div className="relative group">
-                <input
-                  type="text"
-                  name="contacto1Nombre"
-                  value={formData.contacto1Nombre}
-                  onChange={handleChange}
-                  placeholder="Nombre del contacto"
-                  className="w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors border-gray-300 focus:border-blue-900 peer"
-                />
-                <label className="absolute left-0 -top-4 text-xs font-semibold text-gray-700 peer-focus:text-blue-900">Nombre</label>
-              </div>
-              <div className="relative group">
-                <input
-                  type="tel"
-                  name="contacto1Telefono"
-                  value={formData.contacto1Telefono}
-                  onChange={handleChange}
-                  placeholder="Teléfono"
-                  className="w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors border-gray-300 focus:border-blue-900 peer"
-                />
-                <label className="absolute left-0 -top-4 text-xs font-semibold text-gray-700 peer-focus:text-blue-900">Teléfono</label>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-blue-50 p-5 rounded-lg border-l-4 border-[#fbbf24]">
-            <p className="text-sm font-semibold text-[#6a7282] mb-4">Contacto 2 - Secundario</p>
-            <div className="space-y-4">
-              <div className="relative group">
-                <input
-                  type="text"
-                  name="contacto2Nombre"
-                  value={formData.contacto2Nombre}
-                  onChange={handleChange}
-                  placeholder="Nombre del contacto"
-                  className="w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors border-gray-300 focus:border-blue-900 peer"
-                />
-                <label className="absolute left-0 -top-4 text-xs font-semibold text-gray-700 peer-focus:text-blue-900">Nombre</label>
-              </div>
-              <div className="relative group">
-                <input
-                  type="tel"
-                  name="contacto2Telefono"
-                  value={formData.contacto2Telefono}
-                  onChange={handleChange}
-                  placeholder="Teléfono"
-                  className="w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none transition-colors border-gray-300 focus:border-blue-900 peer"
-                />
-                <label className="absolute left-0 -top-4 text-xs font-semibold text-gray-700 peer-focus:text-blue-900">Teléfono</label>
-              </div>
-            </div>
-          </div>
+        <p className="mb-5 ml-4 text-sm text-gray-500">Información de contacto principal y secundario</p>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <IconField
+            id="contacto1-nombre"
+            icon={UserRound}
+            tone="bg-sky-50 text-sky-700"
+            label="Contacto 1 — Nombre"
+            hint="Contacto principal"
+          >
+            <input
+              id="contacto1-nombre"
+              type="text"
+              name="contacto1Nombre"
+              value={formData.contacto1Nombre}
+              onChange={handleChange}
+              placeholder="Nombre del contacto"
+              className={ICON_INPUT}
+            />
+          </IconField>
+          <IconField
+            id="contacto1-telefono"
+            icon={Phone}
+            tone="bg-emerald-50 text-emerald-700"
+            label="Contacto 1 — Teléfono"
+            hint="Teléfono principal"
+          >
+            <input
+              id="contacto1-telefono"
+              type="tel"
+              name="contacto1Telefono"
+              value={formData.contacto1Telefono}
+              onChange={handleChange}
+              placeholder="Teléfono"
+              className={ICON_INPUT}
+            />
+          </IconField>
+          <IconField
+            id="contacto2-nombre"
+            icon={Users}
+            tone="bg-slate-100 text-slate-700"
+            label="Contacto 2 — Nombre"
+            hint="Contacto secundario"
+          >
+            <input
+              id="contacto2-nombre"
+              type="text"
+              name="contacto2Nombre"
+              value={formData.contacto2Nombre}
+              onChange={handleChange}
+              placeholder="Nombre del contacto"
+              className={ICON_INPUT}
+            />
+          </IconField>
+          <IconField
+            id="contacto2-telefono"
+            icon={PhoneCall}
+            tone="bg-teal-50 text-teal-700"
+            label="Contacto 2 — Teléfono"
+            hint="Teléfono secundario"
+          >
+            <input
+              id="contacto2-telefono"
+              type="tel"
+              name="contacto2Telefono"
+              value={formData.contacto2Telefono}
+              onChange={handleChange}
+              placeholder="Teléfono"
+              className={ICON_INPUT}
+            />
+          </IconField>
         </div>
-      </div>
+      </section>
     </div>
   );
 
   // Step 2 Component
   const renderStep2 = () => (
-    <div className="space-y-10">
-      {/* Title */}
+    <div className="space-y-8">
       <div>
-        <h2 className="text-3xl font-bold text-blue-900 mb-2">Servicio Solicitado</h2>
-        <p className="text-[#6a7282]">Seleccione el tipo de servicio y especifique los detalles</p>
+        <h2 className="mb-1 text-2xl font-bold text-blue-900 sm:text-3xl">Servicio Solicitado</h2>
+        <p className="text-gray-600">Seleccione el tipo de servicio y especifique los detalles</p>
       </div>
 
-      {/* Service Type Selection */}
-      <div className="bg-gray-50 p-6 rounded-lg">
-        <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
-          <div className="w-1 h-7 bg-blue-900 rounded-full"></div>
+      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
+          <span className="h-7 w-1 rounded-full bg-blue-900" />
           Servicio Solicitado <span className="text-red-500">*</span>
         </h3>
-        <p className="text-sm text-[#6a7282] mb-4 ml-4">Puede seleccionar más de uno</p>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 ml-4">
+        <p className="mb-5 ml-4 text-sm text-gray-500">Puede seleccionar más de uno</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {loadingServiceTypes ? (
             [1, 2, 3, 4].map((i) => (
-              <button
-                key={i}
-                type="button"
-                disabled
-                className="p-4 rounded-lg border-2 transition-all font-semibold border-gray-300 bg-white text-gray-400"
-              >
+              <div key={i} className="rounded-xl border border-gray-200 bg-gray-50/80 p-4 text-sm text-gray-400">
                 Cargando...
-              </button>
+              </div>
             ))
           ) : serviceTypes.length > 0 ? (
-            serviceTypes.map((service) => {
+            asignarEstilosUnicos(
+              serviceTypes,
+              (service) => service.nombreServicio || service.nombre,
+              estiloServicio,
+            ).map(({ item: service, estilo }) => {
               const id = Number(service.idServicio);
               const seleccionados = Array.isArray(formData.tipoServicio) ? formData.tipoServicio : [];
               const seleccionado = seleccionados.some((x) => Number(x) === id);
+              const label = service.nombreServicio || service.nombre;
               return (
-                <button
+                <CatalogChoiceCard
                   key={id}
-                  type="button"
-                  aria-pressed={seleccionado}
+                  selected={seleccionado}
+                  icon={estilo.icon}
+                  tone={estilo.tone}
+                  label={label}
                   onClick={() => {
                     setFormData((prev) => {
                       const actual = Array.isArray(prev.tipoServicio) ? prev.tipoServicio : [];
@@ -836,45 +934,42 @@ export default function SolicitudServicioPage() {
                       return next;
                     });
                   }}
-                  className={`p-4 rounded-lg border-2 transition-all font-semibold ${
-                    seleccionado
-                      ? "border-blue-900 bg-blue-100 shadow-md text-blue-900"
-                      : "border-gray-300 hover:border-blue-900/50 bg-white text-gray-700"
-                  }`}
-                >
-                  {service.nombreServicio || service.nombre}
-                </button>
+                />
               );
             })
           ) : (
-            <div className="col-span-2 md:col-span-4">
-              <p className="text-sm text-[#6a7282]">No hay servicios disponibles.</p>
-            </div>
+            <p className="col-span-full text-sm text-gray-500">No hay servicios disponibles.</p>
           )}
         </div>
-        {serviceTypesError && <p className="text-red-500 text-xs mt-2 ml-4">{serviceTypesError}</p>}
-        {errors.tipoServicio && <p className="text-red-500 text-xs mt-2 ml-4">{errors.tipoServicio}</p>}
-      </div>
+        {serviceTypesError && <p className="mt-3 text-xs font-medium text-red-500">{serviceTypesError}</p>}
+        {errors.tipoServicio && <p className="mt-3 text-xs font-medium text-red-500">{errors.tipoServicio}</p>}
+      </section>
 
-      {/* Matrix Selection */}
-      <div className="bg-gray-50 p-6 rounded-lg">
-        <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
-          <div className="w-1 h-7 bg-accent rounded-full"></div>
+      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
+          <span className="h-7 w-1 rounded-full bg-yellow-400" />
           Matriz <span className="text-red-500">*</span>
         </h3>
-        <p className="text-sm text-[#6a7282] mb-4 ml-4">Seleccione y asigne muestras por matriz</p>
-
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 ml-4">
+        <p className="mb-5 ml-4 text-sm text-gray-500">Seleccione y asigne muestras por matriz</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {loadingMatrices ? (
             [1, 2, 3, 4].map((i) => (
-              <div key={i} className="p-4 rounded-lg border-2 bg-white text-gray-400">Cargando...</div>
+              <div key={i} className="rounded-xl border border-gray-200 bg-gray-50/80 p-4 text-sm text-gray-400">
+                Cargando...
+              </div>
             ))
           ) : matrices.length > 0 ? (
-            matrices.map((matrix) => {
+            asignarEstilosUnicos(
+              matrices,
+              (matrix) => matrix.nombreMatriz || matrix.nombre,
+              estiloMatriz,
+            ).map(({ item: matrix, estilo }) => {
               const id = Number(matrix.idMatriz);
               const entry = (formData.matriz || []).find((m) => Number(m.idMatriz) === id);
               const count = entry?.numMuestras ?? 0;
               const isActive = count > 0;
+              const label = matrix.nombreMatriz || matrix.nombre;
+              const Icon = estilo.icon;
 
               function setCantidad(deltaOrStart) {
                 setFormData((prev) => {
@@ -903,22 +998,23 @@ export default function SolicitudServicioPage() {
                 <div
                   key={id}
                   onClick={() => setCantidad("start")}
-                  className={`relative cursor-pointer rounded-xl border-2 p-4 text-left transition-all ${
+                  className={`relative cursor-pointer rounded-xl border p-4 text-left transition ${
                     isActive
                       ? "border-blue-900 bg-blue-50 shadow-sm"
-                      : "border-gray-300 bg-white hover:border-blue-900/50"
+                      : "border-gray-200 bg-gray-50/80 hover:border-blue-300"
                   }`}
                 >
                   {count > 0 && (
-                    <div className="absolute right-3 top-3">
-                      <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">
-                        {count}
-                      </span>
-                    </div>
+                    <span className="absolute right-3 top-3 inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">
+                      {count}
+                    </span>
                   )}
-                  <div className="flex h-16 items-center justify-center">
-                    <span className="font-semibold text-gray-800">
-                      {matrix.nombreMatriz || matrix.nombre}
+                  <div className="flex items-center gap-3">
+                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${estilo.tone}`}>
+                      <Icon className="h-5 w-5" aria-hidden />
+                    </span>
+                    <span className={`text-sm font-semibold leading-snug ${isActive ? "text-blue-900" : "text-gray-800"}`}>
+                      {label}
                     </span>
                   </div>
                   {count > 0 && (
@@ -952,136 +1048,131 @@ export default function SolicitudServicioPage() {
               );
             })
           ) : (
-            <div className="col-span-2 md:col-span-3">
-              <p className="text-sm text-[#6a7282]">No hay matrices disponibles.</p>
-            </div>
+            <p className="col-span-full text-sm text-gray-500">No hay matrices disponibles.</p>
           )}
         </div>
-
-        <div className="mt-3 ml-4">
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Total de muestras: {formData.numeroMuestras}</span>
+        <div className="mt-4">
+          <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+            Total de muestras: {formData.numeroMuestras}
+          </span>
         </div>
+        {errorMatrices && <p className="mt-3 text-xs font-medium text-red-500">{errorMatrices}</p>}
+        {errors.matriz && <p className="mt-3 text-xs font-medium text-red-500">{errors.matriz}</p>}
+      </section>
 
-        {errorMatrices && <p className="text-red-500 text-xs mt-2 ml-4">{errorMatrices}</p>}
-        {errors.matriz && <p className="text-red-500 text-xs mt-2 ml-4">{errors.matriz}</p>}
-      </div>
-
-      {/* Number of Samples */}
-      <div>
-        <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
-          <div className="w-1 h-7 bg-primary rounded-full"></div>
+      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
+          <span className="h-7 w-1 rounded-full bg-blue-900" />
           Muestras
         </h3>
-        <p className="text-sm text-[#6a7282] mb-6 ml-4">Especifique la cantidad de muestras</p>
-
-        <div className="ml-4 relative group max-w-xs">
-          <input
-            type="number"
-            name="numeroMuestras"
-            value={formData.numeroMuestras}
-            readOnly
-            placeholder="0"
-            className="w-full px-0 py-3 border-b-2 bg-transparent placeholder-transparent focus:outline-none border-gray-300 peer text-center font-semibold text-lg text-blue-900 cursor-not-allowed"
-          />
-          <label className="absolute left-0 -top-6 text-sm font-semibold text-gray-700">
-            No. de muestras (Automático)
-          </label>
+        <p className="mb-5 ml-4 text-sm text-gray-500">Cantidad calculada según las matrices seleccionadas</p>
+        <div className="max-w-xs">
+          <IconField
+            id="numero-muestras"
+            icon={Layers}
+            tone="bg-indigo-50 text-indigo-700"
+            label="No. de muestras"
+            hint="Se completa de forma automática"
+          >
+            <input
+              id="numero-muestras"
+              type="number"
+              name="numeroMuestras"
+              value={formData.numeroMuestras}
+              readOnly
+              className={`${ICON_INPUT} bg-gray-50 text-center font-semibold text-blue-900`}
+            />
+          </IconField>
         </div>
-      </div>
+      </section>
 
-      {/* Analysis Requested */}
-      <div className="bg-gray-50 p-6 rounded-lg">
-        <div className="flex items-center justify-between mb-4">
+      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="mb-5 flex items-center justify-between gap-4">
           <div>
-            <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
-              <div className="w-1 h-7 bg-accent rounded-full"></div>
+            <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
+              <span className="h-7 w-1 rounded-full bg-yellow-400" />
               Análisis Solicitados
             </h3>
-            <p className="text-sm text-[#6a7282] ml-4">Agregue los análisis requeridos</p>
+            <p className="ml-4 text-sm text-gray-500">Agregue los análisis requeridos</p>
           </div>
           <button
             type="button"
             onClick={handleAddAnalysis}
-            className="flex items-center gap-2 px-6 py-2.5 bg-blue-900 text-white rounded-lg hover:bg-blue-950 transition-all shadow-md hover:shadow-lg font-semibold"
+            className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-blue-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-950"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="h-4 w-4" />
             Agregar
           </button>
         </div>
 
         {formData.analisisSolicitados.length > 0 ? (
-          <div className="bg-white border-2 border-gray-200 rounded-lg overflow-hidden ml-4 mt-6">
-            <table className="w-full">
-              <thead className="bg-blue-900 text-white">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase">Tipo de Análisis</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase">Técnica</th>
-                  <th className="px-4 py-3 text-center text-xs font-bold uppercase">Acción</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {formData.analisisSolicitados.map((analysis, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <select
-                        className="w-full px-3 py-2 border-2 border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-900 focus:border-transparent"
-                        value={analysis.idAnalisis || ""}
-                        onChange={(e) => handleAnalysisSelect(index, e.target.value)}
-                      >
-                        <option value="">Seleccione un análisis</option>
-                        {analisisCatalogo.map((a) => (
-                          <option key={a.idAnalisis} value={a.idAnalisis}>
-                            {a.nombreAnalisis}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-4 py-3">
-                      <input
-                        type="text"
-                        readOnly
-                        placeholder="Abreviatura del catálogo"
-                        className="w-full px-3 py-2 border-2 border-gray-200 rounded bg-gray-50 text-gray-600"
-                        value={analysis.tecnica}
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveAnalysis(index)}
-                        className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded transition-all"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-3">
+            {formData.analisisSolicitados.map((analysis, index) => (
+              <div
+                key={index}
+                className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/80 p-4"
+              >
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
+                  <FlaskConical className="h-4 w-4" aria-hidden />
+                </span>
+                <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
+                  <select
+                    className={ICON_INPUT}
+                    value={analysis.idAnalisis || ""}
+                    onChange={(e) => handleAnalysisSelect(index, e.target.value)}
+                  >
+                    <option value="">Seleccione un análisis</option>
+                    {analisisCatalogo.map((a) => (
+                      <option key={a.idAnalisis} value={a.idAnalisis}>
+                        {a.nombreAnalisis}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    readOnly
+                    placeholder="Abreviatura del catálogo"
+                    className={`${ICON_INPUT} bg-gray-50 text-gray-600`}
+                    value={analysis.tecnica}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveAnalysis(index)}
+                  className="rounded-lg p-2 text-red-500 transition hover:bg-red-50 hover:text-red-700"
+                  aria-label="Quitar análisis"
+                >
+                  <Trash2 className="h-5 w-5" />
+                </button>
+              </div>
+            ))}
           </div>
         ) : (
-          <div className="ml-4 mt-6 p-6 bg-blue-50 border-2 border-blue-200 rounded-lg text-center">
-            <p className="text-sm text-[#6a7282]">No hay análisis agregados. Haga clic en "Agregar" para añadir uno.</p>
+          <div className="rounded-xl border border-blue-100 bg-blue-50/80 p-5 text-center">
+            <p className="text-sm text-gray-600">
+              No hay análisis agregados. Haga clic en Agregar para añadir uno.
+            </p>
           </div>
         )}
         {errors.analisisSolicitados && (
-          <p className="mt-2 ml-4 text-xs text-red-600">{errors.analisisSolicitados}</p>
+          <p className="mt-3 text-xs font-medium text-red-500">{errors.analisisSolicitados}</p>
         )}
-      </div>
+      </section>
 
-      {/* Dirección escrita o GPS: basta con una de las dos. */}
-      <div>
-        <h3 className="text-lg font-bold text-blue-900 mb-1 flex items-center gap-3">
-          <div className="w-1 h-7 bg-primary rounded-full"></div>
+      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
+          <span className="h-7 w-1 rounded-full bg-blue-900" />
           Ubicación de Muestreo <span className="text-red-500">*</span>
         </h3>
-        <p className="text-sm text-[#6a7282] mb-4 ml-4">
+        <p className="mb-5 ml-4 text-sm text-gray-500">
           Indique la dirección o marque el punto en el mapa (GPS)
         </p>
-
-        <div className="ml-4 mb-4 flex overflow-hidden rounded-lg border-2 border-gray-200">
-          <button
-            type="button"
+        <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <CatalogChoiceCard
+            selected={formData.modoUbicacion === "direccion"}
+            icon={House}
+            tone="bg-amber-50 text-amber-800"
+            label="Escribir dirección"
             onClick={() => {
               setFormData((p) => ({ ...p, modoUbicacion: "direccion" }));
               setErrors((p) => {
@@ -1090,16 +1181,12 @@ export default function SolicitudServicioPage() {
                 return next;
               });
             }}
-            className={`flex-1 px-4 py-2.5 text-sm font-semibold ${
-              formData.modoUbicacion === "direccion"
-                ? "bg-blue-900 text-white"
-                : "bg-white text-gray-700 hover:bg-gray-50"
-            }`}
-          >
-            Escribir dirección
-          </button>
-          <button
-            type="button"
+          />
+          <CatalogChoiceCard
+            selected={formData.modoUbicacion === "gps"}
+            icon={Compass}
+            tone="bg-cyan-50 text-cyan-700"
+            label="Marcar GPS en el mapa"
             onClick={() => {
               setFormData((p) => ({ ...p, modoUbicacion: "gps" }));
               setErrors((p) => {
@@ -1108,21 +1195,22 @@ export default function SolicitudServicioPage() {
                 return next;
               });
             }}
-            className={`flex-1 px-4 py-2.5 text-sm font-semibold ${
-              formData.modoUbicacion === "gps"
-                ? "bg-blue-900 text-white"
-                : "bg-white text-gray-700 hover:bg-gray-50"
-            }`}
-          >
-            Marcar GPS en el mapa
-          </button>
+          />
         </div>
-
-        <div className="ml-4">
-          {formData.modoUbicacion === "gps" ? (
+        {formData.modoUbicacion === "gps" ? (
+          <IconField
+            id="coordenadas-gps"
+            icon={MapPin}
+            tone="bg-cyan-50 text-cyan-700"
+            label="Coordenadas"
+            hint="Marque el punto en el mapa de Nicaragua"
+            required
+            error={errors.ubicacionMuestreo}
+          >
             <div className="flex gap-2">
               <input
-                className={`input cursor-pointer flex-1 ${errors.ubicacionMuestreo ? "border-red-400 ring-1 ring-red-400" : ""}`}
+                id="coordenadas-gps"
+                className={`${ICON_INPUT} flex-1 cursor-pointer`}
                 readOnly
                 placeholder="Marque el punto en el mapa"
                 value={formData.coordenadasGps}
@@ -1130,40 +1218,45 @@ export default function SolicitudServicioPage() {
               />
               <button
                 type="button"
-                className="inline-flex shrink-0 items-center gap-2 rounded-md bg-blue-900 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
+                className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-blue-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800"
                 onClick={() => setMapOpen(true)}
               >
                 <MapPin className="h-4 w-4" />
                 Mapa
               </button>
             </div>
-          ) : (
+          </IconField>
+        ) : (
+          <IconField
+            id="ubicacion-muestreo"
+            icon={House}
+            tone="bg-rose-50 text-rose-700"
+            label="Dirección"
+            hint="Descripción del sitio de muestreo"
+            required
+            error={errors.ubicacionMuestreo}
+          >
             <textarea
+              id="ubicacion-muestreo"
               name="ubicacionMuestreo"
               value={formData.ubicacionMuestreo}
               onChange={handleChange}
               placeholder="Ej. Barrio X, frente a la iglesia, Managua"
-              className={`w-full resize-none rounded-lg border-2 bg-transparent px-4 py-3 focus:border-blue-900 focus:outline-none ${
-                errors.ubicacionMuestreo ? "border-red-400" : "border-gray-300"
-              }`}
+              className="min-h-[96px] w-full resize-y rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-blue-800"
               rows={3}
             />
-          )}
-          {errors.ubicacionMuestreo && (
-            <p className="mt-2 text-xs text-red-500">{errors.ubicacionMuestreo}</p>
-          )}
-        </div>
-      </div>
+          </IconField>
+        )}
+      </section>
 
-      {/* Summary */}
       {( (Array.isArray(formData.tipoServicio) ? formData.tipoServicio.length > 0 : !!formData.tipoServicio)
         || (Array.isArray(formData.matriz) ? formData.matriz.length > 0 : !!formData.matriz)
         || formData.analisisSolicitados.length > 0) && (
-        <div className="bg-blue-50 border-l-4 border-blue-900 p-6 rounded-lg">
-          <p className="text-sm text-gray-700 font-semibold">
-            Resumen: <span className="text-blue-900 font-bold">{selectedServiceLabels()}</span> |
-            <span className="text-blue-900 font-bold"> {selectedMatrixLabels()}</span> |
-            <span className="text-blue-900 font-bold"> {formData.analisisSolicitados.length} análisis agregado(s)</span>
+        <div className="rounded-lg border-l-4 border-blue-900 bg-blue-50 p-6">
+          <p className="text-sm font-semibold text-gray-700">
+            Resumen: <span className="font-bold text-blue-900">{selectedServiceLabels()}</span> |
+            <span className="font-bold text-blue-900"> {selectedMatrixLabels()}</span> |
+            <span className="font-bold text-blue-900"> {formData.analisisSolicitados.length} análisis agregado(s)</span>
           </p>
         </div>
       )}
@@ -1172,21 +1265,13 @@ export default function SolicitudServicioPage() {
 
   const renderStep3 = () => (
     <div className="space-y-8">
-      <div className="flex items-center gap-4">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-green-100 to-green-200 shadow">
-          <FileCheck className="h-7 w-7 text-green-600" />
-        </div>
-        <div>
-          <h2 className="text-2xl font-bold text-blue-900">Observaciones y Confirmación</h2>
-          <p className="text-sm text-[#6a7282]">Revise su solicitud y agregue comentarios adicionales</p>
-        </div>
+      <div>
+        <h2 className="mb-1 text-2xl font-bold text-blue-900 sm:text-3xl">Observaciones y Confirmación</h2>
+        <p className="text-gray-600">Revise su solicitud y agregue comentarios adicionales</p>
       </div>
 
       <div className="rounded-lg border-l-4 border-blue-900 bg-blue-50 p-6">
-        <h3 className="mb-4 flex items-center gap-3 text-lg font-bold text-blue-900">
-          <div className="h-7 w-1 rounded-full bg-blue-900" />
-          Resumen de su Solicitud
-        </h3>
+        <h3 className="mb-4 text-lg font-bold text-blue-900">Resumen de su Solicitud</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <div>
             <p className="mb-1 text-xs text-gray-500">Solicitud No.</p>
@@ -1218,113 +1303,131 @@ export default function SolicitudServicioPage() {
           </div>
         </div>
         {formData.analisisSolicitados.length > 0 && (
-          <div className="mt-5 overflow-hidden rounded-lg border border-blue-100 bg-white">
-            <table className="w-full text-sm">
-              <thead className="bg-white text-left text-xs font-semibold uppercase text-gray-500">
-                <tr>
-                  <th className="px-4 py-2">Tipo de análisis</th>
-                  <th className="px-4 py-2">Técnica</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {formData.analisisSolicitados.map((analysis, index) => (
-                  <tr key={index}>
-                    <td className="px-4 py-2 text-gray-700">{analysis.tipoAnalisis || "—"}</td>
-                    <td className="px-4 py-2 text-gray-700">{analysis.tecnica || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="mt-5 space-y-2">
+            {formData.analisisSolicitados.map((analysis, index) => (
+              <div
+                key={index}
+                className="flex items-start gap-3 rounded-xl border border-blue-100 bg-white p-4"
+              >
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
+                  <FlaskConical className="h-4 w-4" aria-hidden />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">{analysis.tipoAnalisis || "—"}</p>
+                  <p className="text-xs text-gray-500">{analysis.tecnica || "Sin técnica"}</p>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
 
-      <div className="space-y-8">
-        <div className="rounded-lg bg-gray-50 p-6">
-          <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
-            <div className="h-7 w-1 rounded-full bg-[#fbbf24]" />
-            Observaciones
-          </h3>
-          <p className="mb-4 ml-4 text-sm text-[#6a7282]">Opcional · máximo 200 caracteres</p>
-          <textarea
-            name="observaciones"
-            value={formData.observaciones}
-            onChange={handleChange}
-            maxLength={200}
-            placeholder="Agregue cualquier observación, comentario o requerimiento especial para esta solicitud..."
-            className="ml-4 w-[calc(100%-1rem)] resize-none rounded-lg border-2 border-gray-300 bg-white px-4 py-3 focus:border-blue-900 focus:outline-none"
-            rows={5}
-          />
-          <p className="mt-1 ml-4 text-right text-xs text-gray-400">
-            {String(formData.observaciones ?? "").length}/200
-          </p>
-        </div>
-
-        <div className="rounded-lg bg-gray-50 p-6">
-          <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
-            <div className="h-7 w-1 rounded-full bg-blue-900" />
-            Verificación Final
-          </h3>
-          <p className="mb-6 ml-4 text-sm text-[#6a7282]">Complete la información de verificación</p>
-          <div className="ml-4 grid grid-cols-1 gap-8 sm:grid-cols-2">
-            <div className="relative group">
-              <select
-                name="firma"
-                value={formData.firma}
-                onChange={handleChange}
-                disabled={loadingUsuarios}
-                className={`w-full border-b-2 bg-transparent px-0 py-3 focus:outline-none ${errors.firma ? "border-red-500" : "border-gray-300 focus:border-blue-900"}`}
-              >
-                <option value="">{loadingUsuarios ? "Cargando usuarios…" : "Seleccione un usuario"}</option>
-                {usuarios.map((u) => (
-                  <option key={u.idUsuario} value={u.idUsuario}>
-                    {nombreUsuarioLista(u)}
-                  </option>
-                ))}
-              </select>
-              <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 group-focus-within:text-blue-900">
-                Firma del usuario
-              </label>
-              {errors.firma && <p className="mt-1 text-xs text-red-500">{errors.firma}</p>}
-            </div>
-            <div className="relative group">
-              <select
-                name="recibidoPor"
-                value={formData.recibidoPor}
-                onChange={handleChange}
-                disabled={loadingUsuarios}
-                className={`w-full border-b-2 bg-transparent px-0 py-3 focus:outline-none ${errors.recibidoPor ? "border-red-500" : "border-gray-300 focus:border-blue-900"}`}
-              >
-                <option value="">{loadingUsuarios ? "Cargando usuarios…" : "Seleccione un usuario"}</option>
-                {usuarios.map((u) => (
-                  <option key={u.idUsuario} value={u.idUsuario}>
-                    {nombreUsuarioLista(u)}
-                  </option>
-                ))}
-              </select>
-              <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 group-focus-within:text-blue-900">
-                Solicitud recibida por
-              </label>
-              {errors.recibidoPor && <p className="mt-1 text-xs text-red-500">{errors.recibidoPor}</p>}
-            </div>
-            <div className="relative group sm:col-span-2">
-              <input
-                type="date"
-                name="fechaProforma"
-                value={formData.fechaProforma}
-                onChange={handleChange}
-                className="w-full border-b-2 border-gray-300 bg-transparent px-0 py-3 focus:border-blue-900 focus:outline-none"
-              />
-              <label className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 group-focus-within:text-blue-900">
-                Fecha de envío de la proforma
-              </label>
-            </div>
+      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
+          <span className="h-7 w-1 rounded-full bg-yellow-400" />
+          Observaciones
+        </h3>
+        <p className="mb-5 ml-4 text-sm text-gray-500">Opcional. Máximo 200 caracteres.</p>
+        <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/80 p-4">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
+            <StickyNote className="h-4 w-4" aria-hidden />
+          </span>
+          <div className="min-w-0 flex-1">
+            <textarea
+              name="observaciones"
+              value={formData.observaciones}
+              onChange={handleChange}
+              maxLength={200}
+              placeholder="Agregue cualquier observación, comentario o requerimiento especial para esta solicitud..."
+              className="min-h-[96px] w-full resize-y rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-blue-800"
+              rows={4}
+            />
+            <p className="mt-1 text-right text-xs text-gray-400">
+              {String(formData.observaciones ?? "").length}/200
+            </p>
           </div>
-          <p className="mt-5 ml-4 text-xs text-[#6a7282]">
-            Al seleccionar la firma acepta los términos y condiciones del servicio
-          </p>
         </div>
-      </div>
+      </section>
+
+      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
+          <span className="h-7 w-1 rounded-full bg-blue-900" />
+          Verificación final
+        </h3>
+        <p className="mb-5 ml-4 text-sm text-gray-500">Complete la información de verificación</p>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <IconField
+            id="firma-usuario"
+            icon={PenLine}
+            tone="bg-sky-50 text-sky-700"
+            label="Firma del usuario"
+            hint="Usuario que firma la solicitud"
+            required
+            error={errors.firma}
+          >
+            <select
+              id="firma-usuario"
+              name="firma"
+              value={formData.firma}
+              onChange={handleChange}
+              disabled={loadingUsuarios}
+              className={ICON_INPUT}
+            >
+              <option value="">{loadingUsuarios ? "Cargando usuarios…" : "Seleccione un usuario"}</option>
+              {usuarios.map((u) => (
+                <option key={u.idUsuario} value={u.idUsuario}>
+                  {nombreUsuarioLista(u)}
+                </option>
+              ))}
+            </select>
+          </IconField>
+          <IconField
+            id="recibido-por"
+            icon={UserCheck}
+            tone="bg-indigo-50 text-indigo-700"
+            label="Solicitud recibida por"
+            hint="Usuario que recibe la solicitud"
+            required
+            error={errors.recibidoPor}
+          >
+            <select
+              id="recibido-por"
+              name="recibidoPor"
+              value={formData.recibidoPor}
+              onChange={handleChange}
+              disabled={loadingUsuarios}
+              className={ICON_INPUT}
+            >
+              <option value="">{loadingUsuarios ? "Cargando usuarios…" : "Seleccione un usuario"}</option>
+              {usuarios.map((u) => (
+                <option key={u.idUsuario} value={u.idUsuario}>
+                  {nombreUsuarioLista(u)}
+                </option>
+              ))}
+            </select>
+          </IconField>
+          <IconField
+            id="fecha-proforma"
+            icon={CalendarCheck}
+            tone="bg-amber-50 text-amber-700"
+            label="Fecha de envío de la proforma"
+            hint="Día en que se enviará la proforma"
+            className="md:col-span-2"
+          >
+            <input
+              id="fecha-proforma"
+              type="date"
+              name="fechaProforma"
+              value={formData.fechaProforma}
+              onChange={handleChange}
+              className={ICON_INPUT}
+            />
+          </IconField>
+        </div>
+        <p className="mt-5 text-xs text-gray-500">
+          Al seleccionar la firma acepta los términos y condiciones del servicio
+        </p>
+      </section>
     </div>
   );
 
@@ -1466,15 +1569,15 @@ export default function SolicitudServicioPage() {
         onCancel={cerrarAvisoInactivo}
       />
 
-      <ConfirmDialog
-        open={!!errorGuardado}
-        title={isEdit ? "No se pudo actualizar la solicitud" : "No se pudo crear la solicitud"}
-        message={errorGuardado}
-        confirmText="Entendido"
-        showCancel={false}
-        confirmClass="bg-red-600 hover:bg-red-700"
-        onConfirm={() => setErrorGuardado("")}
-        onCancel={() => setErrorGuardado("")}
+      <ValidationIssuesModal
+        open={validationOpen}
+        title={validationTitle}
+        description={validationDescription}
+        issues={validationIssues}
+        apiMessage={validationApiMessage}
+        onClose={() => setValidationOpen(false)}
+        onGoToStep={irAlPasoDesdeModal}
+        primaryLabel={validationIssues[0]?.step != null ? "Ir a corregir" : "Entendido"}
       />
     </div>
   );

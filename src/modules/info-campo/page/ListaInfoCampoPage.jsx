@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { FaEllipsisV, FaPlus, FaSearch, FaSpinner, FaTimes } from "react-icons/fa";
+import { FaEllipsisV, FaPlus, FaSearch, FaSpinner } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import { useToast } from "../../../components/ToastContext.jsx";
 import { ROUTES } from "../../../router/routes.js";
+import CampoDetalleModal from "../components/CampoDetalleModal.jsx";
 import { deleteInfoCampo, getFormatoCampoById, getFormatosCampo } from "../service/infoCampoService.js";
 
 const ACCIONES_MENU_ALTURA_PX = 168;
@@ -16,9 +17,11 @@ export default function ListaInfoCampoPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [accionesMenu, setAccionesMenu] = useState(null);
+  const detalleRequestId = useRef(0);
 
   const loadRegistros = useCallback(async () => {
     try {
@@ -174,13 +177,20 @@ export default function ListaInfoCampoPage() {
               role="menuitem"
               className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
               onClick={async () => {
-                // GET by id para mostrar ensayos y parámetros, no solo la fila de la tabla.
                 const registro = accionesMenu.registro;
+                const req = ++detalleRequestId.current;
                 setAccionesMenu(null);
+                setDetail(null);
+                setDetailLoading(true);
                 try {
-                  setDetail(await getFormatoCampoById(registro.idFormatoCampo));
+                  const data = await getFormatoCampoById(registro.idFormatoCampo);
+                  if (req !== detalleRequestId.current) return;
+                  setDetail(data);
                 } catch {
+                  if (req !== detalleRequestId.current) return;
                   setDetail(registro);
+                } finally {
+                  if (req === detalleRequestId.current) setDetailLoading(false);
                 }
               }}
             >
@@ -234,29 +244,23 @@ export default function ListaInfoCampoPage() {
         }}
       />
 
-      {detail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-lg bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b px-6 py-4">
-              <h2 className="text-lg font-semibold text-gray-800">Detalle de campo</h2>
-              <button type="button" onClick={() => setDetail(null)} className="rounded p-1 text-gray-400 hover:bg-gray-100">
-                <FaTimes className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="space-y-3 p-6 text-sm">
-              <p><span className="font-medium text-gray-600">Muestra:</span> {detail.identificacionMuestra}</p>
-              <p><span className="font-medium text-gray-600">Proforma:</span> {detail.numeroProforma}</p>
-              <p><span className="font-medium text-gray-600">Comunidad:</span> {detail.comunidad || "—"}</p>
-              <p><span className="font-medium text-gray-600">Matriz:</span> {detail.matriz}</p>
-              <p><span className="font-medium text-gray-600">Fuente:</span> {detail.fuente}</p>
-              <p><span className="font-medium text-gray-600">Tipo de muestreo:</span> {detail.tipoMuestreo || "—"}</p>
-              <p><span className="font-medium text-gray-600">Usuario:</span> {detail.usuario || "—"}</p>
-              <p><span className="font-medium text-gray-600">Estado:</span> {detail.estado || "—"}</p>
-              <p><span className="font-medium text-gray-600">Ensayos:</span> {(detail.ensayos ?? []).map((e) => e.nombreAnalisis).filter(Boolean).join(", ") || "—"}</p>
-              <p><span className="font-medium text-gray-600">Observación:</span> {detail.observacion || "—"}</p>
-            </div>
-          </div>
-        </div>
+      {(detailLoading || detail) && (
+        <CampoDetalleModal
+          detail={detail}
+          loading={detailLoading && !detail}
+          onClose={() => {
+            detalleRequestId.current += 1;
+            setDetail(null);
+            setDetailLoading(false);
+          }}
+          onEdit={() => {
+            if (!detail?.idFormatoCampo) return;
+            detalleRequestId.current += 1;
+            navigate(ROUTES.infoCampoEditar(detail.idFormatoCampo));
+            setDetail(null);
+            setDetailLoading(false);
+          }}
+        />
       )}
     </div>
   );

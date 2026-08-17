@@ -21,7 +21,7 @@ export default function PlanMuestreoLayout({
 }) {
   const maxWidth = wide ? "max-w-7xl" : "max-w-5xl";
   return (
-    <div className="flex min-h-full min-w-0 w-full flex-1 flex-col bg-gray-100 text-gray-800">
+    <div className="min-h-full w-full bg-gray-100 text-gray-800">
       <div className="bg-yellow-400 py-2 text-center font-semibold text-blue-900">
         {areaBanner}
       </div>

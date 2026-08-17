@@ -175,33 +175,31 @@ export function collectOrdenIssues(form, extras = {}) {
   }
 
   // ── Paso 2: Servicios ──
-  if (!Number(form.idTipoMuestreo)) {
+  if (!Number(form.idTipoMuestreo) && form.modalidadMuestreo !== "otros") {
     issues.push(
       issue({
         step: 2,
         field: "idTipoMuestreo",
-        label: "Tipo de muestreo (catálogo)",
+        label: "Tipo de muestreo",
         tipo: "vacio",
-        detalle: "Debe elegir el tipo de muestreo del catálogo. La API lo exige para crear la orden.",
-        formato: "Seleccione Puntual, Compuesto u otro tipo registrado en el catálogo.",
+        detalle: "Debe elegir un tipo de muestreo.",
+        formato: "Seleccione un tipo del catálogo u «Otro» si necesita especificar uno distinto.",
       }),
     );
   }
 
   if (form.modalidadMuestreo === "compuesto") {
     const seleccionadas = COMPOUESTO_KEYS.filter((key) => form[key]).length;
-    if (seleccionadas !== 1) {
+    const otroTiempo = trim(form.compuestoOtroTiempo);
+    if (seleccionadas === 0 && !otroTiempo) {
       issues.push(
         issue({
           step: 2,
           field: "compuestoOpcion",
           label: "Duración del muestreo compuesto",
-          tipo: seleccionadas === 0 ? "vacio" : "formato",
-          detalle:
-            seleccionadas === 0
-              ? "No eligió la duración del muestreo compuesto."
-              : "Solo puede marcar una duración (8 h, 12 h, 16 h o 24 h).",
-          formato: "Marque una sola casilla: 8 h, 12 h, 16 h o 24 h.",
+          tipo: "vacio",
+          detalle: "No eligió la duración del muestreo compuesto.",
+          formato: "Marque una o más duraciones (8 h, 12 h, 16 h, 24 h) u Otro si el tiempo es distinto.",
         }),
       );
     }

@@ -17,6 +17,7 @@ export async function fetchElevacion(lat, lng) {
 
 export default function ElevationField({
   id = "muestra-elevacion",
+  label = "Elevación (msnm)",
   value,
   onChange,
   latitud,
@@ -54,9 +55,11 @@ export default function ElevationField({
 
   return (
     <div>
-      <label htmlFor={id} className="mb-1 block text-sm font-medium text-gray-700">
-        Elevación
-      </label>
+      {label ? (
+        <label htmlFor={id} className="mb-1 block text-sm font-medium text-gray-700">
+          {label}
+        </label>
+      ) : null}
       <div className="rounded-lg border border-gray-300 bg-white p-3">
         <div className="flex items-center gap-2">
           <Mountain className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden />

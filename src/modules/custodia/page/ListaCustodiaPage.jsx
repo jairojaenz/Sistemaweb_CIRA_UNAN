@@ -4,11 +4,12 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { FaEllipsisV, FaPlus, FaSearch, FaSpinner, FaTimes } from "react-icons/fa";
+import { FaEllipsisV, FaPlus, FaSearch, FaSpinner } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import { useToast } from "../../../components/ToastContext.jsx";
 import { ROUTES } from "../../../router/routes.js";
+import CustodiaDetalleModal, { EstadoCustodiaBadge } from "../components/CustodiaDetalleModal.jsx";
 import { deleteCustodia, getCustodiaById, getCustodias } from "../service/custodiaService.js";
 
 const ACCIONES_MENU_ALTURA_PX = 168; // Si no hay espacio abajo, el menú se abre hacia arriba.
@@ -148,7 +149,9 @@ export default function ListaCustodiaPage() {
                   </td>
                   <td className="px-4 py-3 sm:px-6">#{registro.idFormatoCampo}</td>
                   <td className="px-4 py-3 sm:px-6">{registro.usuario || "—"}</td>
-                  <td className="px-4 py-3 sm:px-6">{registro.estado}</td>
+                  <td className="px-4 py-3 sm:px-6">
+                    <EstadoCustodiaBadge estado={registro.estado} />
+                  </td>
                   <td className="px-4 py-3 sm:px-6">
                     <button
                       type="button"
@@ -238,26 +241,7 @@ export default function ListaCustodiaPage() {
         }}
       />
 
-      {detail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-lg bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b px-6 py-4">
-              <h2 className="text-lg font-semibold text-gray-800">Detalle de custodia</h2>
-              <button type="button" onClick={() => setDetail(null)} className="rounded p-1 text-gray-400 hover:bg-gray-100">
-                <FaTimes className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="space-y-3 p-6 text-sm">
-              <p><span className="font-medium text-gray-600">Muestra:</span> {detail.identificacionMuestra || "—"}</p>
-              <p><span className="font-medium text-gray-600">Campo:</span> #{detail.idFormatoCampo}</p>
-              <p><span className="font-medium text-gray-600">Usuario:</span> {detail.usuario || "—"}</p>
-              <p><span className="font-medium text-gray-600">Estado:</span> {detail.estado}</p>
-              <p><span className="font-medium text-gray-600">Muestras en cadena:</span> {(detail.detalles ?? []).length}</p>
-              <p><span className="font-medium text-gray-600">Entregas:</span> {(detail.entregas ?? []).length}</p>
-            </div>
-          </div>
-        </div>
-      )}
+      {detail ? <CustodiaDetalleModal detail={detail} onClose={() => setDetail(null)} /> : null}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, useNavigate, useParams, useLocation } from "react-router-dom";
 import { FaEdit, FaEye, FaSearch, FaSpinner, FaTimes, FaTrash } from "react-icons/fa";
 import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
@@ -6,6 +6,7 @@ import { useAuth } from "../../../auth/AuthContext.jsx";
 import { useToast } from "../../../components/ToastContext.jsx";
 import { ROUTES } from "../../../router/routes.js";
 import { getDepartamentos, getMunicipios, getUsuarios } from "../../usuarios/service/usuarioService.js";
+import { getLaboratorios } from "../../laboratorios/service/laboratorioService.js";
 import { getFormatosCampo, labelFormatoCampo } from "../service/catalogosOrdenService.js";
 import { getTiposMuestreo } from "../../catalogos/service/tiposMuestreoService.js";
 import { modalidadFromTipoNombre } from "../utils/formToOrdenServicioPayload.js";
@@ -29,6 +30,7 @@ import {
 import { formToOrdenServicioPayload } from "../utils/formToOrdenServicioPayload.js";
 import { getProformas } from "../../proforma/service/proformaService.js";
 import OrdenServicioFormView from "./OrdenServicioFormView.jsx";
+import OrdenPrefillWarningModal from "../components/OrdenPrefillWarningModal.jsx";
 
 const COMPOUESTO_OPTION_KEYS = ["compuesto8h", "compuesto12h", "compuesto16h", "compuesto24h"];
 
@@ -66,11 +68,12 @@ const initialForm = {
   hojaObservacionOrden: false,
   informeTecnicoOrden: false,
   otroServicio: "",
-  modalidadMuestreo: "puntual",
+  modalidadMuestreo: "",
   compuesto8h: false,
   compuesto12h: false,
   compuesto16h: false,
   compuesto24h: false,
+  compuestoOtroTiempo: "",
   modalidadMuestreoOtros: "",
   detalleMuestras: [emptyDetalleRow(1)],
   controlRecepcion: [emptyControlRecepcionRow()],
@@ -209,6 +212,7 @@ export default function FormatosOrdenServicioPage() {
 
   const [ordenes, setOrdenes] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
+  const [laboratorios, setLaboratorios] = useState([]);
   const [formatosCampo, setFormatosCampo] = useState([]);
   const [tiposMuestreo, setTiposMuestreo] = useState([]);
   const [departamentos, setDepartamentos] = useState([]);
@@ -226,6 +230,9 @@ export default function FormatosOrdenServicioPage() {
   const [deletingId, setDeletingId] = useState(null);
   const [solicitudOrigen, setSolicitudOrigen] = useState(null);
   const [solicitudPrefillLoading, setSolicitudPrefillLoading] = useState(false);
+  const [prefillWarning, setPrefillWarning] = useState(null);
+  const [formStartStep, setFormStartStep] = useState(1);
+  const prefillWarnedRef = useRef(null);
 
   const loadOrdenes = useCallback(async () => {
     try {
@@ -242,18 +249,20 @@ export default function FormatosOrdenServicioPage() {
   const loadCatalogs = useCallback(async () => {
     try {
       setCatalogsLoading(true);
-      const [users, campos, tipos, deps, muns] = await Promise.all([
+      const [users, campos, tipos, deps, muns, labs] = await Promise.all([
         getUsuarios(),
         getFormatosCampo(),
         getTiposMuestreo(),
         getDepartamentos(),
         getMunicipios(),
+        getLaboratorios(),
       ]);
       setUsuarios((users ?? []).filter((u) => u.activo !== false && u.Activo !== false));
       setFormatosCampo(campos);
       setTiposMuestreo((tipos ?? []).filter((t) => t.activo !== false));
       setDepartamentos(deps ?? []);
       setMunicipios(muns ?? []);
+      setLaboratorios((labs ?? []).filter((l) => l.activo !== false && l.Activo !== false));
     } catch (err) {
       addToast(err.message, "error");
     } finally {
@@ -309,11 +318,13 @@ export default function FormatosOrdenServicioPage() {
             if (match) mapped.idTipoMuestreo = String(match.idTipoMuestreo);
           }
           setForm(mapped);
-          if (!tipoMuestreoNombre) {
-            addToast(
-              "La solicitud no tiene proforma con tipo de muestreo. Complételo manualmente en la sección 2.",
-              "warning",
-            );
+          if (!tipoMuestreoNombre && prefillWarnedRef.current !== String(solicitudIdParam)) {
+            prefillWarnedRef.current = String(solicitudIdParam);
+            const numeroSolicitud = data.numeroSolicitud ?? data.NumeroSolicitud ?? "";
+            setPrefillWarning({
+              kind: proforma ? "sin-tipo-muestreo" : "sin-proforma",
+              numeroSolicitud,
+            });
           }
           setFormErrors({});
         } catch (err) {
@@ -439,32 +450,34 @@ export default function FormatosOrdenServicioPage() {
         compuesto12h: false,
         compuesto16h: false,
         compuesto24h: false,
+        compuestoOtroTiempo: "",
         modalidadMuestreoOtros: value === "otros" ? prev.modalidadMuestreoOtros : "",
         idTipoMuestreo: (() => {
           const match = tiposMuestreo.find((t) => modalidadFromTipoNombre(t.nombreTipoMuestreo ?? t.nombre) === value);
-          return match ? String(match.idTipoMuestreo) : prev.idTipoMuestreo;
+          return match ? String(match.idTipoMuestreo) : "";
         })(),
       }));
       setFormErrors((prev) => ({
         ...prev,
         compuestoOpcion: "",
         modalidadMuestreoOtros: "",
+        idTipoMuestreo: "",
       }));
+      return;
+    }
+
+    if (name === "compuestoOtroTiempo") {
+      setForm((prev) => ({
+        ...prev,
+        compuestoOtroTiempo: value,
+      }));
+      setFormErrors((prev) => ({ ...prev, compuestoOpcion: "" }));
       return;
     }
 
     if (COMPOUESTO_OPTION_KEYS.includes(name) && type === "checkbox") {
       setForm((prev) => {
-        const cleared = {
-          compuesto8h: false,
-          compuesto12h: false,
-          compuesto16h: false,
-          compuesto24h: false,
-        };
-        if (checked) {
-          cleared[name] = true;
-        }
-        const merged = { ...prev, ...cleared };
+        const merged = { ...prev, [name]: checked };
         const errors = validateForm(merged);
         setFormErrors((e) => ({
           ...e,
@@ -491,6 +504,7 @@ export default function FormatosOrdenServicioPage() {
         compuesto12h: modalidad === "compuesto" ? prev.compuesto12h : false,
         compuesto16h: modalidad === "compuesto" ? prev.compuesto16h : false,
         compuesto24h: modalidad === "compuesto" ? prev.compuesto24h : false,
+        compuestoOtroTiempo: modalidad === "compuesto" ? prev.compuestoOtroTiempo : "",
         modalidadMuestreoOtros: modalidad === "otros" ? prev.modalidadMuestreoOtros : "",
       }));
       setFormErrors((prev) => ({ ...prev, idTipoMuestreo: "", compuestoOpcion: "", modalidadMuestreoOtros: "" }));
@@ -612,7 +626,11 @@ export default function FormatosOrdenServicioPage() {
         throw new Error("Seleccione un formato de campo en el paso 1.");
       }
       if (!payload.idTipoMuestreo) {
-        throw new Error("Seleccione el tipo de muestreo del catálogo en el paso 2.");
+        throw new Error(
+          form.modalidadMuestreo === "otros"
+            ? "Para guardar «Otro» registre ese tipo en el catálogo de tipos de muestreo, o elija Puntual o Compuesto."
+            : "Seleccione el tipo de muestreo en el paso 2.",
+        );
       }
       if (editingOrden?.idFormatoOrden) {
         await updateOrdenServicio(editingOrden.idFormatoOrden, payload);
@@ -673,6 +691,7 @@ export default function FormatosOrdenServicioPage() {
     }
 
     return (
+      <>
       <OrdenServicioFormView
         form={form}
         formErrors={formErrors}
@@ -693,10 +712,31 @@ export default function FormatosOrdenServicioPage() {
         departamentos={departamentos}
         municipiosFiltrados={municipiosFiltrados}
         usuarios={usuarios}
+        laboratorios={laboratorios}
         formatosCampo={formatosCampo}
         tiposMuestreo={tiposMuestreo}
         solicitudOrigen={solicitudOrigen?.numeroSolicitud ?? solicitudOrigen?.NumeroSolicitud ?? null}
+        initialStep={formStartStep}
       />
+      <OrdenPrefillWarningModal
+        open={Boolean(prefillWarning)}
+        kind={prefillWarning?.kind}
+        numeroSolicitud={prefillWarning?.numeroSolicitud}
+        onClose={() => setPrefillWarning(null)}
+        onContinueHere={() => {
+          setPrefillWarning(null);
+          setFormStartStep(2);
+        }}
+        onGoToProforma={() => {
+          setPrefillWarning(null);
+          if (prefillWarning?.kind === "sin-tipo-muestreo") {
+            navigate(ROUTES.proformas);
+            return;
+          }
+          navigate(ROUTES.nuevaProformaFromSolicitud(solicitudIdParam));
+        }}
+      />
+      </>
     );
   }
 

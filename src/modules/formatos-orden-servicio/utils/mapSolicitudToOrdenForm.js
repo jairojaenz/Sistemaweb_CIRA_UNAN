@@ -81,6 +81,7 @@ export function parseTipoMuestreoSolicitado(nombreTipo) {
     compuesto12h: false,
     compuesto16h: false,
     compuesto24h: false,
+    compuestoOtroTiempo: "",
     modalidadMuestreoOtros: "",
   };
 

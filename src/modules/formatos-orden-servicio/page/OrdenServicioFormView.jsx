@@ -1,20 +1,36 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   BarChart3,
+  Building2,
+  CalendarDays,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
+  Clock,
   FileText,
   FlaskConical,
+  Hash,
+  Landmark,
+  Loader2,
+  Mail,
   MapPin,
+  MoreHorizontal,
+  PackageCheck,
+  Phone,
+  PhoneCall,
   Plus,
   Trash2,
   Truck,
   User,
+  UserRound,
+  XCircle,
 } from "lucide-react";
-import { FaSpinner } from "react-icons/fa";
 import WizardStepIndicator from "../../../components/WizardStepIndicator.jsx";
+import ValidationIssuesModal from "../../../components/ValidationIssuesModal.jsx";
+import { CatalogChoiceCard, HoraChoiceCard, ICON_INPUT, IconField } from "../../../components/formFields.jsx";
+import { asignarEstilosUnicos, estiloTipoMuestreo } from "../../../utils/catalogIcons.js";
+import { modalidadFromTipoNombre } from "../utils/formToOrdenServicioPayload.js";
 import { labelFormatoCampo } from "../service/catalogosOrdenService.js";
-import OrdenValidationModal from "../components/OrdenValidationModal.jsx";
 import {
   collectOrdenIssues,
   issuesForStep,
@@ -72,40 +88,40 @@ function FloatInput({
   value,
   onChange,
   type = "text",
-  placeholder = " ",
   error,
   required,
   className = "",
+  icon: Icon,
+  tone = "bg-blue-50 text-blue-800",
+  hint,
 }) {
   const id = `orden-${name}`;
   return (
-    <div className={`relative group ${className}`}>
+    <IconField
+      id={id}
+      icon={Icon || FileText}
+      tone={tone}
+      label={label}
+      required={required}
+      error={error}
+      hint={hint}
+      className={className}
+    >
       <input
         id={id}
         type={type}
         name={name}
         value={value}
         onChange={onChange}
-        placeholder={placeholder}
-        className={`peer w-full border-b-2 bg-transparent px-0 py-3 placeholder-transparent transition-colors focus:outline-none ${
-          error ? "border-red-500" : "border-gray-300 focus:border-blue-900"
-        }`}
+        className={ICON_INPUT}
       />
-      <label
-        htmlFor={id}
-        className="absolute left-0 -top-4 text-sm font-semibold text-gray-700 transition-all peer-placeholder-shown:top-3 peer-focus:-top-4 peer-focus:text-blue-900"
-      >
-        {label}
-        {required && <span className="text-red-500"> *</span>}
-      </label>
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
-    </div>
+    </IconField>
   );
 }
 
 function Panel({ children, className = "" }) {
   return (
-    <div className={`rounded-xl border border-gray-100 bg-slate-50/80 p-5 sm:p-6 ${className}`}>
+    <div className={`rounded-xl border border-gray-200 bg-white p-6 shadow-sm ${className}`}>
       {children}
     </div>
   );
@@ -124,6 +140,47 @@ function ChoiceButton({ active, onClick, children, className = "" }) {
     >
       {children}
     </button>
+  );
+}
+
+function OtroTiempoModal({ open, value, onChange, onConfirm, onCancel }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+        <h3 className="text-lg font-semibold text-blue-900">Tiempo de muestreo distinto</h3>
+        <p className="mt-2 text-sm text-gray-600">
+          Use este campo si el muestreo no se realizó en el lapso de 8 a 24 horas (por ejemplo 36 h, 48 h o 3 días).
+        </p>
+        <label className="mt-4 block text-sm font-semibold text-gray-700">
+          Hora o tiempo
+          <input
+            type="text"
+            className={`${ICON_INPUT} mt-1`}
+            placeholder="Ej. 36 h, 48 h, 3 días"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        </label>
+        <div className="mt-5 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={!String(value ?? "").trim()}
+            onClick={onConfirm}
+            className="rounded-lg bg-blue-900 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Guardar
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -180,17 +237,25 @@ export default function OrdenServicioFormView({
   departamentos,
   municipiosFiltrados,
   usuarios = [],
+  laboratorios = [],
   formatosCampo = [],
   tiposMuestreo = [],
   solicitudOrigen = null,
+  initialStep = 1,
 }) {
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(initialStep > 1 ? initialStep : 1);
   const [validationOpen, setValidationOpen] = useState(false);
   const [validationIssues, setValidationIssues] = useState([]);
   const [apiMessage, setApiMessage] = useState("");
+  const [modalOtroHoraOpen, setModalOtroHoraOpen] = useState(false);
+  const [otroTiempoDraft, setOtroTiempoDraft] = useState("");
   const compuesto = form.modalidadMuestreo === "compuesto";
   const otros = form.modalidadMuestreo === "otros";
   const extras = validationExtras({ usuarios, formatosCampo, idUsuarioSesion, catalogsLoading });
+
+  useEffect(() => {
+    if (initialStep > 1) setCurrentStep(initialStep);
+  }, [initialStep]);
 
   function goNext() {
     const stepIssues = issuesForStep(
@@ -198,7 +263,12 @@ export default function OrdenServicioFormView({
       currentStep,
     );
     onFormErrors?.(issuesToFormErrors(stepIssues));
-    if (stepIssues.length > 0) return;
+    if (stepIssues.length > 0) {
+      setValidationIssues(stepIssues);
+      setApiMessage("");
+      setValidationOpen(true);
+      return;
+    }
     setCurrentStep((s) => Math.min(s + 1, TOTAL_STEPS));
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -254,6 +324,31 @@ export default function OrdenServicioFormView({
     onChange({ target: { name, type: "checkbox", checked } });
   }
 
+  const tiposCatalogo = tiposMuestreo.filter((t) => {
+    const nombre = t.nombreTipoMuestreo ?? t.nombre ?? "";
+    return modalidadFromTipoNombre(nombre) !== "otros";
+  });
+
+  function seleccionarOtroTipo() {
+    setRadio("modalidadMuestreo", "otros");
+  }
+
+  function toggleOtroHora() {
+    if (form.compuestoOtroTiempo) {
+      onChange({ target: { name: "compuestoOtroTiempo", value: "" } });
+      return;
+    }
+    setOtroTiempoDraft(form.compuestoOtroTiempo ?? "");
+    setModalOtroHoraOpen(true);
+  }
+
+  function confirmarOtroHora() {
+    const valor = otroTiempoDraft.trim();
+    if (!valor) return;
+    onChange({ target: { name: "compuestoOtroTiempo", value: valor } });
+    setModalOtroHoraOpen(false);
+  }
+
   return (
     <div className="flex min-h-full w-full flex-1 flex-col bg-gray-100">
       <div className="bg-yellow-400 py-2.5 text-center text-sm font-bold tracking-wide text-blue-900">
@@ -272,7 +367,7 @@ export default function OrdenServicioFormView({
           </button>
           {catalogsLoading && (
             <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-4 py-2 text-xs font-medium text-amber-800 ring-1 ring-amber-200">
-              <FaSpinner className="h-3 w-3 animate-spin" />
+              <Loader2 className="h-3 w-3 animate-spin" />
               Cargando catálogos…
             </span>
           )}
@@ -304,9 +399,13 @@ export default function OrdenServicioFormView({
                     </p>
                   </div>
 
-                  <div>
-                    <SectionHeader title="Datos de la orden" subtitle="Número, proforma y fecha de recepción" />
-                    <div className="ml-4 grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+                  <Panel>
+                    <SectionHeader
+                      accent="bg-blue-900"
+                      title="Datos de la orden"
+                      subtitle="Número, proforma y fecha de recepción"
+                    />
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                       <FloatInput
                         label="Orden Nº"
                         name="numeroOrden"
@@ -315,12 +414,18 @@ export default function OrdenServicioFormView({
                         onChange={onChange}
                         error={formErrors.numeroOrden}
                         required
+                        icon={Hash}
+                        tone="bg-blue-50 text-blue-800"
+                        hint="Número de la orden"
                       />
                       <FloatInput
                         label="Proforma Nº"
                         name="proformaNo"
                         value={form.proformaNo}
                         onChange={onChange}
+                        icon={FileText}
+                        tone="bg-violet-50 text-violet-700"
+                        hint="Si existe, se copia de la solicitud"
                       />
                       <FloatInput
                         label="Fecha de recepción"
@@ -330,9 +435,12 @@ export default function OrdenServicioFormView({
                         onChange={onChange}
                         error={formErrors.fecha}
                         required
+                        icon={CalendarDays}
+                        tone="bg-amber-50 text-amber-700"
+                        hint="Día de recepción de la muestra"
                       />
                     </div>
-                  </div>
+                  </Panel>
 
                   <Panel>
                     <SectionHeader
@@ -341,16 +449,21 @@ export default function OrdenServicioFormView({
                       subtitle="Obligatorios para crear la orden: usuario responsable y formato de campo"
                     />
                     <div className="grid gap-4 sm:grid-cols-2">
-                      <div>
-                        <label htmlFor="orden-idUsuario" className="mb-1.5 block text-sm font-semibold text-gray-700">
-                          Usuario del sistema <span className="text-red-500">*</span>
-                        </label>
+                      <IconField
+                        id="orden-idUsuario"
+                        icon={UserRound}
+                        tone="bg-sky-50 text-sky-700"
+                        label="Usuario del sistema"
+                        hint="Responsable de la orden"
+                        required
+                        error={formErrors.idUsuario}
+                      >
                         <select
                           id="orden-idUsuario"
                           name="idUsuario"
                           value={form.idUsuario}
                           onChange={onChange}
-                          className={`select ${formErrors.idUsuario ? "border-red-500" : ""}`}
+                          className={ICON_INPUT}
                         >
                           <option value="">Seleccione usuario</option>
                           {usuarios.map((u) => {
@@ -362,23 +475,25 @@ export default function OrdenServicioFormView({
                             );
                           })}
                         </select>
-                        {formErrors.idUsuario && (
-                          <p className="mt-1 text-xs text-red-600">{formErrors.idUsuario}</p>
-                        )}
                         {usuarios.length === 0 && !catalogsLoading && (
-                          <p className="mt-1 text-xs text-amber-700">No hay usuarios activos. Regístrelos en Gestión de Usuarios.</p>
+                          <p className="mt-2 text-xs text-amber-700">No hay usuarios activos. Regístrelos en Gestión de Usuarios.</p>
                         )}
-                      </div>
-                      <div>
-                        <label htmlFor="orden-idFormatoCampo" className="mb-1.5 block text-sm font-semibold text-gray-700">
-                          Formato de campo <span className="text-red-500">*</span>
-                        </label>
+                      </IconField>
+                      <IconField
+                        id="orden-idFormatoCampo"
+                        icon={ClipboardList}
+                        tone="bg-indigo-50 text-indigo-700"
+                        label="Formato de campo"
+                        hint="Información de campo asociada"
+                        required
+                        error={formErrors.idFormatoCampo}
+                      >
                         <select
                           id="orden-idFormatoCampo"
                           name="idFormatoCampo"
                           value={form.idFormatoCampo}
                           onChange={onChange}
-                          className={`select ${formErrors.idFormatoCampo ? "border-red-500" : ""}`}
+                          className={ICON_INPUT}
                         >
                           <option value="">Seleccione formato</option>
                           {formatosCampo.map((f) => (
@@ -387,23 +502,20 @@ export default function OrdenServicioFormView({
                             </option>
                           ))}
                         </select>
-                        {formErrors.idFormatoCampo && (
-                          <p className="mt-1 text-xs text-red-600">{formErrors.idFormatoCampo}</p>
-                        )}
                         {formatosCampo.length === 0 && !catalogsLoading && (
-                          <p className="mt-1 text-xs text-amber-700">No hay formatos de campo. Créelos en Información de Campo.</p>
+                          <p className="mt-2 text-xs text-amber-700">No hay formatos de campo. Créelos en Información de Campo.</p>
                         )}
-                      </div>
+                      </IconField>
                     </div>
                   </Panel>
 
-                  <div>
+                  <Panel>
                     <SectionHeader
                       accent="bg-blue-600"
                       title="Contacto"
                       subtitle="Empresa, persona de contacto y medios de comunicación"
                     />
-                    <div className="ml-4 grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                       <FloatInput
                         label="Usuario / Empresa"
                         name="usuarioEmpresa"
@@ -411,9 +523,19 @@ export default function OrdenServicioFormView({
                         onChange={onChange}
                         error={formErrors.usuarioEmpresa}
                         required
-                        className="md:col-span-2 lg:col-span-3"
+                        icon={Building2}
+                        tone="bg-indigo-50 text-indigo-700"
+                        hint="Cliente o institución"
                       />
-                      <FloatInput label="Atención a" name="atencionA" value={form.atencionA} onChange={onChange} />
+                      <FloatInput
+                        label="Atención a"
+                        name="atencionA"
+                        value={form.atencionA}
+                        onChange={onChange}
+                        icon={UserRound}
+                        tone="bg-sky-50 text-sky-700"
+                        hint="Persona de contacto"
+                      />
                       <FloatInput
                         label="Correo electrónico"
                         name="correo"
@@ -421,6 +543,9 @@ export default function OrdenServicioFormView({
                         value={form.correo}
                         onChange={onChange}
                         error={formErrors.correo}
+                        icon={Mail}
+                        tone="bg-teal-50 text-teal-700"
+                        hint="correo@dominio.com"
                       />
                       <FloatInput
                         label="Teléfono"
@@ -428,6 +553,9 @@ export default function OrdenServicioFormView({
                         value={form.telefono}
                         onChange={onChange}
                         error={formErrors.telefono}
+                        icon={Phone}
+                        tone="bg-emerald-50 text-emerald-700"
+                        hint="0000-0000"
                       />
                       <FloatInput
                         label="Celular"
@@ -435,31 +563,48 @@ export default function OrdenServicioFormView({
                         value={form.celular}
                         onChange={onChange}
                         error={formErrors.celular}
+                        icon={PhoneCall}
+                        tone="bg-teal-50 text-teal-700"
+                        hint="0000-0000"
                       />
-                      <FloatInput label="Ext." name="extension" value={form.extension} onChange={onChange} />
+                      <FloatInput
+                        label="Ext."
+                        name="extension"
+                        value={form.extension}
+                        onChange={onChange}
+                        icon={Hash}
+                        tone="bg-slate-100 text-slate-700"
+                        hint="Extensión (opcional)"
+                      />
                     </div>
-                  </div>
+                  </Panel>
 
-                  <div>
+                  <Panel>
                     <SectionHeader accent="bg-emerald-600" title="Ubicación" subtitle="Dirección y departamento" />
-                    <div className="ml-4 grid grid-cols-1 gap-8 md:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <FloatInput
                         label="Dirección"
                         name="direccion"
                         value={form.direccion}
                         onChange={onChange}
                         className="md:col-span-2"
+                        icon={MapPin}
+                        tone="bg-rose-50 text-rose-700"
+                        hint="Sitio o dirección de muestreo"
                       />
-                      <div>
-                        <label htmlFor="orden-departamento" className="mb-1.5 block text-sm font-semibold text-gray-700">
-                          Departamento
-                        </label>
+                      <IconField
+                        id="orden-departamento"
+                        icon={Landmark}
+                        tone="bg-amber-50 text-amber-800"
+                        label="Departamento"
+                        hint="Departamento de Nicaragua"
+                      >
                         <select
                           id="orden-departamento"
                           name="departamento"
                           value={form.departamento}
                           onChange={onChange}
-                          className="select"
+                          className={ICON_INPUT}
                         >
                           <option value="">Seleccione departamento</option>
                           {departamentos.map((d) => {
@@ -471,17 +616,20 @@ export default function OrdenServicioFormView({
                             );
                           })}
                         </select>
-                      </div>
-                      <div>
-                        <label htmlFor="orden-municipio" className="mb-1.5 block text-sm font-semibold text-gray-700">
-                          Municipio
-                        </label>
+                      </IconField>
+                      <IconField
+                        id="orden-municipio"
+                        icon={MapPin}
+                        tone="bg-cyan-50 text-cyan-700"
+                        label="Municipio"
+                        hint="Según el departamento elegido"
+                      >
                         <select
                           id="orden-municipio"
                           name="municipio"
                           value={form.municipio}
                           onChange={onChange}
-                          className="select"
+                          className={ICON_INPUT}
                         >
                           <option value="">
                             {form.departamento ? "Seleccione municipio" : "Primero elija departamento"}
@@ -495,9 +643,9 @@ export default function OrdenServicioFormView({
                             );
                           })}
                         </select>
-                      </div>
+                      </IconField>
                     </div>
-                  </div>
+                  </Panel>
                 </div>
               )}
 
@@ -526,70 +674,63 @@ export default function OrdenServicioFormView({
                         />
                       ))}
                     </div>
-                    <div className="mt-5 ml-4">
-                      <FloatInput
-                        label="Otro servicio (especifique)"
-                        name="otroServicio"
-                        value={form.otroServicio}
-                        onChange={onChange}
-                        className="md:max-w-xl lg:max-w-2xl"
-                      />
-                    </div>
                   </div>
 
                   <Panel>
                     <SectionHeader
                       accent="bg-amber-400"
                       title="Tipo de muestreo solicitado"
-                      subtitle="El catálogo es obligatorio; la modalidad detalla el muestreo en el formulario"
+                      subtitle="Elija un tipo del catálogo o «Otro» si necesita especificar uno distinto. Ninguno está marcado hasta que seleccione."
                     />
-                    <div className="mb-5 max-w-xl">
-                      <label htmlFor="orden-idTipoMuestreo" className="mb-1.5 block text-sm font-semibold text-gray-700">
-                        Tipo de muestreo (catálogo) <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        id="orden-idTipoMuestreo"
-                        name="idTipoMuestreo"
-                        value={form.idTipoMuestreo}
-                        onChange={onChange}
-                        className={`select ${formErrors.idTipoMuestreo ? "border-red-500" : ""}`}
-                      >
-                        <option value="">Seleccione tipo de muestreo</option>
-                        {tiposMuestreo.map((t) => (
-                          <option key={t.idTipoMuestreo} value={String(t.idTipoMuestreo)}>
-                            {t.nombreTipoMuestreo || t.nombre}
-                          </option>
-                        ))}
-                      </select>
-                      {formErrors.idTipoMuestreo && (
-                        <p className="mt-1 text-xs text-red-600">{formErrors.idTipoMuestreo}</p>
-                      )}
-                      {tiposMuestreo.length === 0 && !catalogsLoading && (
-                        <p className="mt-1 text-xs text-amber-700">
-                          No hay tipos de muestreo activos. Cárguelos en el catálogo.
-                        </p>
-                      )}
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {asignarEstilosUnicos(
+                        tiposCatalogo,
+                        (option) => option.nombreTipoMuestreo ?? option.nombre ?? "",
+                        estiloTipoMuestreo,
+                      ).map(({ item: option, estilo }) => {
+                        const nombre = option.nombreTipoMuestreo ?? option.nombre ?? "";
+                        const n = String(nombre).toLowerCase();
+                        const hint = n.includes("compuesto")
+                          ? "Varias tomas en el tiempo"
+                          : n.includes("puntual") || n.includes("simple")
+                            ? "Una sola toma"
+                            : "Tipo de muestreo del catálogo";
+                        return (
+                          <CatalogChoiceCard
+                            key={option.idTipoMuestreo}
+                            selected={
+                              form.modalidadMuestreo !== "otros" &&
+                              String(form.idTipoMuestreo) === String(option.idTipoMuestreo)
+                            }
+                            icon={estilo.icon}
+                            tone={estilo.tone}
+                            label={nombre || "Tipo de muestreo"}
+                            hint={hint}
+                            onClick={() =>
+                              onChange({
+                                target: { name: "idTipoMuestreo", value: String(option.idTipoMuestreo) },
+                              })
+                            }
+                          />
+                        );
+                      })}
+                      <CatalogChoiceCard
+                        selected={otros}
+                        icon={MoreHorizontal}
+                        tone="bg-slate-100 text-slate-700"
+                        label="Otro"
+                        hint="Especifique el tipo que requiere"
+                        onClick={seleccionarOtroTipo}
+                      />
                     </div>
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <ChoiceButton
-                        active={form.modalidadMuestreo === "puntual"}
-                        onClick={() => setRadio("modalidadMuestreo", "puntual")}
-                      >
-                        Puntual
-                      </ChoiceButton>
-                      <ChoiceButton
-                        active={form.modalidadMuestreo === "compuesto"}
-                        onClick={() => setRadio("modalidadMuestreo", "compuesto")}
-                      >
-                        Compuesto
-                      </ChoiceButton>
-                      <ChoiceButton
-                        active={form.modalidadMuestreo === "otros"}
-                        onClick={() => setRadio("modalidadMuestreo", "otros")}
-                      >
-                        Otros
-                      </ChoiceButton>
-                    </div>
+                    {tiposCatalogo.length === 0 && !catalogsLoading && (
+                      <p className="mt-3 text-xs text-amber-700">
+                        No hay tipos de muestreo activos. Cárguelos en el catálogo o use «Otro».
+                      </p>
+                    )}
+                    {formErrors.idTipoMuestreo && (
+                      <p className="mt-2 text-xs font-medium text-red-500">{formErrors.idTipoMuestreo}</p>
+                    )}
 
                     {otros && (
                       <div className="mt-5 md:max-w-lg lg:max-w-xl">
@@ -600,27 +741,52 @@ export default function OrdenServicioFormView({
                           onChange={onChange}
                           error={formErrors.modalidadMuestreoOtros}
                           required
+                          icon={MoreHorizontal}
+                          tone="bg-slate-100 text-slate-700"
+                          hint="El tipo que necesita, si no es puntual ni compuesto"
                         />
                       </div>
                     )}
 
                     {compuesto && (
                       <div className="mt-5">
-                        <p className="mb-3 text-sm font-semibold text-gray-700">Duración del compuesto</p>
-                        <div className="flex flex-wrap gap-3">
+                        <p className="mb-3 text-sm text-gray-600">
+                          Puede marcar una o más duraciones (8 a 24 h). Si el tiempo es distinto, use Otro.
+                        </p>
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                           {HORAS_COMPUESTO.map(({ key, label }) => (
-                            <ChoiceButton
+                            <HoraChoiceCard
                               key={key}
-                              active={form[key]}
+                              label={label}
+                              icon={Clock}
+                              selected={!!form[key]}
                               onClick={() => setCheckbox(key, !form[key])}
-                              className="min-w-[4.5rem]"
-                            >
-                              {label}
-                            </ChoiceButton>
+                            />
                           ))}
+                          <HoraChoiceCard
+                            label="Otro"
+                            icon={MoreHorizontal}
+                            selected={!!form.compuestoOtroTiempo}
+                            onClick={toggleOtroHora}
+                          />
                         </div>
+                        {form.compuestoOtroTiempo ? (
+                          <p className="mt-3 text-sm text-gray-700">
+                            Tiempo adicional: <span className="font-semibold">{form.compuestoOtroTiempo}</span>
+                            <button
+                              type="button"
+                              className="ml-3 font-semibold text-blue-800 underline hover:text-blue-900"
+                              onClick={() => {
+                                setOtroTiempoDraft(form.compuestoOtroTiempo);
+                                setModalOtroHoraOpen(true);
+                              }}
+                            >
+                              Cambiar
+                            </button>
+                          </p>
+                        ) : null}
                         {formErrors.compuestoOpcion && (
-                          <p className="mt-2 text-xs text-red-600">{formErrors.compuestoOpcion}</p>
+                          <p className="mt-2 text-xs font-medium text-red-500">{formErrors.compuestoOpcion}</p>
                         )}
                       </div>
                     )}
@@ -751,23 +917,57 @@ export default function OrdenServicioFormView({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {form.controlRecepcion.map((row, index) => (
+                          {form.controlRecepcion.map((row, index) => {
+                            const labsOpciones = laboratorios.map((l) => l.nombreLaboratorio).filter(Boolean);
+                            const labActual = row.laboratorio;
+                            const labFueraCatalogo = labActual && !labsOpciones.includes(labActual);
+                            const recibidoActual = row.recibidoPor;
+                            const nombresUsuarios = usuarios.map((u) => labelUsuario(u)).filter(Boolean);
+                            const usuarioFueraCatalogo =
+                              recibidoActual && !nombresUsuarios.includes(recibidoActual);
+                            return (
                             <tr key={index}>
                               <td className="px-3 py-2">
-                                <input
-                                  type="text"
+                                <select
                                   value={row.laboratorio}
                                   onChange={(e) => onControlRecepcionChange(index, "laboratorio", e.target.value)}
-                                  className="input"
-                                />
+                                  className={ICON_INPUT}
+                                >
+                                  <option value="">Seleccione laboratorio</option>
+                                  {labFueraCatalogo && (
+                                    <option value={labActual}>{labActual}</option>
+                                  )}
+                                  {laboratorios.map((l) => {
+                                    const nombre = l.nombreLaboratorio;
+                                    return (
+                                      <option key={l.idLaboratorio} value={nombre}>
+                                        {nombre}
+                                        {l.abreviacionLaboratorio ? ` (${l.abreviacionLaboratorio})` : ""}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
                               </td>
                               <td className="px-3 py-2">
-                                <input
-                                  type="text"
+                                <select
                                   value={row.recibidoPor}
                                   onChange={(e) => onControlRecepcionChange(index, "recibidoPor", e.target.value)}
-                                  className="input"
-                                />
+                                  className={ICON_INPUT}
+                                >
+                                  <option value="">Seleccione usuario</option>
+                                  {usuarioFueraCatalogo && (
+                                    <option value={recibidoActual}>{recibidoActual}</option>
+                                  )}
+                                  {usuarios.map((u) => {
+                                    const id = u.idUsuario ?? u.IdUsuario;
+                                    const nombre = labelUsuario(u);
+                                    return (
+                                      <option key={id} value={nombre}>
+                                        {nombre}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
                               </td>
                               <td className="px-3 py-2">
                                 <input
@@ -792,7 +992,8 @@ export default function OrdenServicioFormView({
                                 )}
                               </td>
                             </tr>
-                          ))}
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -816,26 +1017,43 @@ export default function OrdenServicioFormView({
                       title="Estado de la orden"
                       subtitle="Obligatorio al crear: indica en qué etapa queda el registro"
                     />
-                    <div className="max-w-md">
-                      <label htmlFor="orden-estadoOrden" className="mb-1.5 block text-sm font-semibold text-gray-700">
-                        Estado <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        id="orden-estadoOrden"
-                        name="estadoOrden"
-                        value={form.estadoOrden}
-                        onChange={onChange}
-                        className={`select ${formErrors.estadoOrden ? "border-red-500" : ""}`}
-                      >
-                        <option value="Pendiente">Pendiente</option>
-                        <option value="En proceso">En proceso</option>
-                        <option value="Completada">Completada</option>
-                        <option value="Anulada">Anulada</option>
-                      </select>
-                      {formErrors.estadoOrden && (
-                        <p className="mt-1 text-xs text-red-600">{formErrors.estadoOrden}</p>
-                      )}
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      <CatalogChoiceCard
+                        selected={form.estadoOrden === "Pendiente"}
+                        icon={Clock}
+                        tone="bg-amber-100 text-amber-700"
+                        label="Pendiente"
+                        hint="Aún no inicia"
+                        onClick={() => onChange({ target: { name: "estadoOrden", value: "Pendiente" } })}
+                      />
+                      <CatalogChoiceCard
+                        selected={form.estadoOrden === "En proceso"}
+                        icon={Truck}
+                        tone="bg-sky-100 text-sky-700"
+                        label="En proceso"
+                        hint="En ejecución"
+                        onClick={() => onChange({ target: { name: "estadoOrden", value: "En proceso" } })}
+                      />
+                      <CatalogChoiceCard
+                        selected={form.estadoOrden === "Completada"}
+                        icon={PackageCheck}
+                        tone="bg-emerald-100 text-emerald-700"
+                        label="Completada"
+                        hint="Ya finalizó"
+                        onClick={() => onChange({ target: { name: "estadoOrden", value: "Completada" } })}
+                      />
+                      <CatalogChoiceCard
+                        selected={form.estadoOrden === "Anulada"}
+                        icon={XCircle}
+                        tone="bg-rose-100 text-rose-700"
+                        label="Anulada"
+                        hint="No aplica"
+                        onClick={() => onChange({ target: { name: "estadoOrden", value: "Anulada" } })}
+                      />
                     </div>
+                    {formErrors.estadoOrden ? (
+                      <p className="mt-3 text-xs font-medium text-red-500">{formErrors.estadoOrden}</p>
+                    ) : null}
                   </Panel>
 
                   <Panel>
@@ -904,18 +1122,24 @@ export default function OrdenServicioFormView({
                         No fue solicitado
                       </ChoiceButton>
                     </div>
-                    <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <FloatInput
                         label="Laboratorio específico"
                         name="especificarLab"
                         value={form.especificarLab}
                         onChange={onChange}
+                        icon={FlaskConical}
+                        tone="bg-violet-50 text-violet-700"
+                        hint="Si aplica"
                       />
                       <FloatInput
                         label="Norma / Decreto"
                         name="especificarNorma"
                         value={form.especificarNorma}
                         onChange={onChange}
+                        icon={FileText}
+                        tone="bg-indigo-50 text-indigo-700"
+                        hint="Norma de comparación"
                       />
                     </div>
                   </Panel>
@@ -953,6 +1177,9 @@ export default function OrdenServicioFormView({
                           name="firmaUsuario"
                           value={form.firmaUsuario}
                           onChange={onChange}
+                          icon={UserRound}
+                          tone="bg-sky-50 text-sky-700"
+                          hint="Quien firma como usuario"
                         />
                         <div className="mt-5 rounded-xl border-2 border-dashed border-gray-200 bg-slate-50 px-6 py-12 text-center">
                           <User className="mx-auto h-9 w-9 text-gray-300" />
@@ -972,6 +1199,9 @@ export default function OrdenServicioFormView({
                           name="firmaApe"
                           value={form.firmaApe}
                           onChange={onChange}
+                          icon={UserRound}
+                          tone="bg-emerald-50 text-emerald-700"
+                          hint="Recepción CIRA"
                         />
                         <div className="mt-5 rounded-xl border-2 border-dashed border-blue-200 bg-blue-50/30 px-6 py-12 text-center">
                           <FlaskConical className="mx-auto h-9 w-9 text-blue-300" />
@@ -1043,9 +1273,9 @@ export default function OrdenServicioFormView({
                   type="button"
                   disabled={saving}
                   onClick={handleFinalSubmit}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-900 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-blue-950 hover:shadow-lg disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-green-700 hover:shadow-lg disabled:opacity-50"
                 >
-                  {saving && <FaSpinner className="h-4 w-4 animate-spin" />}
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                   {saving ? "Guardando…" : isEditing ? "Guardar cambios" : "Crear orden"}
                 </button>
               )}
@@ -1054,13 +1284,39 @@ export default function OrdenServicioFormView({
         </form>
       </div>
 
-      <OrdenValidationModal
+      <ValidationIssuesModal
         open={validationOpen}
+        title={
+          apiMessage
+            ? isEditing
+              ? "No se pudo guardar la orden"
+              : "No se pudo crear la orden"
+            : currentStep < TOTAL_STEPS && validationIssues.every((i) => i.step === currentStep)
+              ? "No puede continuar al siguiente paso"
+              : isEditing
+                ? "No se pudo guardar la orden"
+                : "Complete los datos de la orden"
+        }
+        description={
+          apiMessage
+            ? "El servidor rechazó el registro. Revise el motivo e intente de nuevo."
+            : currentStep < TOTAL_STEPS && validationIssues.every((i) => i.step === currentStep)
+              ? `Revise los campos pendientes del paso ${currentStep} — ${STEP_LABELS[currentStep - 1]}.`
+              : "Revise los campos pendientes antes de crear o actualizar la orden de servicio."
+        }
         issues={validationIssues}
         apiMessage={apiMessage}
-        isEditing={isEditing}
         onClose={() => setValidationOpen(false)}
         onGoToStep={goToStepFromModal}
+        primaryLabel="Ir a corregir"
+      />
+
+      <OtroTiempoModal
+        open={modalOtroHoraOpen}
+        value={otroTiempoDraft}
+        onChange={setOtroTiempoDraft}
+        onConfirm={confirmarOtroHora}
+        onCancel={() => setModalOtroHoraOpen(false)}
       />
     </div>
   );

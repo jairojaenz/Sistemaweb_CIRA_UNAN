@@ -4,12 +4,22 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { FaEllipsisV, FaPlus, FaSearch, FaSpinner, FaTimes } from "react-icons/fa";
+import { FaEllipsisV, FaPlus, FaSearch, FaSpinner } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import { useToast } from "../../../components/ToastContext.jsx";
 import { ROUTES } from "../../../router/routes.js";
+import EnsayoDetalleModal from "../components/EnsayoDetalleModal.jsx";
 import { deleteEnsayo, getEnsayoById, getEnsayos } from "../service/ensayoService.js";
+
+function formatFecha(value) {
+  const t = String(value ?? "").trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(t)) {
+    const [y, m, d] = t.slice(0, 10).split("-");
+    return `${d}/${m}/${y}`;
+  }
+  return t || "—";
+}
 
 const ACCIONES_MENU_ALTURA_PX = 168; // Si no hay espacio abajo, el menú se abre hacia arriba.
 
@@ -148,7 +158,7 @@ export default function ListaEnsayosPage() {
                   </td>
                   <td className="px-4 py-3 sm:px-6">{registro.nombreLaboratorio || "—"}</td>
                   <td className="px-4 py-3 sm:px-6">
-                    {registro.fechaInicio || "—"} → {registro.fechaFin || "—"}
+                    {formatFecha(registro.fechaInicio)} → {formatFecha(registro.fechaFin)}
                   </td>
                   <td className="px-4 py-3 sm:px-6">{registro.usuarioElaboracion || "—"}</td>
                   <td className="px-4 py-3 sm:px-6">
@@ -240,24 +250,7 @@ export default function ListaEnsayosPage() {
         }}
       />
 
-      {detail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-lg bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b px-6 py-4">
-              <h2 className="text-lg font-semibold text-gray-800">Detalle de ensayo</h2>
-              <button type="button" onClick={() => setDetail(null)} className="rounded p-1 text-gray-400 hover:bg-gray-100">
-                <FaTimes className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="space-y-3 p-6 text-sm">
-              <p><span className="font-medium text-gray-600">Orden:</span> {detail.numeroOrden ?? `#${detail.idFormatoOrden}`}</p>
-              <p><span className="font-medium text-gray-600">Laboratorio:</span> {detail.nombreLaboratorio || "—"}</p>
-              <p><span className="font-medium text-gray-600">Plan:</span> {detail.planMuestreo || "—"}</p>
-              <p><span className="font-medium text-gray-600">Resultados:</span> {(detail.resultados ?? []).length}</p>
-            </div>
-          </div>
-        </div>
-      )}
+      {detail ? <EnsayoDetalleModal detail={detail} onClose={() => setDetail(null)} /> : null}
     </div>
   );
 }

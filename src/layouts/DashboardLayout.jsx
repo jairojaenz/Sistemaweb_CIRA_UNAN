@@ -487,7 +487,7 @@ export default function DashboardLayout() {
           </div>
         </header>
 
-        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-gray-100">
+        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain bg-gray-100">
           <Outlet />
         </main>
       </div>
