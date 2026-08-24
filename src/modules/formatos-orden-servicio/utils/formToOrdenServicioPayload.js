@@ -1,9 +1,7 @@
 /**
  * Convierte el estado del formulario web al body de Create/UpdateOrdenServicio.
  *
- * Importante: los nombres deben coincidir con CreateOrdenServicioRequestDto
- * (fechaRecepcion, tieneAnalisis, …). Antes se enviaban analisisOrden / fechaRecepcionMuestra
- * y el binder de ASP.NET no los mapeaba.
+ * Los nombres deben coincidir con CreateOrdenServicioRequestDto (camelCase).
  */
 const COMPOUESTO_KEYS = [
   { key: "compuesto8h", value: "8h" },
@@ -38,45 +36,51 @@ export function resolveIdTipoMuestreo(form, tiposMuestreo = []) {
   return Number(match?.idTipoMuestreo) || 0;
 }
 
-function compuestoHorasFromForm(form) {
+export function compuestoHorasFromForm(form) {
   if (form.modalidadMuestreo !== "compuesto") return null;
   const horas = COMPOUESTO_KEYS.filter(({ key }) => form[key]).map(({ value }) => value);
-  return horas.length ? horas.join(", ") : null;
+  const otro = trimOrNull(form.compuestoOtroTiempo);
+  if (otro && !horas.includes(otro)) horas.push(otro);
+  if (!horas.length) return null;
+  return horas.join(",").slice(0, 10);
 }
 
-function buildObservacionOrden(form) {
-  const partes = [];
-  if (form.modalidadMuestreo === "otros" && form.modalidadMuestreoOtros?.trim()) {
-    partes.push(`Tipo de muestreo (otros): ${form.modalidadMuestreoOtros.trim()}`);
-  }
-  const horas = compuestoHorasFromForm(form);
-  if (horas) partes.push(`Duración compuesto: ${horas}`);
-  if (form.modalidadMuestreo === "compuesto" && form.compuestoOtroTiempo?.trim()) {
-    partes.push(`Duración compuesto (otro): ${form.compuestoOtroTiempo.trim()}`);
-  }
-  if (form.observacionOrden?.trim()) partes.push(form.observacionOrden.trim());
-  return partes.length > 0 ? partes.join("\n") : null;
+export function flagsFromCompuestoHoras(raw) {
+  const text = String(raw ?? "");
+  const flags = {
+    compuesto8h: /8h/i.test(text),
+    compuesto12h: /12h/i.test(text),
+    compuesto16h: /16h/i.test(text),
+    compuesto24h: /24h/i.test(text),
+    compuestoOtroTiempo: "",
+  };
+  const leftovers = text
+    .split(/[,\s]+/)
+    .map((p) => p.trim())
+    .filter((p) => p && !/^(8|12|16|24)h$/i.test(p));
+  flags.compuestoOtroTiempo = leftovers.join(", ");
+  return flags;
 }
 
-/**
- * Convierte el estado del formulario web al DTO de la API.
- */
 function resolveIdUsuario(form, idUsuarioSesion) {
   const fromForm = Number(form.idUsuario);
   if (fromForm > 0) return fromForm;
   return Number(idUsuarioSesion) || 0;
 }
 
+/**
+ * Convierte el estado del wizard al DTO de la API (cabecera + filas).
+ */
 export function formToOrdenServicioPayload(
   form,
   { tiposMuestreo = [], idFormatoSolicitud = null, idUsuarioSesion = null } = {},
 ) {
-  const fechaIso = form.fecha
-    ? new Date(`${form.fecha}T12:00:00`).toISOString()
-    : new Date().toISOString();
+  const fechaRecepcion = form.fecha
+    ? `${form.fecha}T12:00:00`
+    : new Date().toISOString().slice(0, 19);
 
   const detalleMuestras = (form.detalleMuestras ?? [])
-    .filter((row) => trimOrNull(row.analisis))
+    .filter((row) => trimOrNull(row.analisis) || trimOrNull(row.numeroMuestra))
     .map((row) => ({
       idMuestra: Number(row.idMuestra) || null,
       numeroMuestra: trimOrNull(row.numeroMuestra) || "01",
@@ -94,9 +98,8 @@ export function formToOrdenServicioPayload(
     }));
 
   return {
-    // Campos del Create/UpdateOrdenServicioRequestDto (API).
     numeroOrden: Number(form.numeroOrden) || 0,
-    fechaRecepcion: fechaIso,
+    fechaRecepcion,
     estadoOrden: form.estadoOrden || "Pendiente",
     idUsuario: resolveIdUsuario(form, idUsuarioSesion),
     idFormatoCampo: Number(form.idFormatoCampo) || 0,
@@ -105,9 +108,28 @@ export function formToOrdenServicioPayload(
     tieneMuestreo: !!form.muestreoOrden,
     tieneHojaObservacion: !!form.hojaObservacionOrden,
     tieneInformeTecnico: !!form.informeTecnicoOrden,
-    observacion: buildObservacionOrden(form),
-    // Metadatos del formulario web (la API actual los ignora si no están en el DTO).
-    idFormatoSolicitud: idFormatoSolicitud != null ? Number(idFormatoSolicitud) : null,
+    observacion: trimOrNull(form.observacionOrden),
+    idFormatoSolicitud: (() => {
+      const n = Number(idFormatoSolicitud ?? form.idFormatoSolicitud);
+      return n > 0 ? n : null;
+    })(),
+    usuarioEmpresaOrden: trimOrNull(form.usuarioEmpresa),
+    atencionAOrden: trimOrNull(form.atencionA),
+    telefonoOrden: trimOrNull(form.telefono),
+    celularOrden: trimOrNull(form.celular),
+    extensionOrden: trimOrNull(form.extension),
+    correoOrden: trimOrNull(form.correo),
+    direccionOrden: trimOrNull(form.direccion),
+    departamentoOrden: trimOrNull(form.departamento),
+    municipioOrden: trimOrNull(form.municipio),
+    compuestoHorasOrden: compuestoHorasFromForm(form),
+    modalidadMuestreoOtros: trimOrNull(form.modalidadMuestreoOtros),
+    muestreoPorOrden: trimOrNull(form.muestreoPor),
+    transportePorOrden: trimOrNull(form.transportePor),
+    incluirNormaInforme: form.incluirNormaInforme === "si" || form.incluirNormaInforme === true,
+    especificarLabOrden: trimOrNull(form.especificarLab),
+    firmaUsuarioOrden: trimOrNull(form.firmaUsuario),
+    firmaApeOrden: trimOrNull(form.firmaApe),
     detalleMuestras,
     controlRecepcion,
   };

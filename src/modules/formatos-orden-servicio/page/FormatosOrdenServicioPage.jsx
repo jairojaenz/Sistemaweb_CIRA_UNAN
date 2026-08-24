@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, useNavigate, useParams, useLocation } from "react-router-dom";
-import { FaEdit, FaEye, FaSearch, FaSpinner, FaTimes, FaTrash } from "react-icons/fa";
+import { FaEdit, FaEye, FaSearch, FaSpinner, FaTrash } from "react-icons/fa";
 import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
+import OrdenServicioDetalleModal from "../components/OrdenServicioDetalleModal.jsx";
 import { useAuth } from "../../../auth/AuthContext.jsx";
 import { useToast } from "../../../components/ToastContext.jsx";
 import { ROUTES } from "../../../router/routes.js";
@@ -9,7 +10,11 @@ import { getDepartamentos, getMunicipios, getUsuarios } from "../../usuarios/ser
 import { getLaboratorios } from "../../laboratorios/service/laboratorioService.js";
 import { getFormatosCampo, labelFormatoCampo } from "../service/catalogosOrdenService.js";
 import { getTiposMuestreo } from "../../catalogos/service/tiposMuestreoService.js";
-import { modalidadFromTipoNombre } from "../utils/formToOrdenServicioPayload.js";
+import {
+  flagsFromCompuestoHoras,
+  formToOrdenServicioPayload,
+  modalidadFromTipoNombre,
+} from "../utils/formToOrdenServicioPayload.js";
 import {
   createOrdenServicio,
   deleteOrdenServicio,
@@ -27,7 +32,6 @@ import {
   mapSolicitudToOrdenForm,
   suggestNextNumeroOrden,
 } from "../utils/mapSolicitudToOrdenForm.js";
-import { formToOrdenServicioPayload } from "../utils/formToOrdenServicioPayload.js";
 import { getProformas } from "../../proforma/service/proformaService.js";
 import OrdenServicioFormView from "./OrdenServicioFormView.jsx";
 import OrdenPrefillWarningModal from "../components/OrdenPrefillWarningModal.jsx";
@@ -89,6 +93,9 @@ const initialForm = {
   observacionOrden: "",
   firmaUsuario: "",
   firmaApe: "",
+  idFirmaUsuario: "",
+  idFirmaApe: "",
+  idFormatoSolicitud: "",
 };
 
 function labelUsuario(u) {
@@ -118,13 +125,38 @@ function mapOrdenToForm(orden, usuarios) {
   let modalidadMuestreo = "puntual";
   if (tipo.includes("compuesto")) modalidadMuestreo = "compuesto";
   else if (tipo.includes("otro")) modalidadMuestreo = "otros";
+  if (orden.modalidadMuestreoOtros) modalidadMuestreo = "otros";
+  const horasFlags = flagsFromCompuestoHoras(orden.compuestoHorasOrden);
+  const wizardMuestras = (orden.detalleMuestras ?? []).filter(
+    (d) => d.numeroMuestra || d.analisisSolicitado,
+  );
+  const pivotMuestras = orden.detalles ?? [];
+  const detalleFuente = wizardMuestras.length ? wizardMuestras : pivotMuestras;
+  const controlRecepcion = (orden.controlRecepcion ?? []).length
+    ? orden.controlRecepcion.map((row) => ({
+        laboratorio: row.laboratorio ?? "",
+        recibidoPor: row.recibidoPor ?? "",
+        fechaEntregaResultados: String(row.fechaEntregaResultados ?? "").slice(0, 10),
+      }))
+    : [emptyControlRecepcionRow()];
+
   return {
     ...initialForm,
     numeroOrden: String(orden.numeroOrden ?? ""),
     proformaNo: orden.otro1Orden ?? "",
     fecha: toDateInputValue(orden.fechaRecepcionMuestra),
-    usuarioEmpresa: orden.usuario ?? "",
+    usuarioEmpresa: orden.usuarioEmpresaOrden || orden.usuario || "",
+    atencionA: orden.atencionAOrden ?? "",
+    telefono: orden.telefonoOrden ?? "",
+    celular: orden.celularOrden ?? "",
+    extension: orden.extensionOrden ?? "",
+    correo: orden.correoOrden ?? "",
+    direccion: orden.direccionOrden ?? "",
+    departamento: orden.departamentoOrden ?? "",
+    municipio: orden.municipioOrden ?? "",
     modalidadMuestreo,
+    modalidadMuestreoOtros: orden.modalidadMuestreoOtros ?? "",
+    ...horasFlags,
     estadoOrden: orden.estadoOrden || "Pendiente",
     idUsuario: String(orden.idUsuario || u?.idUsuario || u?.IdUsuario || ""),
     idFormatoCampo: String(orden.idFormatoCampo || orden.formatoCampo || ""),
@@ -135,14 +167,30 @@ function mapOrdenToForm(orden, usuarios) {
     informeTecnicoOrden: !!orden.informeTecnicoOrden,
     otroServicio: orden.otro2Orden ?? "",
     especificarNorma: orden.otro2Orden ?? "",
+    especificarLab: orden.especificarLabOrden ?? "",
     observacionOrden: orden.observacionOrden ?? "",
-    detalleMuestras: (orden.detalles ?? []).length
-      ? orden.detalles.map((d, index) => ({
-          numeroMuestra: String(index + 1).padStart(2, "0"),
-          analisis: d.analisisSolicitado ?? "",
+    muestreoPor: orden.muestreoPorOrden || "usuario",
+    transportePor: orden.transportePorOrden || "usuario",
+    incluirNormaInforme: orden.incluirNormaInforme ? "si" : "no",
+    firmaUsuario: orden.firmaUsuarioOrden ?? "",
+    firmaApe: orden.firmaApeOrden ?? "",
+    idFormatoSolicitud: orden.idFormatoSolicitud ? String(orden.idFormatoSolicitud) : "",
+    idFirmaUsuario: (() => {
+      const firmante = findUsuarioByNombre(usuarios, orden.firmaUsuarioOrden);
+      return firmante ? String(firmante.idUsuario ?? firmante.IdUsuario) : "";
+    })(),
+    idFirmaApe: (() => {
+      const receptor = findUsuarioByNombre(usuarios, orden.firmaApeOrden);
+      return receptor ? String(receptor.idUsuario ?? receptor.IdUsuario) : "";
+    })(),
+    controlRecepcion,
+    detalleMuestras: detalleFuente.length
+      ? detalleFuente.map((d, index) => ({
+          numeroMuestra: d.numeroMuestra || String(index + 1).padStart(2, "0"),
+          analisis: d.analisisSolicitado ?? d.analisis ?? "",
           idAnalisis: d.idsAnalisis?.[0] ?? "",
           idMuestra: d.idMuestra ?? "",
-          codigoAsignado: formatCodigoAsignado(index + 1),
+          codigoAsignado: d.codigoAsignado || formatCodigoAsignado(index + 1),
         }))
       : [emptyDetalleRow(1)],
   };
@@ -155,6 +203,21 @@ function validateForm(form, extras) {
 function firstUsuarioId(usuarios) {
   const u = usuarios[0];
   return u?.idUsuario ?? u?.IdUsuario ?? null;
+}
+
+function findUsuarioById(usuarios, id) {
+  if (id == null || id === "") return null;
+  return usuarios.find((x) => String(x.idUsuario ?? x.IdUsuario) === String(id)) ?? null;
+}
+
+function findUsuarioByNombre(usuarios, nombre) {
+  const n = String(nombre ?? "").trim().toLowerCase();
+  if (!n) return null;
+  return (
+    usuarios.find((x) => labelUsuario(x).toLowerCase() === n) ||
+    usuarios.find((x) => String(x.nombreUsuario ?? x.NombreUsuario ?? "").trim().toLowerCase() === n) ||
+    null
+  );
 }
 
 function firstFormatoCampoId(formatosCampo) {
@@ -223,6 +286,8 @@ export default function FormatosOrdenServicioPage() {
 
   const [editingOrden, setEditingOrden] = useState(null);
   const [detailOrden, setDetailOrden] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const detailRequestRef = useRef(0);
   const [form, setForm] = useState({ ...initialForm });
   const [formErrors, setFormErrors] = useState({});
   const [saving, setSaving] = useState(false);
@@ -276,6 +341,15 @@ export default function FormatosOrdenServicioPage() {
   }, [loadOrdenes, loadCatalogs]);
 
   useEffect(() => {
+    if (!isCreateRoute || isCreateFromSolicitud || isEditRoute) return;
+    addToast(
+      "Para crear una orden elija una solicitud: menú ⋮ → Crear Orden de servicio.",
+      "info",
+    );
+    navigate(ROUTES.solicitudServicio, { replace: true });
+  }, [isCreateRoute, isCreateFromSolicitud, isEditRoute, addToast, navigate]);
+
+  useEffect(() => {
     if (!isFormRoute) return;
 
     if (isCreateFromSolicitud) {
@@ -302,7 +376,10 @@ export default function FormatosOrdenServicioPage() {
           setEditingOrden(null);
           setSolicitudOrigen(data);
           const mapped = mapSolicitudToOrdenForm(data, {
-            initialForm: base,
+            initialForm: {
+              ...base,
+              idFormatoSolicitud: String(solicitudIdParam),
+            },
             usuarios,
             idUsuarioSesion,
             numeroOrden,
@@ -330,7 +407,7 @@ export default function FormatosOrdenServicioPage() {
         } catch (err) {
           if (!cancelled) {
             addToast(err?.message || "No se pudo cargar la solicitud", "error");
-            navigate(ROUTES.formatosOrdenServicioNueva);
+            navigate(ROUTES.solicitudServicio);
           }
         } finally {
           if (!cancelled) setSolicitudPrefillLoading(false);
@@ -341,30 +418,6 @@ export default function FormatosOrdenServicioPage() {
       return () => {
         cancelled = true;
       };
-    }
-
-    if (isCreateRoute && !isCreateFromSolicitud) {
-      setEditingOrden(null);
-      setSolicitudOrigen(null);
-      const draft = loadDraft();
-      const today = new Date().toISOString().slice(0, 10);
-      const nextOrden = suggestNextNumeroOrden(ordenes);
-      setForm(
-        draft
-          ? {
-              ...draft,
-              fecha: draft.fecha || today,
-              numeroOrden: draft.numeroOrden || nextOrden,
-            }
-          : {
-              ...initialForm,
-              fecha: today,
-              numeroOrden: nextOrden,
-              idUsuario: idUsuarioSesion ? String(idUsuarioSesion) : "",
-            },
-      );
-      setFormErrors({});
-      return;
     }
 
     if (isEditRoute && editIdParam) {
@@ -522,6 +575,17 @@ export default function FormatosOrdenServicioPage() {
       return;
     }
 
+    if (name === "idFirmaUsuario" || name === "idFirmaApe") {
+      const u = findUsuarioById(usuarios, value);
+      const nombreField = name === "idFirmaUsuario" ? "firmaUsuario" : "firmaApe";
+      setForm((prev) => ({
+        ...prev,
+        [name]: value,
+        [nombreField]: u ? labelUsuario(u) : "",
+      }));
+      return;
+    }
+
     setForm((prev) => {
       const merged = { ...prev, [name]: nextVal };
       const errors = validateForm(merged);
@@ -588,8 +652,30 @@ export default function FormatosOrdenServicioPage() {
     navigate(ROUTES.formatosOrdenServicio);
   }
 
-  function openEditForm(orden) {
+  function closeDetalle() {
+    detailRequestRef.current += 1;
     setDetailOrden(null);
+    setDetailLoading(false);
+  }
+
+  async function abrirDetalle(orden) {
+    const req = ++detailRequestRef.current;
+    setDetailOrden(orden);
+    setDetailLoading(true);
+    try {
+      const full = await getOrdenServicioById(orden.idFormatoOrden);
+      if (detailRequestRef.current !== req) return;
+      setDetailOrden(full ?? orden);
+    } catch (err) {
+      if (detailRequestRef.current !== req) return;
+      addToast(err.message || "No se pudo cargar el detalle completo de la orden.", "error");
+    } finally {
+      if (detailRequestRef.current === req) setDetailLoading(false);
+    }
+  }
+
+  function openEditForm(orden) {
+    closeDetalle();
     navigate(ROUTES.formatosOrdenServicioEditar(orden.idFormatoOrden));
   }
 
@@ -615,7 +701,11 @@ export default function FormatosOrdenServicioPage() {
         tiposMuestreo,
         idUsuarioSesion,
         idFormatoSolicitud:
-          solicitudOrigen?.idFormatoSolicitud ?? solicitudOrigen?.IdFormatoSolicitud ?? null,
+          solicitudIdParam ||
+          form.idFormatoSolicitud ||
+          solicitudOrigen?.idFormatoSolicitud ||
+          solicitudOrigen?.IdFormatoSolicitud ||
+          null,
       });
       if (!payload.idUsuario) {
         throw new Error(
@@ -715,7 +805,11 @@ export default function FormatosOrdenServicioPage() {
         laboratorios={laboratorios}
         formatosCampo={formatosCampo}
         tiposMuestreo={tiposMuestreo}
-        solicitudOrigen={solicitudOrigen?.numeroSolicitud ?? solicitudOrigen?.NumeroSolicitud ?? null}
+        solicitudOrigen={
+          solicitudOrigen?.numeroSolicitud ??
+          solicitudOrigen?.NumeroSolicitud ??
+          (solicitudIdParam ? `#${solicitudIdParam}` : null)
+        }
         initialStep={formStartStep}
       />
       <OrdenPrefillWarningModal
@@ -752,7 +846,7 @@ export default function FormatosOrdenServicioPage() {
         <NavLink to={ROUTES.formatosOrdenServicio} end className={tabClass}>
           Listado
         </NavLink>
-        <NavLink to={ROUTES.formatosOrdenServicioNueva} className={tabClass}>
+        <NavLink to={ROUTES.solicitudServicio} className={tabClass}>
           Crear orden
         </NavLink>
       </div>
@@ -832,7 +926,7 @@ export default function FormatosOrdenServicioPage() {
                       <button
                         type="button"
                         title="Ver detalle"
-                        onClick={() => setDetailOrden(orden)}
+                        onClick={() => abrirDetalle(orden)}
                         className="rounded p-1.5 text-blue-900 hover:bg-slate-100"
                       >
                         <FaEye className="h-4 w-4" />
@@ -859,38 +953,16 @@ export default function FormatosOrdenServicioPage() {
         </table>
       </div>
 
-      {detailOrden && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b px-6 py-4">
-              <h2 className="text-lg font-semibold text-gray-800">Detalle orden #{detailOrden.numeroOrden}</h2>
-              <button
-                type="button"
-                onClick={() => setDetailOrden(null)}
-                className="rounded p-1 text-gray-400 hover:bg-gray-100"
-              >
-                <FaTimes className="h-5 w-5" />
-              </button>
-            </div>
-            <dl className="space-y-3 p-6 text-sm">
-              <DetailRow label="Estado" value={detailOrden.estadoOrden} />
-              <DetailRow label="Recepción muestra" value={formatFecha(detailOrden.fechaRecepcionMuestra)} />
-              <DetailRow label="Usuario" value={detailOrden.usuario} />
-              <DetailRow label="Formato campo (ID)" value={detailOrden.formatoCampo} />
-              <DetailRow label="Tipo muestreo" value={detailOrden.tipoMuestreo} />
-              <DetailRow label="Análisis" value={detailOrden.analisisOrden ? "Sí" : "No"} />
-              <DetailRow label="Muestreo" value={detailOrden.muestreoOrden ? "Sí" : "No"} />
-              <DetailRow label="Hoja observación" value={detailOrden.hojaObservacionOrden ? "Sí" : "No"} />
-              <DetailRow label="Informe técnico" value={detailOrden.informeTecnicoOrden ? "Sí" : "No"} />
-              {detailOrden.otro1Orden && <DetailRow label="Proforma / otro" value={detailOrden.otro1Orden} />}
-              {detailOrden.otro2Orden && <DetailRow label="Norma / otro" value={detailOrden.otro2Orden} />}
-              {detailOrden.observacionOrden && <DetailRow label="Observaciones" value={detailOrden.observacionOrden} />}
-              <DetailRow label="Creado" value={formatFecha(detailOrden.fechaCreacionOrden)} />
-              <DetailRow label="Por" value={detailOrden.usuarioCreacionOrden || "—"} />
-            </dl>
-          </div>
-        </div>
-      )}
+      {detailOrden || detailLoading ? (
+        <OrdenServicioDetalleModal
+          detail={detailOrden}
+          loading={detailLoading}
+          formatosCampo={formatosCampo}
+          usuarios={usuarios}
+          onClose={closeDetalle}
+          onEdit={detailOrden ? () => openEditForm(detailOrden) : undefined}
+        />
+      ) : null}
 
       <ConfirmDialog
         open={!!confirmDelete}
@@ -904,11 +976,3 @@ export default function FormatosOrdenServicioPage() {
   );
 }
 
-function DetailRow({ label, value }) {
-  return (
-    <div>
-      <dt className="font-medium text-gray-500">{label}</dt>
-      <dd className="text-gray-900">{value}</dd>
-    </div>
-  );
-}

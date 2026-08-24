@@ -351,6 +351,17 @@ export function mapSolicitudToOrdenForm(
     detalleMuestras,
     controlRecepcion,
     observacionOrden: partesObs.join("\n") || initialForm.observacionOrden,
+    idFormatoSolicitud: String(
+      solicitud.idFormatoSolicitud ?? solicitud.IdFormatoSolicitud ?? initialForm.idFormatoSolicitud ?? "",
+    ),
+    idFirmaUsuario: findUsuarioId(usuarios, cliente) || initialForm.idFirmaUsuario,
     firmaUsuario: cliente || initialForm.firmaUsuario,
+    idFirmaApe: idUsuarioSesion != null ? String(idUsuarioSesion) : initialForm.idFirmaApe,
+    firmaApe: (() => {
+      const ape = usuarios.find((x) => String(x.idUsuario ?? x.IdUsuario) === String(idUsuarioSesion));
+      if (!ape) return initialForm.firmaApe;
+      const nombre = `${ape.nombreUsuario ?? ape.NombreUsuario ?? ""} ${ape.apellidoUsuario ?? ape.ApellidoUsuario ?? ""}`.trim();
+      return nombre || initialForm.firmaApe;
+    })(),
   };
 }

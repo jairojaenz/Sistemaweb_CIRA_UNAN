@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import WizardStepIndicator from "../../../components/WizardStepIndicator.jsx";
 import ValidationIssuesModal from "../../../components/ValidationIssuesModal.jsx";
+import FirmaDisplay from "../../../components/FirmaDisplay.jsx";
 import { CatalogChoiceCard, HoraChoiceCard, ICON_INPUT, IconField } from "../../../components/formFields.jsx";
 import { asignarEstilosUnicos, estiloTipoMuestreo } from "../../../utils/catalogIcons.js";
 import { modalidadFromTipoNombre } from "../utils/formToOrdenServicioPayload.js";
@@ -59,6 +60,45 @@ function labelUsuario(u) {
   const nombre = u.nombreUsuario ?? u.NombreUsuario ?? "";
   const apellido = u.apellidoUsuario ?? u.ApellidoUsuario ?? "";
   return `${nombre} ${apellido}`.trim() || nombre;
+}
+
+function usuarioPorId(usuarios, id) {
+  if (id == null || id === "") return null;
+  return usuarios.find((u) => String(u.idUsuario ?? u.IdUsuario) === String(id)) ?? null;
+}
+
+function firmaDigitalDe(u) {
+  return String(u?.firmaUsuario ?? u?.FirmaUsuario ?? u?.firma ?? u?.Firma ?? "").trim();
+}
+
+function FirmaVisual({ usuario, emptyTitle, emptyHint, emptyIcon: Icon, toneClass }) {
+  const src = firmaDigitalDe(usuario);
+  if (usuario && src) {
+    return (
+      <div className={`mt-5 rounded-xl border-2 border-dashed ${toneClass} bg-white p-4`}>
+        <FirmaDisplay src={src} alt={`Firma de ${labelUsuario(usuario)}`} />
+        <p className="mt-2 text-center text-xs font-medium text-gray-600">{labelUsuario(usuario)}</p>
+      </div>
+    );
+  }
+  if (usuario && !src) {
+    return (
+      <div className={`mt-5 rounded-xl border-2 border-dashed ${toneClass} px-6 py-10 text-center`}>
+        <Icon className="mx-auto h-9 w-9 text-gray-300" />
+        <p className="mt-3 text-sm font-semibold text-gray-700">Sin firma digital</p>
+        <p className="mt-1 text-xs text-gray-500">
+          {labelUsuario(usuario)} no tiene firma registrada en Gestión de Usuarios.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className={`mt-5 rounded-xl border-2 border-dashed ${toneClass} px-6 py-12 text-center`}>
+      <Icon className="mx-auto h-9 w-9 text-gray-300" />
+      <p className="mt-3 text-xs font-bold uppercase tracking-wide text-gray-500">{emptyTitle}</p>
+      <p className="mt-1 text-xs text-gray-400">{emptyHint}</p>
+    </div>
+  );
 }
 
 function validationExtras(formViewProps) {
@@ -1167,49 +1207,87 @@ export default function OrdenServicioFormView({
                     <SectionHeader
                       accent="bg-emerald-600"
                       title="Protocolo de firmas"
-                      subtitle="Al final del formulario — conformidad del usuario y recepción CIRA"
+                      subtitle="Seleccione el usuario para visualizar su firma digital"
                     />
                     <div className="grid gap-8 lg:grid-cols-2">
                       <Panel className="bg-white">
                         <p className="mb-4 text-sm font-bold text-blue-900">Firma del usuario</p>
-                        <FloatInput
-                          label="Nombre completo"
-                          name="firmaUsuario"
-                          value={form.firmaUsuario}
-                          onChange={onChange}
+                        <IconField
+                          id="orden-idFirmaUsuario"
                           icon={UserRound}
                           tone="bg-sky-50 text-sky-700"
+                          label="Usuario firmante"
                           hint="Quien firma como usuario"
+                        >
+                          <select
+                            id="orden-idFirmaUsuario"
+                            name="idFirmaUsuario"
+                            value={form.idFirmaUsuario ?? ""}
+                            onChange={onChange}
+                            disabled={catalogsLoading}
+                            className={ICON_INPUT}
+                          >
+                            <option value="">
+                              {catalogsLoading ? "Cargando usuarios…" : "Seleccione un usuario"}
+                            </option>
+                            {usuarios.map((u) => {
+                              const id = u.idUsuario ?? u.IdUsuario;
+                              return (
+                                <option key={id} value={String(id)}>
+                                  {labelUsuario(u)}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </IconField>
+                        <FirmaVisual
+                          usuario={usuarioPorId(usuarios, form.idFirmaUsuario)}
+                          emptyTitle="Firma del usuario"
+                          emptyHint="Seleccione un usuario para ver su firma digital"
+                          emptyIcon={User}
+                          toneClass="border-gray-200 bg-slate-50"
                         />
-                        <div className="mt-5 rounded-xl border-2 border-dashed border-gray-200 bg-slate-50 px-6 py-12 text-center">
-                          <User className="mx-auto h-9 w-9 text-gray-300" />
-                          <p className="mt-3 text-xs font-bold uppercase tracking-wide text-gray-500">
-                            Firma del usuario
-                          </p>
-                          <p className="mt-1 text-xs text-gray-400">Nombre y sello</p>
-                        </div>
                       </Panel>
 
                       <Panel className="bg-white">
                         <p className="mb-4 text-sm font-bold text-blue-900">
                           Firma — Área de Proyección y Extensión
                         </p>
-                        <FloatInput
-                          label="Nombre del receptor (APE)"
-                          name="firmaApe"
-                          value={form.firmaApe}
-                          onChange={onChange}
+                        <IconField
+                          id="orden-idFirmaApe"
                           icon={UserRound}
                           tone="bg-emerald-50 text-emerald-700"
+                          label="Receptor CIRA (APE)"
                           hint="Recepción CIRA"
+                        >
+                          <select
+                            id="orden-idFirmaApe"
+                            name="idFirmaApe"
+                            value={form.idFirmaApe ?? ""}
+                            onChange={onChange}
+                            disabled={catalogsLoading}
+                            className={ICON_INPUT}
+                          >
+                            <option value="">
+                              {catalogsLoading ? "Cargando usuarios…" : "Seleccione un usuario"}
+                            </option>
+                            {usuarios.map((u) => {
+                              const id = u.idUsuario ?? u.IdUsuario;
+                              return (
+                                <option key={id} value={String(id)}>
+                                  {labelUsuario(u)}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </IconField>
+                        <FirmaVisual
+                          usuario={usuarioPorId(usuarios, form.idFirmaApe)}
+                          emptyTitle="Recepción CIRA"
+                          emptyHint="Seleccione el receptor para ver su firma digital"
+                          emptyIcon={FlaskConical}
+                          toneClass="border-blue-200 bg-blue-50/30"
                         />
-                        <div className="mt-5 rounded-xl border-2 border-dashed border-blue-200 bg-blue-50/30 px-6 py-12 text-center">
-                          <FlaskConical className="mx-auto h-9 w-9 text-blue-300" />
-                          <p className="mt-3 text-xs font-bold uppercase tracking-wide text-blue-700">
-                            Recepción CIRA
-                          </p>
-                          <p className="mt-1 text-xs text-gray-500">Área de Proyección y Extensión</p>
-                        </div>
                       </Panel>
                     </div>
                   </div>
