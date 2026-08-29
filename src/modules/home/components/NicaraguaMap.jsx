@@ -1,138 +1,289 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  CAPAS_BASE,
+  cargarGoogleMaps,
+  googleMapsApiKey,
+  iconoPin,
+  mapTypeDeCapa,
+  opcionesMapaNicaragua,
+} from "../../../utils/googleMapsNicaragua.js";
 
-const departments = [
-  { name: "Nueva Segovia", samples: 18, cx: 100, cy: 30 },
-  { name: "Madriz", samples: 12, cx: 150, cy: 25 },
-  { name: "Estelí", samples: 35, cx: 190, cy: 55 },
-  { name: "Jinotega", samples: 28, cx: 260, cy: 45 },
-  { name: "Chinandega", samples: 42, cx: 75, cy: 95 },
-  { name: "León", samples: 55, cx: 120, cy: 110 },
-  { name: "Matagalpa", samples: 45, cx: 250, cy: 105 },
-  { name: "RAAN", samples: 22, cx: 340, cy: 80 },
-  { name: "Managua", samples: 125, cx: 175, cy: 170 },
-  { name: "Masaya", samples: 38, cx: 215, cy: 180 },
-  { name: "Boaco", samples: 15, cx: 280, cy: 175 },
-  { name: "RAAS", samples: 38, cx: 340, cy: 190 },
-  { name: "Carazo", samples: 25, cx: 155, cy: 225 },
-  { name: "Granada", samples: 52, cx: 200, cy: 240 },
-  { name: "Chontales", samples: 30, cx: 270, cy: 240 },
-  { name: "Rivas", samples: 32, cx: 145, cy: 280 },
-  { name: "Río San Juan", samples: 10, cx: 250, cy: 305 },
+const MODOS = [
+  { id: "clientes", label: "Clientes" },
+  { id: "muestras", label: "Muestras" },
 ];
 
-const maxSamples = Math.max(...departments.map((d) => d.samples));
-const minSamples = Math.min(...departments.map((d) => d.samples));
-
-function getColor(samples) {
-  const ratio = (samples - minSamples) / (maxSamples - minSamples);
-  const r = Math.round(30 + ratio * (5 - 30));
-  const g = Math.round(58 + ratio * (150 - 58));
-  const b = Math.round(138 + ratio * (107 - 138));
-  return `rgb(${r}, ${g}, ${b})`;
+function numero(value) {
+  const n = Number(String(value ?? "").replace(",", ".").trim());
+  return Number.isFinite(n) ? n : null;
 }
 
-function getRadius(samples) {
-  const ratio = (samples - minSamples) / (maxSamples - minSamples);
-  return 14 + ratio * 18;
+function parseTextoCoordenadas(texto) {
+  const raw = String(texto ?? "").trim();
+  if (!raw) return null;
+  const parts = raw.split(/[,;]+/).map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 2) return null;
+  return normalizarLatLng(parts[0], parts[1]);
 }
 
-export default function NicaraguaMap() {
-  const [tooltip, setTooltip] = useState(null);
+function normalizarLatLng(latRaw, lngRaw) {
+  const lat = numero(latRaw);
+  const lng = numero(lngRaw);
+  if (lat == null || lng == null) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    if (lng >= -90 && lng <= 90 && lat >= -180 && lat <= 180) {
+      return { lat: lng, lng: lat };
+    }
+    return null;
+  }
+  return { lat, lng };
+}
+
+function featurePunto({ id, lat, lng, nombre, departamento, municipio, origen, matriz, plan, idGrupo }) {
+  return {
+    type: "Feature",
+    geometry: { type: "Point", coordinates: [lng, lat] },
+    properties: {
+      id,
+      idGrupo: idGrupo || id,
+      nombre: nombre || "Punto",
+      departamento: departamento || "",
+      municipio: municipio || "",
+      origen: origen || "",
+      matriz: matriz || "",
+      plan: plan || "",
+      lat,
+      lng,
+    },
+  };
+}
+
+function featuresDesdeApi(puntos) {
+  return (puntos ?? [])
+    .map((item, index) => {
+      const coords =
+        normalizarLatLng(item.latitud ?? item.Latitud, item.longitud ?? item.Longitud) ||
+        parseTextoCoordenadas(item.coordenadas ?? item.Coordenadas);
+      if (!coords) return null;
+      return featurePunto({
+        id: item.id ?? item.Id ?? `punto-${index}`,
+        lat: coords.lat,
+        lng: coords.lng,
+        nombre: item.nombre ?? item.Nombre,
+        departamento: item.departamento ?? item.Departamento,
+        municipio: item.municipio ?? item.Municipio,
+        origen: item.origen ?? item.Origen,
+        matriz: item.matriz ?? item.Matriz,
+        plan: item.plan ?? item.Plan,
+        idGrupo: item.idGrupo ?? item.IdGrupo,
+      });
+    })
+    .filter(Boolean);
+}
+
+function escapeHtml(text) {
+  return String(text ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function popupHtml(props) {
+  const extra = [props.municipio, props.matriz, props.plan].filter(Boolean).join(" · ");
+  return `<div class="dash-map-popup">
+    <p class="dash-map-popup-title">${escapeHtml(props.nombre)}</p>
+    ${props.departamento ? `<p class="dash-map-popup-meta">${escapeHtml(props.departamento)}</p>` : ""}
+    ${extra ? `<p class="dash-map-popup-meta">${escapeHtml(extra)}</p>` : ""}
+    <p class="dash-map-popup-src">${escapeHtml(props.origen)}</p>
+  </div>`;
+}
+
+function syncMarkers(maps, map, features, markersRef, infoRef) {
+  markersRef.current.forEach((m) => m.setMap(null));
+  const icon = iconoPin(maps);
+  markersRef.current = (features ?? []).map((f) => {
+    const marker = new maps.Marker({
+      map,
+      position: { lat: f.properties.lat, lng: f.properties.lng },
+      icon,
+      title: f.properties.nombre,
+    });
+    marker.addListener("click", () => {
+      if (!infoRef.current) infoRef.current = new maps.InfoWindow();
+      infoRef.current.setContent(popupHtml(f.properties));
+      infoRef.current.open({ map, anchor: marker });
+    });
+    return marker;
+  });
+}
+
+export default function NicaraguaMap({
+  puntos = [],
+  modo = "muestras",
+  onModo,
+  cargando = false,
+}) {
+  const mapEl = useRef(null);
+  const mapRef = useRef(null);
+  const mapsRef = useRef(null);
+  const markersRef = useRef([]);
+  const infoRef = useRef(null);
+  const featuresRef = useRef([]);
+  const [capaBase, setCapaBase] = useState("satelite");
+  const [errorMapa, setErrorMapa] = useState("");
+
+  const features = useMemo(() => featuresDesdeApi(puntos), [puntos]);
+  const listaLateral = useMemo(() => {
+    const seen = new Map();
+    features.forEach((f) => {
+      const key = f.properties.idGrupo || f.properties.id;
+      if (!seen.has(key)) seen.set(key, f);
+    });
+    return [...seen.values()];
+  }, [features]);
+  featuresRef.current = features;
+  const estado = cargando ? "cargando" : features.length ? "listo" : "vacio";
+  const esClientes = modo === "clientes";
+  const sinKey = !googleMapsApiKey();
+
+  useEffect(() => {
+    if (sinKey || !mapEl.current) return undefined;
+
+    let cancelled = false;
+
+    cargarGoogleMaps()
+      .then((maps) => {
+        if (cancelled || !mapEl.current) return;
+        mapsRef.current = maps;
+        const created = new maps.Map(
+          mapEl.current,
+          opcionesMapaNicaragua({ zoom: 6.4, mapTypeId: mapTypeDeCapa("satelite") }),
+        );
+        mapRef.current = created;
+        syncMarkers(maps, created, featuresRef.current, markersRef, infoRef);
+      })
+      .catch((err) => {
+        if (!cancelled) setErrorMapa(err?.message || "No se pudo cargar Google Maps");
+      });
+
+    return () => {
+      cancelled = true;
+      markersRef.current.forEach((m) => m.setMap(null));
+      markersRef.current = [];
+      if (infoRef.current) {
+        infoRef.current.close();
+        infoRef.current = null;
+      }
+      mapRef.current = null;
+      mapsRef.current = null;
+    };
+  }, [sinKey]);
+
+  useEffect(() => {
+    if (mapRef.current && mapsRef.current) {
+      syncMarkers(mapsRef.current, mapRef.current, features, markersRef, infoRef);
+    }
+  }, [features]);
+
+  function cambiarCapa(id) {
+    setCapaBase(id);
+    if (mapRef.current) mapRef.current.setMapTypeId(mapTypeDeCapa(id));
+  }
+
+  function irAPunto(feature) {
+    if (!feature || !mapRef.current) return;
+    mapRef.current.panTo({ lat: feature.properties.lat, lng: feature.properties.lng });
+    mapRef.current.setZoom(11);
+  }
 
   return (
-    <div className="relative">
-      <svg viewBox="0 0 400 350" className="h-auto w-full" style={{ minHeight: 280 }}>
-        <defs>
-          <filter id="mapShadow">
-            <feDropShadow dx="1" dy="1" stdDeviation="2" floodOpacity="0.2" />
-          </filter>
-          <filter id="glow">
-            <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#3b82f6" floodOpacity="0.4" />
-          </filter>
-          <radialGradient id="bgGrad" cx="50%" cy="40%" r="60%">
-            <stop offset="0%" stopColor="#f8fafc" />
-            <stop offset="100%" stopColor="#f1f5f9" />
-          </radialGradient>
-        </defs>
-
-        <rect x="0" y="0" width="400" height="350" fill="url(#bgGrad)" rx="8" />
-
-        <path
-          d="M 60,40 L 80,20 L 130,12 L 200,8 L 280,12 L 350,25 L 385,55 L 380,90 L 365,130 L 345,170 L 325,205 L 310,235 L 285,260 L 260,280 L 230,295 L 195,305 L 160,295 L 130,270 L 105,230 L 80,180 L 55,110 Z"
-          fill="none"
-          stroke="#cbd5e1"
-          strokeWidth="1.5"
-          strokeDasharray="4 3"
-          opacity="0.6"
-        />
-
-        {departments.map((d) => {
-          const r = getRadius(d.samples);
-          const fill = getColor(d.samples);
-          return (
-            <g key={d.name}>
-              <circle
-                cx={d.cx}
-                cy={d.cy}
-                r={r}
-                fill={fill}
-                opacity="0.85"
-                filter="url(#mapShadow)"
-                style={{ cursor: "pointer", transition: "all 0.2s" }}
-                onMouseEnter={(e) => {
-                  setTooltip({ name: d.name, samples: d.samples, x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY });
-                }}
-                onMouseLeave={() => setTooltip(null)}
-              />
-              <circle cx={d.cx} cy={d.cy} r={r} fill="none" stroke="white" strokeWidth="1.5" opacity="0.6" />
-              <text
-                x={d.cx}
-                y={d.cy + 1}
-                textAnchor="middle"
-                dominantBaseline="central"
-                fill="white"
-                fontSize="9"
-                fontWeight="600"
-                style={{ pointerEvents: "none" }}
-              >
-                {d.samples}
-              </text>
-              <text
-                x={d.cx}
-                y={d.cy + r + 13}
-                textAnchor="middle"
-                fill="#475569"
-                fontSize="8"
-                fontWeight="500"
-                style={{ pointerEvents: "none" }}
-              >
-                {d.name}
-              </text>
-            </g>
-          );
-        })}
-
-        <rect x="14" y="318" width="12" height="10" rx="2" fill="rgb(30, 58, 138)" />
-        <rect x="34" y="318" width="12" height="10" rx="2" fill="rgb(22, 90, 130)" />
-        <rect x="54" y="318" width="12" height="10" rx="2" fill="rgb(14, 122, 122)" />
-        <rect x="74" y="318" width="12" height="10" rx="2" fill="rgb(10, 150, 110)" />
-        <text x="94" y="327" fill="#64748b" fontSize="8">Bajo</text>
-        <text x="300" y="327" fill="#64748b" fontSize="8">Alto</text>
-      </svg>
-
-      {tooltip && (
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_11rem]">
+      <div className="relative">
         <div
-          className="absolute z-10 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg"
-          style={{
-            left: tooltip.x + 10,
-            top: tooltip.y - 30,
-            pointerEvents: "none",
-          }}
-        >
-          <p className="font-semibold">{tooltip.name}</p>
-          <p className="text-gray-300">{tooltip.samples} muestras</p>
+          ref={mapEl}
+          className="dash-demanda-map h-[340px] w-full overflow-hidden rounded-2xl ring-1 ring-white/10"
+        />
+        <div className="absolute left-2 top-2 z-10 flex overflow-hidden rounded-lg bg-[#251d50]/90 shadow-md ring-1 ring-white/10">
+          {MODOS.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => onModo?.(m.id)}
+              className={`px-2.5 py-1 text-[10px] font-semibold ${
+                modo === m.id ? "bg-sky-400 text-[#07111f]" : "text-slate-300 hover:bg-white/5"
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
         </div>
-      )}
+        <div className="absolute right-2 top-2 z-10 flex overflow-hidden rounded-lg bg-[#251d50]/90 shadow-md ring-1 ring-white/10">
+          {CAPAS_BASE.map((capa) => (
+            <button
+              key={capa.id}
+              type="button"
+              onClick={() => cambiarCapa(capa.id)}
+              className={`px-2.5 py-1 text-[10px] font-semibold ${
+                capaBase === capa.id ? "bg-sky-400 text-[#07111f]" : "text-slate-300 hover:bg-white/5"
+              }`}
+            >
+              {capa.label}
+            </button>
+          ))}
+        </div>
+        {sinKey || errorMapa ? (
+          <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-[#251d50]/80 px-4 text-center text-xs text-amber-100">
+            {sinKey
+              ? "Pega tu API key de Google Maps en .env.development (VITE_GOOGLE_MAPS_API_KEY) y reinicia npm run dev."
+              : errorMapa}
+          </div>
+        ) : null}
+        {estado === "cargando" && !sinKey ? (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl bg-[#251d50]/45 text-xs text-sky-100">
+            {esClientes ? "Cargando clientes…" : "Cargando planes de muestreo…"}
+          </div>
+        ) : null}
+        {estado === "vacio" && !sinKey && !errorMapa ? (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl bg-[#251d50]/45 text-xs text-slate-200">
+            {esClientes
+              ? "No hay clientes con coordenadas"
+              : "No hay planes de muestreo con coordenadas"}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="flex h-[340px] min-h-0 flex-col">
+        <p className="mb-2 shrink-0 px-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+          {esClientes ? "Clientes" : "Planes de muestreo"}
+        </p>
+        <ul className="dash-scroll min-h-0 flex-1 space-y-2 overflow-y-auto overflow-x-hidden pr-1">
+          {listaLateral.length ? (
+            listaLateral.map((f, i) => (
+              <li key={f.properties.id}>
+                <button
+                  type="button"
+                  onClick={() => irAPunto(f)}
+                  className="flex w-full items-center gap-2 rounded-2xl bg-[#251d50] px-2.5 py-2 text-left ring-1 ring-white/10 transition hover:ring-sky-400/40"
+                >
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sky-400/15 text-[10px] font-semibold text-sky-200">
+                    {i + 1}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[11px] text-slate-200">
+                      {f.properties.plan || f.properties.nombre}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            ))
+          ) : (
+            <li className="px-2.5 text-[11px] text-slate-500">
+              {esClientes ? "Sin clientes aún" : "Sin planes aún"}
+            </li>
+          )}
+        </ul>
+      </div>
     </div>
   );
 }

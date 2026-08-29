@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { NeonTube } from "./HudPanel";
 
 function polarToCartesian(cx, cy, r, angleDeg) {
   const rad = ((angleDeg - 180) * Math.PI) / 180;
@@ -15,80 +16,111 @@ function describeArc(cx, cy, r, startDeg, endDeg) {
 
 export default function GaugeChart({
   value = 78,
-  subtitle = "Ejecutados vs Programados",
-  size = 220,
-  strokeWidth = 18,
+  programados = 42,
+  ejecutados = 33,
+  aTiempo = 84,
+  size = 240,
+  strokeWidth = 20,
 }) {
   const cx = size / 2;
-  const cy = size / 2 + 10;
-  const r = (size - 40) / 2;
+  const cy = size / 2 + 6;
+  const r = (size - 52) / 2;
   const [hovered, setHovered] = useState(false);
-
   const angle = (value / 100) * 180;
-  const bgArc = describeArc(cx, cy, r, 0, 180);
-  const valArc = describeArc(cx, cy, r, 0, angle);
-
-  const needleLen = r * 0.75;
-  const needleAngle = angle;
-  const needleEnd = polarToCartesian(cx, cy, needleLen, needleAngle);
-
-  const color = value >= 80 ? "#059669" : value >= 60 ? "#d97706" : "#dc2626";
+  const needle = polarToCartesian(cx, cy, r - 4, angle);
+  const pendientes = Math.max(0, programados - ejecutados);
 
   return (
-    <div className="flex flex-col items-center justify-center">
-      <svg
-        width={size}
-        height={size / 2 + 30}
-        viewBox={`0 0 ${size} ${size / 2 + 30}`}
-        className="overflow-visible"
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-      >
-        <defs>
-          <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#dc2626" />
-            <stop offset="50%" stopColor="#d97706" />
-            <stop offset="100%" stopColor="#059669" />
-          </linearGradient>
-          <filter id="gaugeShadow">
-            <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.15" />
-          </filter>
-        </defs>
+    <div className="grid items-center gap-6 sm:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+      <div className="flex justify-center">
+        <div className="rounded-[32px] bg-[#251d50] px-4 pb-2 pt-4 shadow-[inset_0_10px_28px_rgba(0,0,0,0.45)] ring-1 ring-white/10">
+          <svg
+            width={size}
+            height={size / 2 + 52}
+            viewBox={`0 0 ${size} ${size / 2 + 52}`}
+            className="overflow-visible"
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+          >
+            <defs>
+              <linearGradient id="gaugeHudGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#22d3ee" />
+                <stop offset="55%" stopColor="#38bdf8" />
+                <stop offset="100%" stopColor="#fbbf24" />
+              </linearGradient>
+              <filter id="gaugeHudGlow" x="-20%" y="-40%" width="140%" height="180%">
+                <feGaussianBlur stdDeviation={hovered ? 5 : 2.8} result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+            {[0, 25, 50, 75, 100].map((tick) => {
+              const inner = polarToCartesian(cx, cy, r + 14, (tick / 100) * 180);
+              const outer = polarToCartesian(cx, cy, r + 20, (tick / 100) * 180);
+              return (
+                <line
+                  key={tick}
+                  x1={inner.x}
+                  y1={inner.y}
+                  x2={outer.x}
+                  y2={outer.y}
+                  stroke="rgba(148,163,184,0.45)"
+                  strokeWidth="1.5"
+                />
+              );
+            })}
+            <path
+              d={describeArc(cx, cy, r - 14, 0, 180)}
+              fill="none"
+              stroke="rgba(148,163,184,0.2)"
+              strokeWidth="1.5"
+              strokeDasharray="3 5"
+              strokeLinecap="round"
+            />
+            <path
+              d={describeArc(cx, cy, r, 0, 180)}
+              fill="none"
+              stroke="rgba(148,163,184,0.18)"
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+            />
+            <path
+              d={describeArc(cx, cy, r, 0, angle)}
+              fill="none"
+              stroke="url(#gaugeHudGrad)"
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              filter="url(#gaugeHudGlow)"
+            />
+            <circle cx={needle.x} cy={needle.y} r="6" fill="#fff" />
+            <circle cx={needle.x} cy={needle.y} r="3" fill="#38bdf8" />
+            <text x={cx} y={cy - 4} textAnchor="middle" fill="#ffffff" fontSize="38" fontWeight="700">
+              {value}%
+            </text>
+            <text x={cx} y={cy + 16} textAnchor="middle" fill="#94a3b8" fontSize="11">
+              Ejecutados vs programados
+            </text>
+          </svg>
+        </div>
+      </div>
 
-        <path d={bgArc} fill="none" stroke="#e5e7eb" strokeWidth={strokeWidth} strokeLinecap="round" />
-
-        <path
-          d={valArc}
-          fill="none"
-          stroke="url(#gaugeGrad)"
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          style={{
-            filter: hovered ? "drop-shadow(0 0 6px rgba(5, 150, 105, 0.4))" : "none",
-            transition: "filter 0.3s ease",
-          }}
-        />
-
-        <line
-          x1={cx}
-          y1={cy}
-          x2={needleEnd.x}
-          y2={needleEnd.y}
-          stroke={color}
-          strokeWidth={3}
-          strokeLinecap="round"
-          filter="url(#gaugeShadow)"
-        />
-
-        <circle cx={cx} cy={cy} r={8} fill="white" stroke={color} strokeWidth={3} filter="url(#gaugeShadow)" />
-        <circle cx={cx} cy={cy} r={3} fill={color} />
-
-        <text x={cx} y={cy + 30} textAnchor="middle" className="text-2xl font-bold" fill="#1e293b" fontSize="28" fontWeight="700">
-          {value}%
-        </text>
-      </svg>
-      <div className="mt-2 text-center">
-        <p className="text-xs font-medium text-gray-500">{subtitle}</p>
+      <div className="space-y-4">
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { n: programados, l: "Programados", c: "text-sky-200" },
+            { n: ejecutados, l: "Ejecutados", c: "text-cyan-200" },
+            { n: pendientes, l: "Pendientes", c: "text-amber-200" },
+          ].map((item) => (
+            <div key={item.l} className="rounded-2xl bg-[#251d50] px-2 py-2.5 text-center ring-1 ring-white/10">
+              <p className={`text-xl font-bold tabular-nums ${item.c}`}>{item.n}</p>
+              <p className="mt-0.5 text-[10px] uppercase tracking-wide text-slate-400">{item.l}</p>
+            </div>
+          ))}
+        </div>
+        <NeonTube pct={value} from="#22d3ee" to="#2563eb" label="Cumplimiento" value={`${value}%`} />
+        <NeonTube pct={aTiempo} from="#fbbf24" to="#d97706" label="Planes a tiempo" value={`${aTiempo}%`} />
       </div>
     </div>
   );

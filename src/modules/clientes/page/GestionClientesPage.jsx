@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { FaEllipsisV, FaPlus, FaSearch, FaSpinner, FaTimes } from "react-icons/fa";
+import { FaEllipsisV, FaMapMarkerAlt, FaPlus, FaSearch, FaSpinner, FaTimes } from "react-icons/fa";
 import { ROUTES } from "../../../router/routes.js";
 import { useAuth } from "../../../auth/AuthContext.jsx";
 import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
@@ -11,6 +11,7 @@ import { useToast } from "../../../components/ToastContext.jsx";
 import { getDepartamentos } from "../../catalogos/service/departamentosService.js";
 import { getMunicipios } from "../../catalogos/service/municipiosService.js";
 import { getTiposCliente } from "../../catalogos/service/tiposClienteService.js";
+import { parseLatLng } from "../../../components/NicaraguaMapModal.jsx";
 import { CEDULA_NICARAGUA_REGEX, formatCedulaNicaragua } from "../../../utils/cedulaNicaraguaFormat.js";
 import { formatTelefonoLocal } from "../../../utils/phoneFormat.js";
 import {
@@ -22,6 +23,8 @@ import {
   toggleClienteStatus,
   updateCliente,
 } from "../service/clienteService.js";
+
+const NicaraguaMapModal = lazy(() => import("../../../components/NicaraguaMapModal.jsx"));
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
@@ -59,6 +62,7 @@ const initialForm = {
   CelularCliente: "",
   CorreoCliente: "",
   DireccionCliente: "",
+  CoordenadasCliente: "",
   CedulaCliente: "",
   NumeroRuc: "",
   NombreDepartamento: "",
@@ -79,6 +83,7 @@ function mapClienteToForm(c) {
     CelularCliente: formatTelefonoLocal(c.celularCliente ?? ""),
     CorreoCliente: c.correoCliente ?? "",
     DireccionCliente: c.direccionCliente ?? "",
+    CoordenadasCliente: c.coordenadasCliente ?? "",
     CedulaCliente: esInd ? formatCedulaNicaragua(c.cedulaCliente ?? "") : "",
     NumeroRuc: !esInd ? String(c.numeroRuc ?? c.NumeroRuc ?? "").trim() : "",
     NombreDepartamento: c.departamento ?? c.nombreDepartamento ?? "",
@@ -120,6 +125,7 @@ export default function GestionClientesPage() {
   const [firmaGuardada, setFirmaGuardada] = useState("");
   const [signatureResetVersion, setSignatureResetVersion] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [mapaClienteAbierto, setMapaClienteAbierto] = useState(false);
 
   const idUsuarioActual = user?.idUsuario ?? user?.id ?? 0;
 
@@ -296,6 +302,12 @@ export default function GestionClientesPage() {
     if (name === "CorreoCliente" && value && !EMAIL_REGEX.test(value)) {
       return "Formato de correo inválido";
     }
+    if (name === "CoordenadasCliente") {
+      const coords = String(value ?? "").trim();
+      if (coords && !parseLatLng(coords)) {
+        return "Use latitud y longitud válidas (ej. 12.136389, -86.251389)";
+      }
+    }
     return "";
   }
 
@@ -360,6 +372,7 @@ export default function GestionClientesPage() {
       if (validateField("NombreContacto", form.NombreContacto, form)) return false;
     }
     if (editingClienteId == null && !firmaFile) return false;
+    if (validateField("CoordenadasCliente", form.CoordenadasCliente, form)) return false;
     return true;
   }
 
@@ -368,6 +381,7 @@ export default function GestionClientesPage() {
     setEditingClienteId(null);
     setFirmaFile(null);
     setFirmaGuardada("");
+    setMapaClienteAbierto(false);
     setSignatureResetVersion((v) => v + 1);
   }
 
@@ -688,6 +702,7 @@ export default function GestionClientesPage() {
                     value={formatTelefonoLocal(detailCliente.celularCliente || "") || "-"}
                   />
                   <DetailRow label="Direccion" value={detailCliente.direccionCliente} />
+                  <DetailRow label="Coordenadas" value={detailCliente.coordenadasCliente} />
                   <DetailRow label="Correo" value={detailCliente.correoCliente} />
                   <DetailRow label="Cedula" value={detailCliente.cedulaCliente} />
                   <DetailRow label="Numero RUC" value={detailCliente.numeroRuc} />
@@ -804,8 +819,41 @@ export default function GestionClientesPage() {
                 label="Dirección"
                 name="DireccionCliente"
                 value={form.DireccionCliente}
+                error={formErrors.DireccionCliente}
                 onChange={handleFormChange}
+                placeholder="Barrio, calle o referencia (opcional)"
               />
+
+              <div>
+                <label htmlFor="cli-CoordenadasCliente" className="mb-1 block text-sm font-medium text-gray-700">
+                  Coordenadas
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    id="cli-CoordenadasCliente"
+                    name="CoordenadasCliente"
+                    value={form.CoordenadasCliente}
+                    onChange={handleFormChange}
+                    placeholder="Latitud, longitud (opcional)"
+                    className={`input ${formErrors.CoordenadasCliente ? "border-red-400 ring-1 ring-red-400" : ""}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setMapaClienteAbierto(true)}
+                    className="inline-flex shrink-0 items-center gap-2 rounded-md bg-blue-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800"
+                  >
+                    <FaMapMarkerAlt className="h-4 w-4" />
+                    Mapa
+                  </button>
+                </div>
+                {formErrors.CoordenadasCliente ? (
+                  <p className="mt-1 text-xs text-red-500">{formErrors.CoordenadasCliente}</p>
+                ) : (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Opcional. Puede guardar la dirección, las coordenadas o ambas. El mapa solo muestra clientes con coordenadas.
+                  </p>
+                )}
+              </div>
 
               <SelectField
                 label="Tipo de cliente"
@@ -989,6 +1037,21 @@ export default function GestionClientesPage() {
         onConfirm={() => handleToggle(confirmToggle)}
         onCancel={() => setConfirmToggle(null)}
       />
+
+      {mapaClienteAbierto ? (
+        <Suspense fallback={null}>
+          <NicaraguaMapModal
+            open
+            initialValue={form.CoordenadasCliente}
+            onConfirm={(coords) => {
+              setForm((prev) => ({ ...prev, CoordenadasCliente: coords }));
+              setFormErrors((prev) => ({ ...prev, CoordenadasCliente: "" }));
+              setMapaClienteAbierto(false);
+            }}
+            onCancel={() => setMapaClienteAbierto(false)}
+          />
+        </Suspense>
+      ) : null}
 
       <ConfirmDialog
         open={!!clienteInactivoAviso}

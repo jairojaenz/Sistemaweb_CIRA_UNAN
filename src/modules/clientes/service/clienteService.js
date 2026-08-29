@@ -41,6 +41,7 @@ export function normalizeClienteFromApi(raw) {
     celularCliente: raw.celularCliente ?? raw.CelularCliente ?? raw.celular ?? raw.Celular ?? "",
     correoCliente: raw.correoCliente ?? raw.CorreoCliente ?? raw.correo ?? raw.Correo ?? "",
     direccionCliente: raw.direccionCliente ?? raw.DireccionCliente ?? raw.direccion ?? raw.Direccion ?? "",
+    coordenadasCliente: raw.coordenadasCliente ?? raw.CoordenadasCliente ?? raw.coordenadas ?? raw.Coordenadas ?? "",
     cedulaCliente: raw.cedulaCliente ?? raw.CedulaCliente ?? raw.cedula ?? raw.Cedula ?? "",
     numeroRuc: String(raw.numeroRuc ?? raw.NumeroRuc ?? "").trim(),
     nombreContacto: raw.nombreContacto ?? raw.NombreContacto ?? null,
@@ -84,6 +85,7 @@ function appendClienteFormFields(fd, data, options = {}) {
   fd.append("CelularCliente", data.CelularCliente ?? "");
   fd.append("CorreoCliente", data.CorreoCliente ?? "");
   fd.append("DireccionCliente", data.DireccionCliente ?? "");
+  fd.append("CoordenadasCliente", data.CoordenadasCliente ?? "");
   fd.append("CedulaCliente", data.CedulaCliente ?? "");
   if (!omitNumeroRuc) {
     fd.append("NumeroRuc", data.NumeroRuc ?? "");

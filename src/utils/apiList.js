@@ -5,7 +5,9 @@
 /** Normaliza respuestas de listados de la API (array directo o envuelto). */
 export function asList(res) {
   if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.$values)) return res.$values;
   if (Array.isArray(res?.data)) return res.data;
+  if (Array.isArray(res?.data?.$values)) return res.data.$values;
   if (Array.isArray(res?.users)) return res.users;
   if (Array.isArray(res?.Users)) return res.Users;
   return [];

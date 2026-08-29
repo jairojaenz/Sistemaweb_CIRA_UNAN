@@ -1,346 +1,569 @@
-import { useState, useMemo } from "react";
-import { useAuth } from "../../../auth/AuthContext";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, PieChart, Pie, Cell, Legend,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  ComposedChart,
+  Area,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  ReferenceDot,
 } from "recharts";
-import { FaExclamationTriangle, FaFlask, FaFileInvoiceDollar, FaClipboardCheck, FaFilter, FaIndustry } from "react-icons/fa";
-import {
-  monthlyConversionData, matrixDistribution, solicitudesTrend,
-  gaugeData, topClientes, analisisSolicitados, alertsData,
-} from "../components/dashboardData";
+import { FaFilter } from "react-icons/fa";
 import GaugeChart from "../components/GaugeChart";
 import NicaraguaMap from "../components/NicaraguaMap";
-
-const COLORS = {
-  primary: "#1e3a8a",
-  secondary: "#3b82f6",
-  light: "#60a5fa",
-  pale: "#93c5fd",
-  emerald: "#059669",
-  emeraldLight: "#10b981",
-  emeraldPale: "#34d399",
-  warning: "#d97706",
-  danger: "#dc2626",
-  gray: "#6b7280",
-  grayLight: "#9ca3af",
-  grayBg: "#f3f4f6",
-};
-
-const DONUT_COLORS = ["#1e3a8a", "#3b82f6", "#059669", "#10b981", "#34d399", "#9ca3af"];
-
-const KPI_CARDS = [
-  { label: "Proformas Emitidas", value: "6,240", sub: "Últimos 12 meses", icon: FaFileInvoiceDollar, color: "from-blue-700 to-blue-500", textColor: "text-white" },
-  { label: "Órdenes Confirmadas", value: "4,420", sub: "70.8% tasa de conversión", icon: FaClipboardCheck, color: "from-emerald-600 to-emerald-400", textColor: "text-white" },
-  { label: "Muestras Procesadas", value: "5,850", sub: "~488/mes en promedio", icon: FaFlask, color: "from-cyan-600 to-cyan-400", textColor: "text-white" },
-  { label: "Clientes Atendidos", value: "128", sub: "+12% vs año anterior", icon: FaIndustry, color: "from-violet-600 to-violet-400", textColor: "text-white" },
-];
+import KpiStatCards from "../components/KpiStatCards";
+import HudPanel, { GlowTooltip } from "../components/HudPanel";
+import ConversionBarChart from "../components/ConversionBarChart";
+import AnalisisCapsuleChart from "../components/AnalisisCapsuleChart";
+import TopClientesList from "../components/TopClientesList";
+import { conTonos } from "../components/dashboardTonos";
+import { getMatrices } from "../../catalogos/service/matrizService";
+import {
+  periodoVacio,
+  rangoDesdePeriodo,
+  etiquetaPeriodo,
+  opcionesAnios,
+  opcionesMeses,
+  diasDelMes,
+  getKpisGrafico,
+  getConversionMensual,
+  getMuestrasPorMatriz,
+  getTendenciaSolicitudes,
+  getCumplimientoPlanes,
+  getPuntosClientesMapa,
+  getPuntosPlanesMapa,
+  getTopClientesGrafico,
+  getAnalisisSolicitados,
+} from "../service/graficosService";
 
 function formatTooltipDate(label) {
-  const map = { Ene: "Enero", Feb: "Febrero", Mar: "Marzo", Abr: "Abril", May: "Mayo", Jun: "Junio", Jul: "Julio", Ago: "Agosto", Sep: "Septiembre", Oct: "Octubre", Nov: "Noviembre", Dic: "Diciembre" };
+  const map = {
+    Ene: "Enero",
+    Feb: "Febrero",
+    Mar: "Marzo",
+    Abr: "Abril",
+    May: "Mayo",
+    Jun: "Junio",
+    Jul: "Julio",
+    Ago: "Agosto",
+    Sep: "Septiembre",
+    Oct: "Octubre",
+    Nov: "Noviembre",
+    Dic: "Diciembre",
+  };
   return map[label] || label;
 }
 
-function formatTooltipValue(value, name) {
-  const labels = { proformas: "Proformas", ordenes: "Órdenes", solicitudes: "Solicitudes" };
-  return [`${value}`, labels[name] || name];
+function PeakCallout({ cx, cy, value }) {
+  if (cx == null || cy == null) return null;
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r="10" fill="#38bdf8" opacity="0.25" />
+      <circle cx={cx} cy={cy} r="5.5" fill="#fff" />
+      <circle cx={cx} cy={cy} r="3" fill="#38bdf8" />
+      <rect x={cx - 24} y={cy - 38} rx="9" width="48" height="22" fill="#0ea5e9" />
+      <text x={cx} y={cy - 23} textAnchor="middle" fill="#fff" fontSize="11" fontWeight="700">
+        {value}
+      </text>
+    </g>
+  );
 }
 
-export default function DashboardHomePage() {
-  const { user } = useAuth();
-  const [dateRange, setDateRange] = useState({ start: "2025-01-01", end: "2025-12-31" });
-  const [matrixFilter, setMatrixFilter] = useState("todas");
+const inputClass =
+  "rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-slate-100 outline-none ring-sky-400/0 transition placeholder:text-slate-500 focus:border-sky-400/40 focus:ring-2 focus:ring-sky-400/20";
 
-  const filteredData = useMemo(() => {
-    if (matrixFilter === "todas") return matrixDistribution;
-    return matrixDistribution.filter((m) => m.name === matrixFilter);
-  }, [matrixFilter]);
+const VACIO = {
+  kpis: {},
+  conversion: { conversionAcumulada: 0, series: [] },
+  matrices: [],
+  tendencia: [],
+  planes: { programados: 0, ejecutados: 0, cumplimiento: 0, aTiempo: 0 },
+  puntos: [],
+  topClientes: { items: [], total: 0, pagina: 1, tamano: 20, totalPaginas: 1 },
+  analisis: [],
+};
+
+export default function DashboardHomePage() {
+  const [periodo, setPeriodo] = useState(periodoVacio);
+  const [matrixFilter, setMatrixFilter] = useState("todas");
+  const [catalogoMatrices, setCatalogoMatrices] = useState([]);
+  const [data, setData] = useState(VACIO);
+  const [cargandoClientes, setCargandoClientes] = useState(false);
+  const [paginaClientes, setPaginaClientes] = useState(1);
+  const [mapaModo, setMapaModo] = useState("muestras");
+  const [cargandoMapa, setCargandoMapa] = useState(false);
+  const [error, setError] = useState("");
+  const mapaReqRef = useRef(0);
+
+  useEffect(() => {
+    getMatrices()
+      .then((list) => setCatalogoMatrices(list.filter((m) => m.activo !== false)))
+      .catch(() => setCatalogoMatrices([]));
+  }, []);
+
+  const rango = useMemo(() => rangoDesdePeriodo(periodo), [periodo]);
+  const filtrosBase = useMemo(
+    () => ({
+      fechaInicio: rango.start,
+      fechaFin: rango.end,
+      idMatriz: matrixFilter === "todas" ? undefined : Number(matrixFilter),
+    }),
+    [rango.start, rango.end, matrixFilter],
+  );
+
+  useEffect(() => {
+    setPaginaClientes(1);
+  }, [filtrosBase]);
+
+  useEffect(() => {
+    let cancelado = false;
+    setError("");
+
+    Promise.all([
+      getKpisGrafico(filtrosBase),
+      getConversionMensual(filtrosBase),
+      getMuestrasPorMatriz(filtrosBase),
+      getTendenciaSolicitudes(filtrosBase),
+      getCumplimientoPlanes(filtrosBase),
+      getAnalisisSolicitados(filtrosBase),
+    ])
+      .then(([kpis, conversion, matrices, tendencia, planes, analisis]) => {
+        if (cancelado) return;
+        setData((prev) => ({
+          ...prev,
+          kpis: {
+            proformas: kpis.proformas ?? kpis.Proformas,
+            ordenes: kpis.ordenes ?? kpis.Ordenes,
+            muestras: kpis.muestras ?? kpis.Muestras,
+            clientes: kpis.clientes ?? kpis.Clientes,
+          },
+          conversion,
+          matrices,
+          tendencia: tendencia.map((t) => ({
+            mes: t.mes ?? t.Mes,
+            solicitudes: Number(t.solicitudes ?? t.Solicitudes ?? 0),
+            anterior: Number(t.anterior ?? t.Anterior ?? 0),
+          })),
+          planes: {
+            programados: Number(planes.programados ?? planes.Programados ?? 0),
+            ejecutados: Number(planes.ejecutados ?? planes.Ejecutados ?? 0),
+            cumplimiento: Number(planes.cumplimiento ?? planes.Cumplimiento ?? 0),
+            aTiempo: Number(planes.aTiempo ?? planes.ATiempo ?? 0),
+          },
+          analisis,
+        }));
+      })
+      .catch((err) => {
+        if (cancelado) return;
+        setData(VACIO);
+        setError(err?.message || "No se pudieron cargar los gráficos");
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [filtrosBase]);
+
+  useEffect(() => {
+    let cancelado = false;
+    setCargandoClientes(true);
+    getTopClientesGrafico({ ...filtrosBase, pagina: paginaClientes, tamano: 20 })
+      .then((topClientes) => {
+        if (!cancelado) setData((prev) => ({ ...prev, topClientes }));
+      })
+      .catch(() => {
+        if (!cancelado) {
+          setData((prev) => ({
+            ...prev,
+            topClientes: { items: [], total: 0, pagina: 1, tamano: 20, totalPaginas: 1 },
+          }));
+        }
+      })
+      .finally(() => {
+        if (!cancelado) setCargandoClientes(false);
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [filtrosBase, paginaClientes]);
+
+  const cargarPuntosMapa = useCallback((modo) => {
+    const tipo = modo === "clientes" ? "clientes" : "muestras";
+    setMapaModo(tipo);
+    setCargandoMapa(true);
+    setData((prev) => ({ ...prev, puntos: [] }));
+    const reqId = ++mapaReqRef.current;
+    const pedido = tipo === "clientes" ? getPuntosClientesMapa() : getPuntosPlanesMapa(filtrosBase.idMatriz);
+    pedido
+      .then((puntos) => {
+        if (reqId === mapaReqRef.current) setData((prev) => ({ ...prev, puntos }));
+      })
+      .catch((err) => {
+        if (reqId === mapaReqRef.current) {
+          setData((prev) => ({ ...prev, puntos: [] }));
+          setError(err?.message || "No se pudieron cargar los puntos del mapa");
+        }
+      })
+      .finally(() => {
+        if (reqId === mapaReqRef.current) setCargandoMapa(false);
+      });
+  }, [filtrosBase.idMatriz]);
+
+  useEffect(() => {
+    cargarPuntosMapa(mapaModo);
+  }, [filtrosBase.idMatriz, cargarPuntosMapa]);
+
+  const matricesChart = useMemo(() => conTonos(data.matrices), [data.matrices]);
+  const analisisChart = useMemo(() => conTonos(data.analisis), [data.analisis]);
+  const conversionSeries = useMemo(
+    () =>
+      (data.conversion.series ?? []).map((r) => ({
+        mes: r.mes ?? r.Mes,
+        proformas: Number(r.proformas ?? r.Proformas ?? 0),
+        ordenes: Number(r.ordenes ?? r.Ordenes ?? 0),
+      })),
+    [data.conversion],
+  );
+
+  const matrizTotal = useMemo(
+    () => matricesChart.reduce((sum, item) => sum + (Number(item.value) || 0), 0),
+    [matricesChart],
+  );
+
+  const picoSolicitudes = useMemo(
+    () =>
+      data.tendencia.reduce(
+        (best, row) => (row.solicitudes > (best?.solicitudes ?? -1) ? row : best),
+        null,
+      ),
+    [data.tendencia],
+  );
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6 space-y-5">
-
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">
-            Dashboard Ejecutivo
-          </h1>
-          <p className="text-sm text-gray-500">
-            Bienvenido, <span className="font-semibold text-blue-700">{user?.nombre} {user?.apellido || "Usuario"}</span> — Panel de indicadores estratégicos CIRA
-          </p>
-          
-        </div>
-      </div>
-
-    
-
-      {/* Global Filters */}
-      <div className="flex flex-wrap items-end gap-4 rounded-xl bg-white p-4 shadow-sm">
-        <div className="flex items-center gap-2 text-sm font-medium text-gray-600">
-          <FaFilter className="h-4 w-4" />
-          Filtros:
+    <div className="dash-exec min-h-full bg-[#0d053c] p-4 md:p-6 space-y-5">
+      <div className="dash-glass flex flex-wrap items-end gap-4 rounded-2xl bg-[#251d50] p-4 ring-1 ring-sky-400/20">
+        <div className="flex items-center gap-2 text-sm font-medium text-slate-300">
+          <FaFilter className="h-4 w-4 text-sky-300" />
+          Filtros
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-500">Fecha Inicio</label>
-          <input
-            type="date"
-            value={dateRange.start}
-            onChange={(e) => setDateRange((p) => ({ ...p, start: e.target.value }))}
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-          />
+          <label className="mb-1 block text-xs font-medium text-slate-400">Año</label>
+          <select
+            value={periodo.anio}
+            onChange={(e) => {
+              const anio = e.target.value;
+              if (!anio) {
+                setPeriodo(periodoVacio());
+                return;
+              }
+              const maxDia = diasDelMes(anio, periodo.mes);
+              const dia =
+                periodo.mes && periodo.dia && Number(periodo.dia) > maxDia
+                  ? String(maxDia)
+                  : periodo.mes
+                    ? periodo.dia
+                    : "";
+              setPeriodo({ anio, mes: periodo.mes, dia });
+            }}
+            className={inputClass}
+          >
+            <option value="">Todos</option>
+            {opcionesAnios().map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-500">Fecha Fin</label>
-          <input
-            type="date"
-            value={dateRange.end}
-            onChange={(e) => setDateRange((p) => ({ ...p, end: e.target.value }))}
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-          />
+          <label className="mb-1 block text-xs font-medium text-slate-400">Mes</label>
+          <select
+            value={periodo.mes}
+            disabled={!periodo.anio}
+            onChange={(e) => {
+              const mes = e.target.value;
+              const maxDia = diasDelMes(periodo.anio, mes);
+              const dia = mes && periodo.dia && Number(periodo.dia) > maxDia ? String(maxDia) : mes ? periodo.dia : "";
+              setPeriodo((p) => ({ ...p, mes, dia }));
+            }}
+            className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-40`}
+          >
+            <option value="">Todo el año</option>
+            {opcionesMeses().map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-500">Tipo de Matriz</label>
+          <label className="mb-1 block text-xs font-medium text-slate-400">Día</label>
+          <select
+            value={periodo.dia}
+            disabled={!periodo.anio || !periodo.mes}
+            onChange={(e) => setPeriodo((p) => ({ ...p, dia: e.target.value }))}
+            className={`${inputClass} disabled:cursor-not-allowed disabled:opacity-40`}
+          >
+            <option value="">Todo el mes</option>
+            {Array.from({ length: diasDelMes(periodo.anio, periodo.mes) }, (_, i) => i + 1).map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-400">Tipo de matriz</label>
           <select
             value={matrixFilter}
             onChange={(e) => setMatrixFilter(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className={inputClass}
           >
             <option value="todas">Todas las matrices</option>
-            {matrixDistribution.map((m) => (
-              <option key={m.name} value={m.name}>{m.name}</option>
+            {catalogoMatrices.map((m) => (
+              <option key={m.idMatriz} value={m.idMatriz}>
+                {m.nombreMatriz}
+              </option>
             ))}
           </select>
         </div>
         <button
-          onClick={() => { setDateRange({ start: "2025-01-01", end: "2025-12-31" }); setMatrixFilter("todas"); }}
-          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+          type="button"
+          onClick={() => {
+            setPeriodo(periodoVacio());
+            setMatrixFilter("todas");
+          }}
+          className="rounded-xl border border-white/10 px-3 py-1.5 text-sm text-slate-300 transition hover:bg-white/5"
         >
           Limpiar
         </button>
+        <p className="w-full text-[11px] text-slate-400">
+          Mostrando: <span className="font-medium text-sky-200">{etiquetaPeriodo(periodo)}</span>
+        </p>
       </div>
 
-      {/* Alert Widget */}
-      <div className="flex items-start gap-3 rounded-xl border-l-4 border-amber-500 bg-amber-50 p-4 shadow-sm">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-100">
-          <FaExclamationTriangle className="h-5 w-5 text-amber-600" />
-        </div>
-        <div className="flex-1">
-          <div className="flex items-baseline gap-2">
-            <span className="text-xl font-bold text-amber-700">{alertsData.cadenasPendientes}</span>
-            <span className="text-sm font-medium text-amber-800">Cadenas de Custodia sin procesar</span>
-          </div>
-          <p className="mt-1 text-sm text-amber-700">
-            De <strong>{alertsData.totalCadenas}</strong> cadenas recibidas, <strong>{alertsData.cadenasPendientes}</strong> tienen más de 24 horas sin ser procesadas. Tiempo promedio de espera: <strong>{alertsData.tiempoPromedioHoras}h</strong>.
-            Se recomienda priorizar su revisión para evitar retrasos en la cadena de frío.
-          </p>
-        </div>
-      </div>
+      {error ? (
+        <p className="rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">{error}</p>
+      ) : null}
 
-      {/* KPI Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {KPI_CARDS.map((card) => {
-          const Icon = card.icon;
-          return (
-            <div
-              key={card.label}
-              className={`relative overflow-hidden rounded-xl bg-gradient-to-br ${card.color} p-4 text-white shadow-md`}
-            >
-              <div className="absolute right-2 top-2 opacity-10">
-                <Icon className="h-12 w-12" />
+      <KpiStatCards kpis={data.kpis} />
+
+      <div className="grid gap-5 lg:grid-cols-3">
+        <HudPanel
+          className="lg:col-span-2"
+          title="Proformas vs órdenes confirmadas"
+          subtitle={`Comparativa mensual · conversión acumulada ${data.conversion.conversionAcumulada}%`}
+        >
+          {conversionSeries.length ? (
+            <ConversionBarChart data={conversionSeries} />
+          ) : (
+            <p className="py-10 text-center text-sm text-slate-400">No hay proformas ni órdenes en este período.</p>
+          )}
+        </HudPanel>
+
+        <HudPanel title="Muestras por matriz" subtitle="Distribución del total procesado">
+          {matricesChart.length ? (
+            <>
+              <div className="relative mx-auto h-52 w-52">
+                <div className="absolute inset-2 rounded-full bg-[#251d50] shadow-[inset_0_12px_28px_rgba(0,0,0,0.4)] ring-1 ring-white/10" />
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <defs>
+                      {matricesChart.map((entry, i) => (
+                        <linearGradient key={entry.name} id={`matriz-g-${i}`} x1="0" y1="1" x2="1" y2="0">
+                          <stop offset="0%" stopColor={entry.deep} />
+                          <stop offset="45%" stopColor={entry.color} />
+                          <stop offset="100%" stopColor={entry.glow} />
+                        </linearGradient>
+                      ))}
+                    </defs>
+                    <Pie
+                      data={matricesChart}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={62}
+                      outerRadius={86}
+                      paddingAngle={4}
+                      dataKey="value"
+                      nameKey="name"
+                      stroke="transparent"
+                    >
+                      {matricesChart.map((entry, i) => (
+                        <Cell key={entry.name} fill={`url(#matriz-g-${i})`} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<GlowTooltip suffix="%" />} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                  <p className="text-3xl font-bold tabular-nums text-white">{matrizTotal}%</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                    {matrixFilter === "todas" ? "Total" : "Filtro"}
+                  </p>
+                </div>
               </div>
-              <p className="relative text-xs font-medium opacity-80">{card.label}</p>
-              <p className="relative mt-1 text-2xl font-bold">{card.value}</p>
-              <p className="relative mt-1 text-xs opacity-75">{card.sub}</p>
+              <ul className="mt-4 space-y-1.5">
+                {matricesChart.map((item) => (
+                  <li key={item.name} className="flex items-center gap-2 text-xs text-slate-300">
+                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: item.color }} />
+                    <span className="truncate">{item.name}</span>
+                    <span className="ml-auto tabular-nums text-slate-400">{item.value}%</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p className="py-10 text-center text-sm text-slate-400">No hay muestras en este período.</p>
+          )}
+        </HudPanel>
+      </div>
+
+      <HudPanel title="Tendencia de solicitudes de servicio" subtitle="Período actual vs el anterior de igual duración">
+        {data.tendencia.length ? (
+          <>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={data.tendencia} margin={{ top: 28, right: 24, left: 0, bottom: 5 }}>
+                  <defs>
+                    <linearGradient id="areaSolicitudes" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#38bdf8" stopOpacity={0.45} />
+                      <stop offset="100%" stopColor="#38bdf8" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="areaAnterior" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#fbbf24" stopOpacity={0.22} />
+                      <stop offset="100%" stopColor="#fbbf24" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 10" stroke="rgba(148,163,184,0.12)" vertical={false} />
+                  <XAxis dataKey="mes" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    content={
+                      <GlowTooltip
+                        labelFormatter={formatTooltipDate}
+                        nameMap={{ solicitudes: "Este período", anterior: "Período anterior" }}
+                      />
+                    }
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="anterior"
+                    stroke="none"
+                    fill="url(#areaAnterior)"
+                    name="anteriorFill"
+                    legendType="none"
+                    tooltipType="none"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="solicitudes"
+                    stroke="#7dd3fc"
+                    strokeWidth={3}
+                    fill="url(#areaSolicitudes)"
+                    dot={{ r: 3.5, fill: "#0ea5e9", stroke: "#fff", strokeWidth: 1.5 }}
+                    activeDot={{ r: 6, fill: "#fff", stroke: "#38bdf8", strokeWidth: 3 }}
+                    name="solicitudes"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="anterior"
+                    stroke="#94a3b8"
+                    strokeWidth={2}
+                    strokeDasharray="6 6"
+                    dot={false}
+                    name="anterior"
+                  />
+                  {picoSolicitudes ? (
+                    <ReferenceDot
+                      x={picoSolicitudes.mes}
+                      y={picoSolicitudes.solicitudes}
+                      ifOverflow="extendDomain"
+                      shape={<PeakCallout value={picoSolicitudes.solicitudes} />}
+                    />
+                  ) : null}
+                </ComposedChart>
+              </ResponsiveContainer>
             </div>
-          );
-        })}
+            <div className="mt-2 flex gap-4 text-xs text-slate-400">
+              <span className="flex items-center gap-2">
+                <span className="h-0.5 w-6 rounded bg-sky-300" /> Este período
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="h-px w-6 border-t border-dashed border-slate-400" /> Período anterior
+              </span>
+            </div>
+          </>
+        ) : (
+          <p className="py-10 text-center text-sm text-slate-400">No hay solicitudes en este período.</p>
+        )}
+      </HudPanel>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <HudPanel
+          title="Cumplimiento de planes de muestreo"
+          subtitle={`${data.planes.ejecutados} de ${data.planes.programados} planes ejecutados`}
+        >
+          <GaugeChart
+            value={data.planes.cumplimiento}
+            programados={data.planes.programados}
+            ejecutados={data.planes.ejecutados}
+            aTiempo={data.planes.aTiempo}
+            size={240}
+          />
+        </HudPanel>
+
+        <HudPanel
+          title={mapaModo === "clientes" ? "Ubicación de clientes" : "Procedencia geográfica de muestras"}
+          subtitle={
+            mapaModo === "clientes"
+              ? "Coordenadas registradas de cada cliente"
+              : "Planes de muestreo con coordenadas reales"
+          }
+        >
+          <NicaraguaMap
+            puntos={data.puntos}
+            modo={mapaModo}
+            onModo={cargarPuntosMapa}
+            cargando={cargandoMapa}
+          />
+        </HudPanel>
       </div>
 
-      {/* Row 1: Stacked Bar + Donut */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="rounded-xl bg-white p-5 shadow-sm lg:col-span-2">
-          <h2 className="mb-1 text-base font-semibold text-gray-800">Proformas Emitidas vs Órdenes de Servicio Confirmadas</h2>
-          <p className="mb-4 text-xs text-gray-400">Comparativa mensual — Tasa de conversión acumulada: 70.8%</p>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyConversionData} barGap={2} barCategoryGap="20%">
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                <XAxis dataKey="mes" tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  formatter={formatTooltipValue}
-                  labelFormatter={formatTooltipDate}
-                  contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb", boxShadow: "0 4px 12px rgba(0,0,0,0.08)", fontSize: 12 }}
-                />
-                <Legend
-                  wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
-                  formatter={(value) => (value === "proformas" ? "Proformas Emitidas" : "Órdenes Confirmadas")}
-                />
-                <Bar
-                  dataKey="proformas"
-                  fill="#1e3a8a"
-                  radius={[4, 4, 0, 0]}
-                  name="proformas"
-                  maxBarSize={32}
-                />
-                <Bar
-                  dataKey="ordenes"
-                  fill="#059669"
-                  radius={[4, 4, 0, 0]}
-                  name="ordenes"
-                  maxBarSize={32}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <HudPanel title="Top clientes por volumen" subtitle="Clientes con mayor actividad en el período">
+          {data.topClientes.items.length || cargandoClientes ? (
+            <TopClientesList
+              clientes={data.topClientes.items}
+              pagina={data.topClientes.pagina}
+              tamano={data.topClientes.tamano}
+              total={data.topClientes.total}
+              totalPaginas={data.topClientes.totalPaginas}
+              onPagina={setPaginaClientes}
+              cargando={cargandoClientes}
+            />
+          ) : (
+            <p className="py-10 text-center text-sm text-slate-400">No hay clientes con solicitudes en este período.</p>
+          )}
+        </HudPanel>
 
-        <div className="rounded-xl bg-white p-5 shadow-sm">
-          <h2 className="mb-1 text-base font-semibold text-gray-800">Muestras por Matriz</h2>
-          <p className="mb-4 text-xs text-gray-400">Distribución porcentual del total procesado</p>
-          <div className="flex h-72 flex-col items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={filteredData}
-                  cx="50%"
-                  cy="45%"
-                  innerRadius={55}
-                  outerRadius={90}
-                  paddingAngle={3}
-                  dataKey="value"
-                  nameKey="name"
-                >
-                  {filteredData.map((entry, idx) => (
-                    <Cell key={entry.name} fill={DONUT_COLORS[idx % DONUT_COLORS.length]} stroke="white" strokeWidth={2} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value) => [`${value}%`, "Participación"]}
-                  contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 12 }}
-                />
-                <Legend
-                  layout="vertical"
-                  align="right"
-                  verticalAlign="middle"
-                  iconType="circle"
-                  iconSize={8}
-                  wrapperStyle={{ fontSize: 11, paddingLeft: 8 }}
-                  formatter={(value) => <span className="text-gray-600">{value}</span>}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        <HudPanel title="Análisis más solicitados" subtitle="Demanda por tipo de análisis de laboratorio">
+          {analisisChart.length ? (
+            <AnalisisCapsuleChart data={analisisChart} />
+          ) : (
+            <p className="py-10 text-center text-sm text-slate-400">No hay análisis solicitados en este período.</p>
+          )}
+        </HudPanel>
       </div>
 
-      {/* Row 2: Line Chart */}
-      <div className="rounded-xl bg-white p-5 shadow-sm">
-        <h2 className="mb-1 text-base font-semibold text-gray-800">Tendencia de Solicitudes de Servicio</h2>
-        <p className="mb-4 text-xs text-gray-400">Último semestre — Volumen de solicitudes recibidas</p>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={solicitudesTrend} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-              <XAxis dataKey="mes" tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
-              <Tooltip
-                formatter={(value) => [`${value}`, "Solicitudes"]}
-                contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb", boxShadow: "0 4px 12px rgba(0,0,0,0.08)", fontSize: 12 }}
-              />
-              <defs>
-                <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.15} />
-                  <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <Line
-                type="monotone"
-                dataKey="solicitudes"
-                stroke="#1e3a8a"
-                strokeWidth={3}
-                dot={{ r: 5, fill: "#1e3a8a", stroke: "white", strokeWidth: 2 }}
-                activeDot={{ r: 7, fill: "#1e3a8a", stroke: "white", strokeWidth: 2 }}
-                name="solicitudes"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Row 3: Gauge + Map */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-xl bg-white p-5 shadow-sm">
-          <h2 className="mb-1 text-base font-semibold text-gray-800">Cumplimiento de Planes de Muestreo</h2>
-          <p className="mb-4 text-xs text-gray-400">{gaugeData.ejecutados} de {gaugeData.programados} planes ejecutados</p>
-          <div className="flex items-center justify-center">
-            <GaugeChart value={gaugeData.cumplimiento} size={240} />
-          </div>
-        </div>
-
-        <div className="rounded-xl bg-white p-5 shadow-sm">
-          <h2 className="mb-1 text-base font-semibold text-gray-800">Procedencia Geográfica de Muestras</h2>
-          <p className="mb-4 text-xs text-gray-400">Distribución departamental — el tamaño del círculo indica el volumen</p>
-          <NicaraguaMap filterMatrix={matrixFilter} />
-        </div>
-      </div>
-
-      {/* Row 4: Bonus Charts */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-xl bg-white p-5 shadow-sm">
-          <h2 className="mb-1 text-base font-semibold text-gray-800">Top Clientes por Volumen de Muestras</h2>
-          <p className="mb-4 text-xs text-gray-400">Clientes con mayor actividad en el período</p>
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={topClientes} layout="vertical" barCategoryGap="25%">
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
-                <YAxis
-                  type="category"
-                  dataKey="name"
-                  tick={{ fontSize: 11, fill: "#374151", fontWeight: 500 }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={140}
-                />
-                <Tooltip
-                  formatter={(value) => [`${value} muestras`, "Volumen"]}
-                  contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 12 }}
-                />
-                <Bar dataKey="muestras" fill="#3b82f6" radius={[0, 4, 4, 0]} maxBarSize={20} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="rounded-xl bg-white p-5 shadow-sm">
-          <h2 className="mb-1 text-base font-semibold text-gray-800">Análisis Más Solicitados</h2>
-          <p className="mb-4 text-xs text-gray-400">Demanda por tipo de análisis de laboratorio</p>
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={analisisSolicitados} barCategoryGap="30%">
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  formatter={(value) => [`${value} solicitudes`, "Cantidad"]}
-                  contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 12 }}
-                />
-                <Bar dataKey="cantidad" fill="#059669" radius={[4, 4, 0, 0]} maxBarSize={36}>
-                  {analisisSolicitados.map((_, idx) => (
-                    <Cell key={idx} fill={idx < 2 ? "#1e3a8a" : idx < 4 ? "#059669" : "#34d399"} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="rounded-xl bg-white p-4 text-center text-xs text-gray-400 shadow-sm">
-        CIRA UNAN — Centro de Investigación de Recursos Acuáticos · Datos simulados con fines demostrativos · {new Date().getFullYear()}
-      </div>
+      <p className="px-1 pb-1 text-center text-xs text-slate-500">
+        CIRA UNAN — Centro de Investigación de Recursos Acuáticos · {new Date().getFullYear()}
+      </p>
     </div>
   );
 }
