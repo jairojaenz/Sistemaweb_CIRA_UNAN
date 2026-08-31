@@ -58,7 +58,7 @@ export function cargarGoogleMaps() {
     script.id = "cira-google-maps";
     script.async = true;
     script.defer = true;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=${callback}&language=es&v=weekly`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=${callback}&language=es&v=beta`;
     script.onerror = () => {
       carga = null;
       reject(new Error("No se pudo cargar Google Maps"));
@@ -83,12 +83,133 @@ export function iconoPin(maps, size = { w: 28, h: 38 }) {
   };
 }
 
-export function opcionesMapaNicaragua({ center, zoom, mapTypeId = "hybrid" } = {}) {
+export function solicitarPantallaCompleta(el) {
+  if (!el) return Promise.resolve();
+  const pedir = el.requestFullscreen || el.webkitRequestFullscreen;
+  return pedir ? pedir.call(el) : Promise.resolve();
+}
+
+export function salirPantallaCompleta() {
+  const salir = document.exitFullscreen || document.webkitExitFullscreen;
+  return salir ? salir.call(document) : Promise.resolve();
+}
+
+export function estaEnPantallaCompleta(el) {
+  const actual = document.fullscreenElement || document.webkitFullscreenElement;
+  return Boolean(el && actual === el);
+}
+
+export function escucharPantallaCompleta(handler) {
+  document.addEventListener("fullscreenchange", handler);
+  document.addEventListener("webkitfullscreenchange", handler);
+  return () => {
+    document.removeEventListener("fullscreenchange", handler);
+    document.removeEventListener("webkitfullscreenchange", handler);
+  };
+}
+
+export function redimensionarMapa(map) {
+  if (!map || !window.google?.maps?.event) return;
+  window.google.maps.event.trigger(map, "resize");
+}
+
+export const TILT_3D = 65;
+export const HEADING_3D = 32;
+
+export function rangoDesdeZoom(zoom) {
+  const z = Number(zoom);
+  const seguro = Number.isFinite(z) ? z : 6.4;
+  return Math.round(Math.max(900, 1100000 * Math.pow(0.5, seguro - 6)));
+}
+
+export async function cargarMaps3d() {
+  await cargarGoogleMaps();
+  if (!window.google?.maps?.importLibrary) {
+    throw new Error("Esta versión de Google Maps no soporta la vista 3D");
+  }
+  return window.google.maps.importLibrary("maps3d");
+}
+
+export function modoMapa3d(idCapa) {
+  return idCapa === "calles" ? "HYBRID" : "SATELLITE";
+}
+
+export function crearMapa3d(lib, host, { center, zoom, idCapa } = {}) {
+  const { Map3DElement } = lib;
+  if (!Map3DElement) {
+    throw new Error("Google Maps no devolvió Map3DElement");
+  }
+  const punto = center || NICARAGUA_CENTER;
+  const base = {
+    mode: modoMapa3d(idCapa),
+    center: { lat: punto.lat, lng: punto.lng, altitude: 0 },
+    range: rangoDesdeZoom(zoom),
+    tilt: TILT_3D,
+    heading: HEADING_3D,
+  };
+  let mapa;
+  try {
+    mapa = new Map3DElement({
+      ...base,
+      defaultUIHidden: true,
+      gestureHandling: "GREEDY",
+      bounds: NICARAGUA_BOUNDS,
+    });
+  } catch {
+    mapa = new Map3DElement(base);
+  }
+  mapa.style.width = "100%";
+  mapa.style.height = "100%";
+  mapa.style.display = "block";
+  host.replaceChildren(mapa);
+  return mapa;
+}
+
+export function destruirMapa3d(host) {
+  if (host) host.replaceChildren();
+}
+
+export function volarAPunto3d(mapa3d, { lat, lng, zoom }) {
+  if (!mapa3d) return;
+  const camera = {
+    center: { lat, lng, altitude: 0 },
+    range: rangoDesdeZoom(zoom ?? 14),
+    tilt: TILT_3D,
+    heading: HEADING_3D,
+  };
+  if (typeof mapa3d.flyCameraTo === "function") {
+    mapa3d.flyCameraTo({ endCamera: camera, durationMillis: 1400 });
+    return;
+  }
+  Object.assign(mapa3d, camera);
+}
+
+export function sincronizarMarcadores3d(lib, mapa3d, features, onClick) {
+  if (!mapa3d) return [];
+  [...mapa3d.querySelectorAll("gmp-marker-3d-interactive, gmp-marker-3d")].forEach((n) => n.remove());
+  const Ctor = lib.Marker3DInteractiveElement || lib.Marker3DElement;
+  if (!Ctor) return [];
+  return (features ?? []).map((f) => {
+    const marker = new Ctor({
+      position: { lat: f.properties.lat, lng: f.properties.lng, altitude: 0 },
+      altitudeMode: "CLAMP_TO_GROUND",
+      label: f.properties.plan || f.properties.nombre,
+      title: f.properties.nombre,
+    });
+    if (onClick) {
+      marker.addEventListener("gmp-click", () => onClick(f));
+    }
+    mapa3d.append(marker);
+    return marker;
+  });
+}
+
+export function opcionesMapaNicaragua(maps, { center, zoom, mapTypeId = "hybrid" } = {}) {
   return {
     center: center || NICARAGUA_CENTER,
     zoom: zoom ?? 6.4,
     minZoom: 6,
-    maxZoom: 18,
+    maxZoom: 20,
     mapTypeId,
     disableDefaultUI: true,
     zoomControl: true,

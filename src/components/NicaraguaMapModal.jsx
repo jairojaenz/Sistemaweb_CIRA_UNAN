@@ -6,11 +6,21 @@ import {
   CAPAS_BASE,
   NICARAGUA_CENTER,
   cargarGoogleMaps,
+  cargarMaps3d,
+  crearMapa3d,
+  destruirMapa3d,
+  escucharPantallaCompleta,
+  estaEnPantallaCompleta,
   googleMapsApiKey,
   iconoPin,
   mapTypeDeCapa,
+  modoMapa3d,
   opcionesMapaNicaragua,
+  redimensionarMapa,
+  salirPantallaCompleta,
+  solicitarPantallaCompleta,
 } from "../utils/googleMapsNicaragua.js";
+import IconoPantallaCompleta from "./IconoPantallaCompleta.jsx";
 
 export function parseLatLng(text) {
   const raw = String(text ?? "").trim();
@@ -35,13 +45,19 @@ export default function NicaraguaMapModal({
   onConfirm,
   onCancel,
 }) {
+  const pantallaRef = useRef(null);
   const mapEl = useRef(null);
+  const map3dHost = useRef(null);
   const mapRef = useRef(null);
+  const mapa3dRef = useRef(null);
   const markerRef = useRef(null);
   const positionRef = useRef(NICARAGUA_CENTER);
   const [position, setPosition] = useState(NICARAGUA_CENTER);
   const [capaBase, setCapaBase] = useState("satelite");
   const [errorMapa, setErrorMapa] = useState("");
+  const [completo, setCompleto] = useState(false);
+  const [vista3d, setVista3d] = useState(false);
+  const vista3dRef = useRef(false);
 
   const updatePosition = (next) => {
     positionRef.current = next;
@@ -84,7 +100,7 @@ export default function NicaraguaMapModal({
         const zoom = initialZoom ?? (parseLatLng(initialValue) ? 12 : 7);
         const created = new maps.Map(
           mapEl.current,
-          opcionesMapaNicaragua({
+          opcionesMapaNicaragua(maps, {
             center: start,
             zoom,
             mapTypeId: mapTypeDeCapa("satelite"),
@@ -108,6 +124,10 @@ export default function NicaraguaMapModal({
 
         mapRef.current = created;
         markerRef.current = marker;
+        vista3dRef.current = false;
+        setVista3d(false);
+        destruirMapa3d(map3dHost.current);
+        mapa3dRef.current = null;
       })
       .catch((err) => {
         if (!cancelled) setErrorMapa(err?.message || "No se pudo cargar Google Maps");
@@ -119,13 +139,78 @@ export default function NicaraguaMapModal({
         markerRef.current.setMap(null);
         markerRef.current = null;
       }
+      destruirMapa3d(map3dHost.current);
+      mapa3dRef.current = null;
       mapRef.current = null;
     };
   }, [open, initialValue, initialZoom]);
 
+  useEffect(() => {
+    return escucharPantallaCompleta(() => {
+      setCompleto(estaEnPantallaCompleta(pantallaRef.current));
+      window.setTimeout(() => redimensionarMapa(mapRef.current), 80);
+    });
+  }, []);
+
+  function alternarPantallaCompleta() {
+    if (estaEnPantallaCompleta(pantallaRef.current)) {
+      salirPantallaCompleta();
+      return;
+    }
+    solicitarPantallaCompleta(pantallaRef.current);
+  }
+
   function cambiarCapa(id) {
     setCapaBase(id);
+    if (vista3dRef.current && mapa3dRef.current) {
+      mapa3dRef.current.mode = modoMapa3d(id);
+      return;
+    }
     if (mapRef.current) mapRef.current.setMapTypeId(mapTypeDeCapa(id));
+  }
+
+  async function activarVista3d() {
+    if (!map3dHost.current) return;
+    try {
+      const lib = await cargarMaps3d();
+      if (!vista3dRef.current) return;
+      const actual = positionRef.current;
+      mapa3dRef.current = crearMapa3d(lib, map3dHost.current, {
+        center: actual,
+        zoom: mapRef.current?.getZoom?.() ?? 12,
+        idCapa: "satelite",
+      });
+      const Ctor = lib.Marker3DInteractiveElement || lib.Marker3DElement;
+      if (Ctor) {
+        const pin = new Ctor({
+          position: { lat: actual.lat, lng: actual.lng, altitude: 0 },
+          altitudeMode: "CLAMP_TO_GROUND",
+          label: "Ubicación",
+        });
+        mapa3dRef.current.append(pin);
+      }
+      setCapaBase("satelite");
+    } catch (err) {
+      vista3dRef.current = false;
+      setVista3d(false);
+      setErrorMapa(
+        err?.message ||
+          "No se pudo abrir la vista 3D. En Google Cloud activa Maps JavaScript API y Map Tiles API.",
+      );
+    }
+  }
+
+  function alternarVista3d() {
+    const next = !vista3dRef.current;
+    vista3dRef.current = next;
+    setVista3d(next);
+    if (next) {
+      activarVista3d();
+      return;
+    }
+    destruirMapa3d(map3dHost.current);
+    mapa3dRef.current = null;
+    window.setTimeout(() => redimensionarMapa(mapRef.current), 80);
   }
 
   if (!open) return null;
@@ -144,12 +229,19 @@ export default function NicaraguaMapModal({
             Ubicación en el mapa de Nicaragua
           </h3>
           <p className="mt-0.5 text-sm text-gray-600">
-            Arrastre el pin o toque el mapa para marcar las coordenadas.
+            Arrastre el pin o toque el mapa. En 3D puede girar el mapa con Ctrl + arrastrar.
           </p>
         </div>
 
-        <div className="relative min-h-0 w-full flex-1">
-          <div ref={mapEl} className="absolute inset-0 h-full w-full" />
+        <div
+          ref={pantallaRef}
+          className={`relative min-h-0 w-full flex-1 bg-white ${completo ? "h-full" : ""}`}
+        >
+          <div ref={mapEl} className={`absolute inset-0 h-full w-full ${vista3d ? "invisible" : ""}`} />
+          <div
+            ref={map3dHost}
+            className={`dash-demanda-map absolute inset-0 h-full w-full ${vista3d ? "" : "hidden"}`}
+          />
           <div
             className="absolute right-3 top-3 z-10 flex flex-col items-end gap-2"
             onClick={(e) => e.stopPropagation()}
@@ -170,6 +262,29 @@ export default function NicaraguaMapModal({
                 </button>
               ))}
             </div>
+          </div>
+          <div className="absolute bottom-3 right-3 z-10 flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={alternarVista3d}
+              title={vista3d ? "Salir de vista 3D" : "Vista 3D"}
+              aria-label={vista3d ? "Salir de vista 3D" : "Vista 3D"}
+              aria-pressed={vista3d}
+              className={`flex h-10 w-10 items-center justify-center rounded text-[13px] font-bold shadow-[0_1px_4px_rgba(0,0,0,0.3)] ${
+                vista3d ? "bg-[#1a73e8] text-white" : "bg-white text-[#666] hover:text-[#333]"
+              }`}
+            >
+              3D
+            </button>
+            <button
+              type="button"
+              onClick={alternarPantallaCompleta}
+              title={completo ? "Salir de pantalla completa" : "Pantalla completa"}
+              aria-label={completo ? "Salir de pantalla completa" : "Pantalla completa"}
+              className="flex h-10 w-10 items-center justify-center rounded bg-white text-[#666] shadow-[0_1px_4px_rgba(0,0,0,0.3)] hover:text-[#333]"
+            >
+              <IconoPantallaCompleta activo={completo} />
+            </button>
           </div>
           {errorMapa ? (
             <div className="absolute inset-0 flex items-center justify-center bg-slate-100 px-6 text-center text-sm text-slate-600">
