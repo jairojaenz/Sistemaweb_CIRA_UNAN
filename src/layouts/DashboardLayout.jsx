@@ -10,7 +10,6 @@ import {
   FaFolder,
   FaFlask,
   FaHome,
-  FaKey,
   FaMicroscope,
   FaSignOutAlt,
   FaTasks,
@@ -21,12 +20,7 @@ import {
 import { useAuth } from "../auth/AuthContext";
 import { isAdministrador } from "../modules/auth/model/constants.js";
 import { ROUTES } from "../router/routes";
-<<<<<<< Updated upstream
-=======
-import ChangePasswordModal from "../components/ChangePasswordModal.jsx";
 import ThemeToggle from "../components/ThemeToggle.jsx";
->>>>>>> Stashed changes
-import { useToast } from "../components/ToastContext.jsx";
 import ciraLogo from "../assets/CIRA.png";
 import unanLogo from "../assets/unan-managua.png";
 
@@ -72,7 +66,6 @@ function ConfirmDialog({ open, onConfirm, onCancel }) {
 
 export default function DashboardLayout() {
   const { user, logout } = useAuth();
-  const { addToast } = useToast();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);

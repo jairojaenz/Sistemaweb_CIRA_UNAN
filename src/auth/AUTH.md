@@ -62,9 +62,7 @@ Además la API setea cookie httpOnly `refreshToken` (el JS no la lee).
 - Bypass local `admin` / `123` (eliminado).
 - Flujo “olvidé mi contraseña” (no se implementará por ahora).
 
-## Cambio de contraseña (UI)
+## Cambio de contraseña
 
-- Botón **Cambiar contraseña** en el pie del sidebar (`DashboardLayout`).
-- Modal: `src/components/ChangePasswordModal.jsx` → `changePassword()` en `authService.js`.
-- API: `POST /api/auth/change-password` con `{ contraseñaActual, contraseñaNueva }` (mín. 6 caracteres).
-- Tras éxito: toast + `logout()` + redirección a login (la API revoca refresh tokens).
+- La API sigue exponiendo `POST /api/Auth/change-password`.
+- La UI (botón del sidebar, modal y `changePassword()` en `authService.js`) se retiró.
