@@ -127,7 +127,7 @@ export default function PlanMuestreoDetalleModal({ plan, loading, onClose }) {
                   ))}
                 </div>
               ) : (
-                <div className="mt-4 overflow-hidden rounded-lg border border-gray-200">
+                <div className="mt-4 theme-table overflow-hidden rounded-lg border border-gray-200">
                   <table className="w-full text-left text-sm">
                     <thead className="bg-gray-50 text-xs uppercase text-gray-600">
                       <tr>

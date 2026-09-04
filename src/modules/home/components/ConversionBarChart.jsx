@@ -82,7 +82,7 @@ export default function ConversionBarChart({ data = [] }) {
     <>
       <div className="relative h-72">
         <div className="flex h-[calc(100%-1.5rem)]">
-          <div className="flex w-8 flex-col-reverse justify-between py-0.5 pr-1 text-right text-[11px] text-slate-400">
+          <div className="flex w-8 flex-col-reverse justify-between py-0.5 pr-1 text-right text-[11px] text-slate-500 dark:text-slate-400">
             {ticks.map((t) => (
               <span key={t} className="leading-none">
                 {t}
@@ -92,7 +92,7 @@ export default function ConversionBarChart({ data = [] }) {
           <div className="relative min-w-0 flex-1">
             <div className="pointer-events-none absolute inset-0 flex flex-col-reverse justify-between">
               {ticks.map((t) => (
-                <div key={t} className="border-t border-dotted border-slate-500/25" />
+                <div key={t} className="border-t border-dotted border-slate-400/50 dark:border-slate-500/25" />
               ))}
             </div>
             <div className="absolute inset-0 flex items-stretch justify-between gap-1 px-1">
@@ -131,7 +131,7 @@ export default function ConversionBarChart({ data = [] }) {
             </div>
           </div>
         </div>
-        <div className="mt-1.5 flex pl-8 pr-1 text-[11px] text-slate-400">
+        <div className="mt-1.5 flex pl-8 pr-1 text-[11px] text-slate-500 dark:text-slate-400">
           {data.map((row) => (
             <span key={row.mes} className="min-w-0 flex-1 text-center">
               {row.mes}
@@ -139,19 +139,19 @@ export default function ConversionBarChart({ data = [] }) {
           ))}
         </div>
         {tip ? (
-          <div className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-2xl border border-sky-300/25 bg-[#251d50]/95 px-3.5 py-2.5 shadow-[0_16px_40px_rgba(14,165,233,0.22)]">
-            <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400">
+          <div className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 shadow-lg dark:border-sky-300/25 dark:bg-[#251d50]/95 dark:shadow-[0_16px_40px_rgba(14,165,233,0.22)]">
+            <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
               {MONTHS[tip.mes] || tip.mes}
             </p>
-            <div className="flex items-center gap-2 text-sm text-white">
+            <div className="flex items-center gap-2 text-sm text-slate-800 dark:text-white">
               <span className="h-2 w-2 rounded-full" style={{ background: tip.color }} />
-              <span className="text-slate-300">{tip.name}</span>
+              <span className="text-slate-500 dark:text-slate-300">{tip.name}</span>
               <span className="ml-3 font-semibold tabular-nums">{tip.value}</span>
             </div>
           </div>
         ) : null}
       </div>
-      <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-400">
+      <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-500 dark:text-slate-400">
         <span className="flex items-center gap-2">
           <span className="flex h-2.5 overflow-hidden">
             {PROFORMA_TONES.slice(0, 4).map((t) => (

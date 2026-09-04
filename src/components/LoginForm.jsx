@@ -34,11 +34,11 @@ export default function LoginForm({ onSuccess }) {
   };
 
   return (
-    <div className="relative overflow-hidden rounded-lg bg-white p-6 shadow-md">
+    <div className="relative overflow-hidden rounded-lg bg-white p-6 shadow-md dark:bg-slate-800">
       {loading && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/80">
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/80 dark:bg-slate-800/80">
           <svg
-            className="mb-3 h-10 w-10 animate-spin text-blue-900"
+            className="mb-3 h-10 w-10 animate-spin text-blue-900 dark:text-sky-300"
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
@@ -47,7 +47,7 @@ export default function LoginForm({ onSuccess }) {
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
           </svg>
-          <p className="font-semibold text-blue-900">Cargando...</p>
+          <p className="font-semibold text-blue-900 dark:text-sky-200">Cargando...</p>
         </div>
       )}
 
@@ -61,11 +61,11 @@ export default function LoginForm({ onSuccess }) {
 
       <form className="space-y-4" onSubmit={handleLogin}>
         <div>
-          <label htmlFor="correo" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="correo" className="block text-sm font-medium text-gray-700 dark:text-slate-200">
             Correo electrónico:
           </label>
           <div className="relative mt-1">
-            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-blue-900">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-blue-900 dark:text-sky-300">
               <FaUserAlt />
             </span>
             <input
@@ -76,18 +76,18 @@ export default function LoginForm({ onSuccess }) {
               placeholder="Ingrese su correo electrónico"
               value={correo}
               onChange={(e) => setCorreo(e.target.value)}
-              className="w-full rounded-md border border-gray-300 py-2 pr-4 pl-10 focus:ring-2 focus:ring-blue-900 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 py-2 pr-4 pl-10 focus:ring-2 focus:ring-blue-900 focus:outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-sky-400"
               required
             />
           </div>
         </div>
 
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-slate-200">
             Contraseña:
           </label>
           <div className="relative mt-1">
-            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-blue-900">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-blue-900 dark:text-sky-300">
               <FaLock />
             </span>
             <input
@@ -98,12 +98,12 @@ export default function LoginForm({ onSuccess }) {
               placeholder="Ingrese su contraseña"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-md border border-gray-300 py-2 pr-10 pl-10 focus:ring-2 focus:ring-blue-900 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 py-2 pr-10 pl-10 focus:ring-2 focus:ring-blue-900 focus:outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-sky-400"
               required
             />
             <button
               type="button"
-              className="absolute inset-y-0 right-0 flex cursor-pointer items-center pr-3 text-blue-900"
+              className="absolute inset-y-0 right-0 flex cursor-pointer items-center pr-3 text-blue-900 dark:text-sky-300"
               onClick={() => setShowPassword((v) => !v)}
               aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
             >

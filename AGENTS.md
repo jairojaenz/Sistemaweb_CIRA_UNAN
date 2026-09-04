@@ -3,7 +3,7 @@
 ## Quick start
 ```bash
 npm install
-npm run dev      # Vite dev server on :5173, proxies /api -> http://localhost:5001
+npm run dev      # Vite :5173, proxy /api -> VITE_API_PROXY_TARGET (default 127.0.0.1:5001)
 npm run build    # vite build
 npm run lint     # eslint flat config (eslint.config.js)
 npm run preview  # vite preview
@@ -19,14 +19,21 @@ npm run preview  # vite preview
 
 ## Architecture
 - `src/main.jsx` → `App.jsx` → `AuthProvider` > `ToastProvider` > `AppRoutes`
-- `src/auth/api.js` — API client (`apiGet`/`apiPost`/`apiPut`/`apiDelete`/`apiPostFormData`/`apiPutFormData`). Auto-refreshes JWT on 401. `credentials: "include"` for httpOnly cookie refresh.
+- `src/auth/api.js` — cliente HTTP (`apiGet`/`apiPost`/…). Base: `VITE_API_URL` (vacío = proxy Vite). Detalle: `src/auth/AUTH.md`.
 - `src/modules/` — feature modules, each with `page/`, `components/`, `service/`, `model/` subdirs
-- `src/router/AppRoutes.jsx` — all routes defined here (lazy imports). Dashboard routes are under `/dashboard` wrapped in `ProtectedRoute` + `DashboardLayout`.
-- **Login at `/`** — supports local credentials (`admin` / `123`) bypassing API — `src/modules/auth/model/constants.js`
-- **Admin-only nav items** (Gestión Usuarios, Gestión Clientes) gated by `user.cargoNombre === "Administrador" || user.role === "admin"` in `DashboardLayout.jsx:269`
+- `src/router/AppRoutes.jsx` — lazy routes. Dashboard bajo `/dashboard` con `ProtectedRoute` + `DashboardLayout`.
+- **Login at `/`** — solo API real (`LoginForm` + `AuthContext`). Sin bypass `admin/123`.
+- **Admin-only**: menú y rutas `gestion-usuarios` / `gestion-clientes` con `isAdministrador(user)` y `ProtectedRoute roles={["Administrador"]}`.
 - All UI text is in **Spanish**
 
 ## Relevant files
+- `src/auth/AUTH.md` — contrato de autenticación front ↔ API
+- `src/auth/ENDPOINTS.md` — mapa de rutas FE ↔ API (catálogos y módulos)
+- `src/modules/home/service/graficosService.js` — dashboard ejecutivo ↔ `/api/Graficos`
+- `src/utils/apiList.js` — `asList()` para listados de la API
 - `src/router/routes.js` — centralized route path constants
-- `src/components/ProtectedRoute.jsx` — auth guard wrapper
+- `src/components/ProtectedRoute.jsx` — auth + optional role guard
+- `src/components/LoginForm.jsx` — formulario de login (usa AuthContext)
 - `src/components/ToastContext.jsx` — toast notification provider (useToast)
+- `src/modules/auth/model/constants.js` — `AUTH_ROLES` / `isAdministrador`
+- `.env.development` — `VITE_API_URL` vacío + `VITE_API_PROXY_TARGET` para el proxy Vite + `VITE_GOOGLE_MAPS_API_KEY`

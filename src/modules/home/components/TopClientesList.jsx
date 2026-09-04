@@ -45,7 +45,7 @@ export default function TopClientesList({
     <div>
       <div className="dash-scroll h-64 space-y-3 overflow-y-auto overflow-x-hidden pr-1">
         {cargando && !clientes.length ? (
-          <p className="py-10 text-center text-sm text-slate-400">Cargando clientes…</p>
+          <p className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">Cargando clientes…</p>
         ) : (
           clientes.map((cliente, index) => {
             const puesto = offset + index + 1;
@@ -55,15 +55,15 @@ export default function TopClientesList({
             return (
               <div
                 key={cliente.idCliente ?? cliente.name}
-                className="rounded-2xl bg-[#251d50] px-3 py-2.5 ring-1 ring-white/10"
+                className="rounded-2xl bg-slate-50 px-3 py-2.5 ring-1 ring-slate-200 dark:bg-[#251d50] dark:ring-white/10"
               >
                 <div className="mb-2 flex items-center gap-3">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-400/15 text-[11px] font-semibold text-sky-200 ring-1 ring-sky-300/30">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-50 text-[11px] font-semibold text-blue-800 ring-1 ring-blue-200 dark:bg-sky-400/15 dark:text-sky-200 dark:ring-sky-300/30">
                     {puesto}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-sm text-slate-100">{cliente.name}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm text-slate-800 dark:text-slate-100">{cliente.name}</span>
                   {cliente.spark ? <MiniSpark values={cliente.spark} color={from} /> : null}
-                  <span className="text-sm font-semibold tabular-nums text-sky-200">{cliente.muestras}</span>
+                  <span className="text-sm font-semibold tabular-nums text-blue-800 dark:text-sky-200">{cliente.muestras}</span>
                 </div>
                 <NeonTube pct={pct} from={from} to={to} />
               </div>
@@ -73,8 +73,8 @@ export default function TopClientesList({
       </div>
 
       {hayPaginas ? (
-        <div className="mt-3 flex items-center justify-between gap-3 border-t border-white/10 pt-3">
-          <p className="text-[11px] text-slate-400">
+        <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-200 pt-3 dark:border-white/10">
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">
             Página {pagina} de {totalPaginas} · {total} clientes
           </p>
           <div className="flex gap-2">
@@ -82,7 +82,7 @@ export default function TopClientesList({
               type="button"
               disabled={pagina <= 1 || cargando}
               onClick={() => onPagina?.(pagina - 1)}
-              className="rounded-lg border border-white/10 px-2.5 py-1 text-[11px] text-slate-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-35"
+              className="rounded-lg border border-gray-300 px-2.5 py-1 text-[11px] text-slate-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-35 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5"
             >
               Anterior
             </button>
@@ -90,7 +90,7 @@ export default function TopClientesList({
               type="button"
               disabled={pagina >= totalPaginas || cargando}
               onClick={() => onPagina?.(pagina + 1)}
-              className="rounded-lg border border-white/10 px-2.5 py-1 text-[11px] text-slate-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-35"
+              className="rounded-lg border border-gray-300 px-2.5 py-1 text-[11px] text-slate-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-35 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5"
             >
               Siguiente
             </button>

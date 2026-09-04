@@ -21,6 +21,11 @@ import {
 import { useAuth } from "../auth/AuthContext";
 import { isAdministrador } from "../modules/auth/model/constants.js";
 import { ROUTES } from "../router/routes";
+<<<<<<< Updated upstream
+=======
+import ChangePasswordModal from "../components/ChangePasswordModal.jsx";
+import ThemeToggle from "../components/ThemeToggle.jsx";
+>>>>>>> Stashed changes
 import { useToast } from "../components/ToastContext.jsx";
 import ciraLogo from "../assets/CIRA.png";
 import unanLogo from "../assets/unan-managua.png";
@@ -39,16 +44,16 @@ function ConfirmDialog({ open, onConfirm, onCancel }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-80 rounded-lg bg-white p-6 shadow-xl">
-        <h3 className="text-lg font-semibold text-gray-800">Cerrar Sesión</h3>
-        <p className="mt-2 text-sm text-gray-600">
+      <div className="w-80 rounded-lg bg-white p-6 shadow-xl dark:bg-slate-800">
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-slate-100">Cerrar Sesión</h3>
+        <p className="mt-2 text-sm text-gray-600 dark:text-slate-300">
           ¿Está seguro de que desea cerrar la sesión?
         </p>
         <div className="mt-5 flex justify-end gap-3">
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300"
+            className="rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 dark:bg-slate-600 dark:text-slate-100 dark:hover:bg-slate-500"
           >
             Cancelar
           </button>
@@ -143,7 +148,7 @@ export default function DashboardLayout() {
   };
 
   return (
-    <div className="flex h-screen min-h-0 overflow-hidden bg-gray-100">
+    <div className="flex h-screen min-h-0 overflow-hidden bg-gray-100 dark:bg-[#0d053c]">
       <aside
         className={`flex h-full flex-shrink-0 flex-col overflow-hidden border-r border-blue-950/30 bg-blue-900 text-white transition-[width] duration-300 ease-out ${
           sidebarOpen ? "w-64" : "w-[4.5rem]"
@@ -407,7 +412,7 @@ export default function DashboardLayout() {
       />
       </aside>
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-gray-100">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-gray-100 dark:bg-[#0d053c]">
         <header className="flex-shrink-0 border-b border-blue-800 bg-blue-900 px-3 py-3 shadow-sm sm:px-4 md:px-6">
           <div className="mx-auto flex w-full max-w-full items-center gap-2 sm:gap-4">
             <div className="flex min-w-0 flex-shrink-0 items-start gap-2 sm:gap-3">
@@ -450,7 +455,9 @@ export default function DashboardLayout() {
                 {getPageTitle(pathname)}
               </p>
             </div>
-            <div className="flex flex-shrink-0 justify-end">
+            <div className="flex flex-shrink-0 items-center justify-end gap-2 sm:gap-3">
+              {/* Interruptor claro/oscuro: a la izquierda del logo CIRA. */}
+              <ThemeToggle />
               <img
                 src={ciraLogo}
                 alt="CIRA"
@@ -460,7 +467,8 @@ export default function DashboardLayout() {
           </div>
         </header>
 
-        <main className={`flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain ${pathname === ROUTES.home ? "bg-[#0d053c]" : "bg-gray-100"}`}>
+        {/* El tema solo pinta el contenido: claro = gray-100; oscuro = #0d053c. Sidebar y topbar no cambian. */}
+        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain bg-gray-100 dark:bg-[#0d053c]">
           <Outlet />
         </main>
       </div>

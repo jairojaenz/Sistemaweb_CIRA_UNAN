@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../auth/AuthContext.jsx";
 import LoginForm from "../../../components/LoginForm.jsx";
+import ThemeToggle from "../../../components/ThemeToggle.jsx";
 import { ROUTES } from "../../../router/routes.js";
 import ciraLogo from "../../../assets/CIRA.png";
 
@@ -20,10 +21,10 @@ export default function LoginPage() {
   }, [isAuthenticated, navigate]);
 
   return (
-    <div className="flex min-h-screen flex-col justify-between bg-white text-gray-800">
+    <div className="flex min-h-screen flex-col justify-between bg-gray-100 text-gray-800 dark:bg-[#0d053c] dark:text-slate-100">
       <header className="bg-blue-900 text-white">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between px-4 py-4 md:flex-row">
-          <div className="flex w-full justify-center md:w-1/3 md:justify-start">
+          <div className="flex w-full items-center justify-center gap-3 md:w-1/3 md:justify-start">
             <img src={ciraLogo} alt="Logo CIRA" className="h-20 object-contain" />
           </div>
           <div className="w-full text-center md:w-1/3">
@@ -32,7 +33,10 @@ export default function LoginPage() {
             </h4>
             <h2 className="text-2xl font-bold text-gray-100">Portal Web</h2>
           </div>
-          <div className="hidden w-full md:block md:w-1/3" />
+          {/* Mismo interruptor de tema que el dashboard, para usarlo antes de iniciar sesión. */}
+          <div className="mt-3 flex w-full justify-center md:mt-0 md:w-1/3 md:justify-end">
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 

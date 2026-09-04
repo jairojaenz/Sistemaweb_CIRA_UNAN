@@ -267,7 +267,7 @@ export default function ProformaPage() {
         />
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <div className="theme-table overflow-x-auto rounded-lg border border-gray-200">
         <table className="w-full min-w-[1100px] text-left text-sm">
           <thead className="bg-gray-50 text-xs uppercase text-gray-600">
             <tr>
@@ -339,7 +339,7 @@ export default function ProformaPage() {
           <div
             role="menu"
             onClick={(e) => e.stopPropagation()}
-            className="fixed z-[100] min-w-[11rem] rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+            className="theme-menu fixed z-[100] min-w-[11rem] rounded-md border border-gray-200 bg-white py-1 shadow-lg"
             style={{
               left: accionesMenu.x,
               top: accionesMenu.y,
@@ -450,7 +450,7 @@ export default function ProformaPage() {
                 <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
                   Detalles de análisis
                 </h3>
-                <div className="overflow-x-auto">
+                <div className="theme-table overflow-x-auto">
                   <table className="w-full text-left text-sm">
                     <thead className="bg-gray-200 text-xs uppercase text-gray-600">
                       <tr>
@@ -486,7 +486,7 @@ export default function ProformaPage() {
                   <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
                     Matrices
                   </h3>
-                  <div className="overflow-x-auto">
+                  <div className="theme-table overflow-x-auto">
                     <table className="w-full text-left text-sm">
                       <thead className="bg-gray-200 text-xs uppercase text-gray-600">
                         <tr>
@@ -640,7 +640,7 @@ export default function ProformaPage() {
                   <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
                     Matrices
                   </h3>
-                  <div className="overflow-x-auto">
+                  <div className="theme-table overflow-x-auto">
                     <table className="w-full text-left text-sm">
                       <thead className="bg-gray-200 text-xs uppercase text-gray-600">
                         <tr>

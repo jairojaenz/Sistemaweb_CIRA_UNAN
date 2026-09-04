@@ -129,7 +129,7 @@ export default function TiposClientesPage() {
           onChange={(e) => setSearch(e.target.value)} className="input w-full pl-10" />
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <div className="theme-table overflow-x-auto rounded-lg border border-gray-200">
         <table className="w-full min-w-[600px] text-left text-sm">
           <thead className="bg-gray-50 text-xs uppercase text-gray-600">
             <tr>

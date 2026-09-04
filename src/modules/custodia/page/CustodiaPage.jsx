@@ -277,7 +277,7 @@ export default function CustodiaPage() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="min-h-full w-full bg-gray-100 text-gray-800">
+    <form onSubmit={handleSubmit} className="min-h-full w-full bg-gray-100 text-gray-800 dark:bg-[#0d053c] dark:text-slate-100">
       <div className="bg-yellow-400 py-2 text-center font-semibold text-blue-900">
         ÁREA DE PROYECCIÓN Y EXTENSIÓN
       </div>

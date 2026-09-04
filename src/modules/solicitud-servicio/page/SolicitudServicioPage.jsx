@@ -102,10 +102,10 @@ function IconField({ id, icon: Icon, tone, label, required, error, hint, childre
           <Icon className="h-4 w-4" aria-hidden />
         </span>
         <div>
-          <label htmlFor={id} className="text-sm font-semibold text-gray-800">
+          <label htmlFor={id} className="text-sm font-semibold text-gray-800 dark:text-slate-100">
             {label} {required ? <span className="text-red-500">*</span> : null}
           </label>
-          {hint ? <p className="text-xs font-normal text-gray-500">{hint}</p> : null}
+          {hint ? <p className="text-xs font-normal text-gray-500 dark:text-slate-300">{hint}</p> : null}
         </div>
       </div>
       {children}
@@ -1432,7 +1432,7 @@ export default function SolicitudServicioPage() {
   );
 
   return (
-    <div className="flex min-h-full flex-1 flex-col bg-gray-100">
+    <div className="flex min-h-full flex-1 flex-col bg-gray-100 dark:bg-[#0d053c]">
       {/* Header  
       <header className="bg-blue-900 text-white py-4">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between px-4">

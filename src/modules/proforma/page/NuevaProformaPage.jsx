@@ -222,7 +222,7 @@ export default function NuevaProformaPage() {
 
           {/* Detalles table */}
           {solicitud.detalles?.length > 0 && (
-            <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
+            <div className="mt-4 theme-table overflow-x-auto rounded-lg border border-gray-200">
               <table className="w-full text-left text-sm">
                 <thead className="bg-gray-200 text-xs uppercase text-gray-600">
                   <tr>

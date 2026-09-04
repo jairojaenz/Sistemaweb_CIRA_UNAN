@@ -5,6 +5,16 @@
     <link rel="shortcut icon" href="/src/assets/cira_ico.ico" type="image/x-icon">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SGIMA - Portal Web</title>
+    <!-- Aplica modo oscuro ANTES de React para no parpadear en blanco al recargar. Clave: localStorage cira-theme -->
+    <script>
+      (function () {
+        try {
+          if (localStorage.getItem("cira-theme") === "dark") {
+            document.documentElement.classList.add("dark");
+          }
+        } catch (_) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -21,7 +21,7 @@ export default function PlanMuestreoLayout({
 }) {
   const maxWidth = wide ? "max-w-7xl" : "max-w-5xl";
   return (
-    <div className="min-h-full w-full bg-gray-100 text-gray-800">
+    <div className="min-h-full w-full bg-gray-100 text-gray-800 dark:bg-[#0d053c] dark:text-slate-100">
       <div className="bg-yellow-400 py-2 text-center font-semibold text-blue-900">
         {areaBanner}
       </div>
@@ -33,11 +33,11 @@ export default function PlanMuestreoLayout({
       <div
         className={`mx-auto w-full px-6 ${maxWidth} ${compact ? "pb-8" : "pb-12"}`}
       >
-        <div className="overflow-hidden rounded-xl bg-white shadow-lg">
+        <div className="overflow-hidden rounded-xl bg-white shadow-lg dark:bg-[#251d50] dark:shadow-none dark:ring-1 dark:ring-sky-400/20">
           <div className={compact ? "p-5 md:p-6" : "p-8 md:p-10"}>{children}</div>
 
           <div
-            className={`flex items-center justify-between border-t border-gray-200 bg-gray-50 ${
+            className={`flex items-center justify-between border-t border-gray-200 bg-gray-50 dark:border-sky-400/20 dark:bg-[#1a1250] ${
               compact ? "px-5 py-4 md:px-6" : "px-8 py-6 md:px-10"
             }`}
           >

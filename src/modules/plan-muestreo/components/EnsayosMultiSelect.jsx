@@ -58,8 +58,10 @@ export default function EnsayosMultiSelect({
   return (
     <div ref={rootRef} className="w-full">
       <div
-        className={`overflow-hidden rounded-lg border bg-white ${
-          open ? "border-blue-900 ring-2 ring-blue-900/20" : "border-gray-300"
+        className={`overflow-hidden rounded-lg border bg-white dark:border-sky-400/25 dark:bg-[#251d50] ${
+          open
+            ? "border-blue-900 ring-2 ring-blue-900/20 dark:border-sky-400 dark:ring-sky-400/25"
+            : "border-gray-300"
         }`}
       >
         <button
@@ -71,33 +73,33 @@ export default function EnsayosMultiSelect({
           aria-expanded={open}
           aria-multiselectable="true"
         >
-          <Beaker className="h-4 w-4 shrink-0 text-blue-900/60" />
+          <Beaker className="h-4 w-4 shrink-0 text-blue-900/60 dark:text-sky-300/80" />
           <span className="min-w-0 flex-1 text-sm">
             {selected.length === 0 ? (
-              <span className="text-gray-400">{placeholder}</span>
+              <span className="text-gray-400 dark:text-slate-400">{placeholder}</span>
             ) : (
-              <span className="font-medium text-blue-900">
+              <span className="font-medium text-blue-900 dark:text-sky-200">
                 {selected.length} ensayo{selected.length === 1 ? "" : "s"}{" "}
                 seleccionado{selected.length === 1 ? "" : "s"}
               </span>
             )}
           </span>
           <ChevronDown
-            className={`h-4 w-4 shrink-0 text-gray-500 transition ${open ? "rotate-180" : ""}`}
+            className={`h-4 w-4 shrink-0 text-gray-500 transition dark:text-slate-400 ${open ? "rotate-180" : ""}`}
           />
         </button>
 
         {selected.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5 border-t border-gray-100 bg-slate-50 px-3 py-2">
+          <div className="flex flex-wrap gap-1.5 border-t border-gray-100 bg-slate-50 px-3 py-2 dark:border-sky-400/20 dark:bg-[#1a1348]">
             {selected.map((item) => (
               <span
                 key={item.idAnalisis}
-                className="inline-flex max-w-full items-center gap-1 rounded-full border border-blue-100 bg-white px-2.5 py-1 text-xs font-medium text-blue-900"
+                className="inline-flex max-w-full items-center gap-1 rounded-full border border-blue-100 bg-white px-2.5 py-1 text-xs font-medium text-blue-900 dark:border-sky-400/30 dark:bg-sky-400/15 dark:text-sky-100"
               >
                 <span className="truncate">{labelAnalisis(item)}</span>
                 <button
                   type="button"
-                  className="rounded-full p-0.5 hover:bg-blue-50"
+                  className="rounded-full p-0.5 hover:bg-blue-50 dark:hover:bg-white/10"
                   onClick={() => remove(item.idAnalisis)}
                 >
                   <X className="h-3 w-3" aria-hidden />
@@ -109,12 +111,12 @@ export default function EnsayosMultiSelect({
         ) : null}
 
         {open ? (
-          <div className="border-t border-gray-200">
-            <div className="relative border-b border-gray-100 p-2">
-              <Search className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <div className="border-t border-gray-200 dark:border-sky-400/20">
+            <div className="relative border-b border-gray-100 p-2 dark:border-sky-400/20">
+              <Search className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-slate-400" />
               <input
                 type="search"
-                className="w-full rounded-md border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 focus:border-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-900"
+                className="w-full rounded-md border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 focus:border-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-900 dark:border-sky-400/25 dark:bg-[#1a1348] dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:border-sky-400 dark:focus:ring-sky-400/30"
                 placeholder="Buscar ensayo…"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -127,7 +129,7 @@ export default function EnsayosMultiSelect({
               aria-multiselectable="true"
             >
               {filtered.length === 0 ? (
-                <li className="px-4 py-6 text-center text-sm text-gray-500">
+                <li className="px-4 py-6 text-center text-sm text-gray-500 dark:text-slate-400">
                   {opciones.length === 0
                     ? "No hay ensayos en el catálogo"
                     : "Sin coincidencias"}
@@ -139,7 +141,9 @@ export default function EnsayosMultiSelect({
                     <li key={item.idAnalisis} role="option" aria-selected={checked}>
                       <label
                         className={`flex cursor-pointer items-start gap-3 px-4 py-2.5 text-sm ${
-                          checked ? "bg-blue-50" : "hover:bg-slate-50"
+                          checked
+                            ? "bg-blue-50 dark:bg-sky-400/20"
+                            : "hover:bg-slate-50 dark:hover:bg-white/10"
                         }`}
                       >
                         <input
@@ -149,12 +153,12 @@ export default function EnsayosMultiSelect({
                           onChange={() => toggle(item.idAnalisis)}
                         />
                         <span className="min-w-0 leading-5">
-                          <span className="block font-medium text-gray-900">
+                          <span className="block font-medium text-gray-900 dark:text-slate-100">
                             {item.nombreAnalisis || labelAnalisis(item)}
                           </span>
                           {item.abreviacionAnalisis &&
                           item.abreviacionAnalisis !== item.nombreAnalisis ? (
-                            <span className="block text-xs text-gray-500">
+                            <span className="block text-xs text-gray-500 dark:text-slate-400">
                               {item.abreviacionAnalisis}
                             </span>
                           ) : null}

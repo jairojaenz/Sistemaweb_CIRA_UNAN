@@ -117,7 +117,7 @@ function SectionHeader({ accent = "bg-blue-900", title, subtitle }) {
         <span className={`h-7 w-1 shrink-0 rounded-full ${accent}`} />
         {title}
       </h3>
-      {subtitle && <p className="ml-4 text-sm text-[#6a7282]">{subtitle}</p>}
+      {subtitle && <p className="ml-4 text-sm text-gray-500 dark:text-slate-300">{subtitle}</p>}
     </div>
   );
 }
@@ -390,7 +390,7 @@ export default function OrdenServicioFormView({
   }
 
   return (
-    <div className="flex min-h-full w-full flex-1 flex-col bg-gray-100">
+    <div className="flex min-h-full w-full flex-1 flex-col bg-gray-100 dark:bg-[#0d053c]">
       <div className="bg-yellow-400 py-2.5 text-center text-sm font-bold tracking-wide text-blue-900">
         ORDEN DE SERVICIO DE LABORATORIO — CIRA · UNAN-Managua
       </div>
@@ -433,7 +433,7 @@ export default function OrdenServicioFormView({
                 <div className="space-y-10">
                   <div>
                     <h2 className="text-3xl font-bold text-blue-900">Información del cliente</h2>
-                    <p className="mt-1 text-[#6a7282]">
+                    <p className="mt-1 text-gray-500 dark:text-slate-300">
                       Datos de la orden, contacto y ubicación. Campos con{" "}
                       <span className="text-red-500">*</span> son obligatorios.
                     </p>
@@ -694,7 +694,7 @@ export default function OrdenServicioFormView({
                 <div className="space-y-10">
                   <div>
                     <h2 className="text-2xl font-bold text-blue-900 sm:text-3xl">Servicios solicitados</h2>
-                    <p className="mt-1 text-[#6a7282]">
+                    <p className="mt-1 text-gray-500 dark:text-slate-300">
                       Servicios, tipo de muestreo, detalle de muestras y control de recepción
                     </p>
                   </div>
@@ -848,7 +848,7 @@ export default function OrdenServicioFormView({
                       </button>
                     </div>
 
-                    <div className="overflow-hidden rounded-xl border border-gray-200 shadow-sm">
+                    <div className="theme-table overflow-hidden rounded-xl border border-gray-200 shadow-sm">
                       <table className="w-full min-w-[580px] text-left text-sm">
                         <thead>
                           <tr className="bg-blue-900 text-xs uppercase tracking-wide text-white">
@@ -946,7 +946,7 @@ export default function OrdenServicioFormView({
                       </button>
                     </div>
 
-                    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+                    <div className="theme-table overflow-hidden rounded-xl border border-gray-200 bg-white">
                       <table className="w-full min-w-[600px] text-left text-sm">
                         <thead>
                           <tr className="bg-gray-100 text-xs uppercase tracking-wide text-gray-600">
@@ -1046,7 +1046,7 @@ export default function OrdenServicioFormView({
                 <div className="space-y-10">
                   <div>
                     <h2 className="text-2xl font-bold text-blue-900 sm:text-3xl">Logística y cierre</h2>
-                    <p className="mt-1 text-[#6a7282]">
+                    <p className="mt-1 text-gray-500 dark:text-slate-300">
                       Muestreo, transporte, normativa, observaciones y firmas de conformidad
                     </p>
                   </div>

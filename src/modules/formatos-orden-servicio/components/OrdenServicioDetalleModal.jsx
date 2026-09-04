@@ -338,7 +338,7 @@ export default function OrdenServicioDetalleModal({
               {muestras.length === 0 ? (
                 <p className="text-sm text-gray-500">No hay muestras registradas en esta orden.</p>
               ) : (
-                <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+                <div className="theme-table overflow-x-auto rounded-lg border border-gray-200 bg-white">
                   <table className="min-w-full text-left text-sm">
                     <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
                       <tr>
@@ -367,7 +367,7 @@ export default function OrdenServicioDetalleModal({
               {control.length === 0 ? (
                 <p className="text-sm text-gray-500">No hay registros de recepción.</p>
               ) : (
-                <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+                <div className="theme-table overflow-x-auto rounded-lg border border-gray-200 bg-white">
                   <table className="min-w-full text-left text-sm">
                     <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
                       <tr>

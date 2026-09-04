@@ -1,5 +1,5 @@
 export const ICON_INPUT =
-  "w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-900 outline-none placeholder:text-gray-400 focus:border-blue-800 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400";
+  "w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-900 outline-none placeholder:text-gray-400 focus:border-blue-800 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 dark:border-sky-400/25 dark:bg-[#251d50] dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:border-sky-400 dark:disabled:bg-[#1a1250] dark:disabled:text-slate-500";
 
 export function selectedCardFromTone(tone = "") {
   const pairs = [
@@ -30,7 +30,7 @@ export function CatalogChoiceCard({ selected, onClick, icon: Icon, tone, label, 
           ? "cursor-not-allowed border-gray-200 bg-white text-gray-400"
           : selected
             ? selectedCardFromTone(tone)
-            : "border-gray-200 bg-gray-50/80 hover:border-blue-300"
+            : "border-gray-200 bg-gray-50/80 hover:border-blue-300 dark:border-sky-400/20 dark:bg-[#251d50] dark:hover:border-sky-400/40"
       }`}
     >
       <div className="flex items-center gap-3">
@@ -38,10 +38,10 @@ export function CatalogChoiceCard({ selected, onClick, icon: Icon, tone, label, 
           <Icon className="h-5 w-5" aria-hidden />
         </span>
         <span className="min-w-0">
-          <span className={`block text-sm font-semibold leading-snug ${selected ? "text-blue-900" : "text-gray-800"}`}>
+          <span className={`block text-sm font-semibold leading-snug ${selected ? "text-blue-900 dark:text-sky-100" : "text-gray-800 dark:text-slate-100"}`}>
             {label}
           </span>
-          {hint ? <span className="mt-0.5 block text-xs font-normal text-gray-500">{hint}</span> : null}
+          {hint ? <span className="mt-0.5 block text-xs font-normal text-gray-500 dark:text-slate-300">{hint}</span> : null}
         </span>
       </div>
     </button>
@@ -56,10 +56,10 @@ export function IconField({ id, icon: Icon, tone, label, required, error, hint, 
           <Icon className="h-4 w-4" aria-hidden />
         </span>
         <div>
-          <label htmlFor={id} className="text-sm font-semibold text-gray-800">
+          <label htmlFor={id} className="text-sm font-semibold text-gray-800 dark:text-slate-100">
             {label} {required ? <span className="text-red-500">*</span> : null}
           </label>
-          {hint ? <p className="text-xs font-normal text-gray-500">{hint}</p> : null}
+          {hint ? <p className="text-xs font-normal text-gray-500 dark:text-slate-300">{hint}</p> : null}
         </div>
       </div>
       {children}

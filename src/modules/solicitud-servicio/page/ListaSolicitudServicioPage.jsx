@@ -177,7 +177,7 @@ export default function ListaSolicitudServicioPage() {
         />
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <div className="theme-table overflow-x-auto rounded-lg border border-gray-200">
         <table className="w-full min-w-[900px] text-left text-sm">
           <thead className="bg-gray-50 text-xs uppercase text-gray-600">
             <tr>
@@ -330,7 +330,7 @@ export default function ListaSolicitudServicioPage() {
           <div
             role="menu"
             onClick={(e) => e.stopPropagation()}
-            className="fixed z-[100] min-w-[10.5rem] rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+            className="theme-menu fixed z-[100] min-w-[10.5rem] rounded-md border border-gray-200 bg-white py-1 shadow-lg"
             style={{
               left: accionesMenu.x,
               top: accionesMenu.y,
@@ -493,7 +493,7 @@ export default function ListaSolicitudServicioPage() {
                 </h3>
 
                 {detailSolicitud.detalles?.length > 0 ? (
-                  <div className="overflow-x-auto rounded-lg border border-gray-200">
+                  <div className="theme-table overflow-x-auto rounded-lg border border-gray-200">
                     <table className="w-full text-left text-sm">
                       <thead className="bg-gray-200 text-xs uppercase text-gray-600">
                         <tr>

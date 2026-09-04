@@ -16,7 +16,7 @@ export default function ProtectedRoute({ children, roles }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-100">
+      <div className="flex min-h-screen items-center justify-center bg-gray-100 dark:bg-[#0d053c]">
         <div className="h-10 w-10 animate-spin rounded-full border-2 border-blue-900 border-t-transparent" />
       </div>
     );

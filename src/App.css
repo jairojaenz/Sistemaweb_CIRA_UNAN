@@ -2,15 +2,15 @@
 
 @layer components {
   .input {
-    @apply w-full border border-gray-300 rounded-md p-2 text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-900;
+    @apply w-full border border-gray-300 rounded-md p-2 text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-900 dark:border-sky-400/25 dark:bg-[#251d50] dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:ring-sky-400/40;
   }
 
   .select {
-    @apply w-full border border-gray-300 rounded-md p-2 text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-900;
+    @apply w-full border border-gray-300 rounded-md p-2 text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-900 dark:border-sky-400/25 dark:bg-[#251d50] dark:text-slate-100 dark:focus:ring-sky-400/40;
   }
 
   .textarea {
-    @apply w-full border border-gray-300 rounded-md p-2 text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-900;
+    @apply w-full border border-gray-300 rounded-md p-2 text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-900 dark:border-sky-400/25 dark:bg-[#251d50] dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:ring-sky-400/40;
   }
 }
 
@@ -84,10 +84,11 @@
 }
 
 .react-date-picker__wrapper {
-  @apply border border-gray-300 rounded-md p-2 bg-white;
+  @apply border border-gray-300 rounded-md p-2 bg-white dark:border-sky-400/25 dark:bg-[#251d50] dark:text-slate-100;
 }
 
-@custom-variant dark (&:is(.dark *));
+/* Habilita las clases dark: de Tailwind cuando <html> tiene la clase `dark` (ThemeProvider). */
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* Remove number input spinners */
 input[type='number']::-webkit-outer-spin-button,
@@ -126,6 +127,43 @@ input[type='number'] {
   --chart-4: #93c5fd;
   --chart-5: #dbeafe;
   --radius: 0.5rem;
+  --sidebar: #1e3a8a;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #3b82f6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f59e0b;
+  --sidebar-accent-foreground: #1e3a8a;
+  --sidebar-border: #1e52a0;
+  --sidebar-ring: #3b82f6;
+}
+
+/* Tokens de color del contenido en modo oscuro (mismo morado del home: #0d053c). Sidebar y topbar no usan estas variables. */
+.dark {
+  color-scheme: dark;
+  --background: #0d053c;
+  --foreground: #e2e8f0;
+  --card: #251d50;
+  --card-foreground: #e2e8f0;
+  --popover: #1a1250;
+  --popover-foreground: #e2e8f0;
+  --primary: #93c5fd;
+  --primary-foreground: #0d053c;
+  --secondary: #1e3a8a;
+  --secondary-foreground: #e2e8f0;
+  --muted: #251d50;
+  --muted-foreground: #c4b5fd;
+  --accent: #f59e0b;
+  --accent-foreground: #0d053c;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #3b2d7a;
+  --input: #251d50;
+  --ring: #38bdf8;
+  --chart-1: #93c5fd;
+  --chart-2: #38bdf8;
+  --chart-3: #60a5fa;
+  --chart-4: #1d4ed8;
+  --chart-5: #1e3a8a;
   --sidebar: #1e3a8a;
   --sidebar-foreground: #ffffff;
   --sidebar-primary: #3b82f6;
@@ -185,16 +223,29 @@ input[type='number'] {
   }
 }
 
-/* Dashboard ejecutivo — superficie oscura unificada */
+/* Dashboard ejecutivo: claro por defecto; oscuro solo con html.dark */
 .dash-exec {
+  background: #f3f4f6;
+  color: #1e293b;
+  color-scheme: light;
+}
+
+html.dark .dash-exec {
   background:
     radial-gradient(1100px 420px at 18% -8%, rgba(56, 189, 248, 0.16), transparent 55%),
     radial-gradient(900px 380px at 92% 8%, rgba(251, 191, 36, 0.1), transparent 50%),
     linear-gradient(180deg, #0d053c 0%, #0d053c 100%);
+  color: #e2e8f0;
   color-scheme: dark;
 }
 
 .dash-glass {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 12px 28px -22px rgba(15, 23, 42, 0.28);
+}
+
+html.dark .dash-glass {
   background:
     linear-gradient(165deg, rgba(56, 189, 248, 0.08) 0%, transparent 42%),
     #251d50;
@@ -202,6 +253,374 @@ input[type='number'] {
   box-shadow:
     0 22px 48px -28px rgba(0, 0, 0, 0.75),
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.dash-exec select option {
+  background: #fff;
+  color: #1e293b;
+}
+
+html.dark .dash-exec select option {
+  background: #251d50;
+  color: #e2e8f0;
+}
+
+/*
+ * Modo oscuro en el resto de módulos: mismas superficies que las gráficas del home
+ * (#251d50 + borde cyan). Sidebar y topbar quedan fuera (no están en main).
+ */
+html.dark,
+html.dark body,
+html.dark #root {
+  background-color: #0d053c;
+}
+
+html.dark main {
+  color: #e2e8f0;
+  background-color: #0d053c;
+}
+
+/* Fondos de página (formularios con bg-gray-100): tapaban el tema oscuro. */
+html.dark :is(main, .fixed) .bg-gray-100:not(.rounded-full):not(thead):not(tfoot):not(input):not(select) {
+  background-color: #0d053c !important;
+}
+
+html.dark main h1,
+html.dark main h2,
+html.dark main h3 {
+  color: #fff;
+}
+
+html.dark main .text-blue-900 {
+  color: #7dd3fc;
+}
+
+html.dark main .text-gray-900,
+html.dark main .text-gray-800,
+html.dark main .text-gray-700 {
+  color: #f1f5f9;
+}
+
+html.dark main .text-gray-600,
+html.dark main .text-gray-500,
+html.dark main .text-slate-500 {
+  color: #cbd5e1;
+}
+
+/* Textos de ayuda, subtítulos y descripciones en todos los formularios y listados. */
+html.dark :is(main, .fixed) :is(
+  .text-gray-400,
+  .text-gray-500,
+  .text-gray-600,
+  .text-slate-400,
+  .text-slate-500,
+  .text-slate-600,
+  .text-slate-700,
+  .text-neutral-500,
+  .text-neutral-600,
+  .text-neutral-700,
+  .text-zinc-500,
+  .text-zinc-600,
+  .text-indigo-700,
+  .text-indigo-600
+) {
+  color: #cbd5e1 !important;
+}
+
+html.dark main .border-gray-200,
+html.dark main .border-gray-300,
+html.dark main .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(56, 189, 248, 0.22);
+}
+
+html.dark main .bg-white:not(.rounded-full):not(tbody):not(td):not(button):not(input):not(textarea):not(select),
+html.dark main .bg-gray-50:not(thead),
+html.dark main .bg-gray-50\/80:not(thead) {
+  background:
+    linear-gradient(165deg, rgba(56, 189, 248, 0.08) 0%, transparent 42%),
+    #251d50;
+  color: #e2e8f0;
+}
+
+/* Contenedor de tablas en modo oscuro: vidrio #251d50 como Planes de Muestreo. */
+html.dark :is(main, .fixed) :is(.theme-table, .overflow-x-auto:has(table), .overflow-hidden:has(table)) {
+  background: rgba(37, 29, 80, 0.72) !important;
+  border-color: rgba(56, 189, 248, 0.22) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+html.dark :is(main, .fixed) table {
+  color: #f8fafc;
+  background: transparent;
+}
+
+html.dark :is(main, .fixed) thead,
+html.dark :is(main, .fixed) thead tr {
+  background: rgba(10, 8, 45, 0.55) !important;
+  color: #c7d2fe !important;
+}
+
+html.dark :is(main, .fixed) thead th {
+  background: transparent !important;
+  color: #c7d2fe !important;
+}
+
+html.dark :is(main, .fixed) tbody {
+  background: transparent !important;
+  color: #fff;
+}
+
+html.dark :is(main, .fixed) tbody td {
+  color: #fff;
+  border-color: rgba(148, 163, 184, 0.16);
+}
+
+html.dark :is(main, .fixed) tbody tr:hover {
+  background: rgba(56, 189, 248, 0.1) !important;
+}
+
+/* Etiquetas de tablas/diálogos: el blanco de td + fondos pastel las volvía ilegibles. */
+html.dark :is(main, .fixed) :is(.bg-yellow-100, .bg-yellow-50).rounded-full {
+  background-color: rgba(250, 204, 21, 0.2) !important;
+  color: #fde047 !important;
+}
+
+html.dark :is(main, .fixed) :is(.bg-amber-100, .bg-amber-50).rounded-full {
+  background-color: rgba(251, 191, 36, 0.2) !important;
+  color: #fbbf24 !important;
+  border-color: rgba(251, 191, 36, 0.35) !important;
+}
+
+html.dark :is(main, .fixed) :is(.bg-green-100, .bg-emerald-100, .bg-emerald-50).rounded-full {
+  background-color: rgba(52, 211, 153, 0.2) !important;
+  color: #6ee7b7 !important;
+  border-color: rgba(52, 211, 153, 0.35) !important;
+}
+
+html.dark :is(main, .fixed) :is(.bg-red-100, .bg-red-50, .bg-rose-100).rounded-full {
+  background-color: rgba(248, 113, 113, 0.2) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(248, 113, 113, 0.35) !important;
+}
+
+html.dark :is(main, .fixed) :is(.bg-blue-100, .bg-sky-100, .bg-sky-50).rounded-full {
+  background-color: rgba(56, 189, 248, 0.2) !important;
+  color: #7dd3fc !important;
+  border-color: rgba(56, 189, 248, 0.35) !important;
+}
+
+html.dark :is(main, .fixed) :is(.bg-gray-100, .bg-slate-100, .bg-slate-50).rounded-full {
+  background-color: rgba(148, 163, 184, 0.22) !important;
+  color: #e2e8f0 !important;
+  border-color: rgba(148, 163, 184, 0.35) !important;
+}
+
+html.dark :is(main, .fixed) :is(.bg-indigo-100, .bg-violet-50, .bg-orange-50, .bg-teal-50).rounded-full {
+  background-color: rgba(165, 180, 252, 0.2) !important;
+  color: #c7d2fe !important;
+}
+
+html.dark :is(main, .fixed) .hover\:bg-gray-50:hover,
+html.dark :is(main, .fixed) .hover\:bg-gray-100:hover,
+html.dark :is(main, .fixed) .hover\:bg-slate-50:hover,
+html.dark :is(main, .fixed) .hover\:bg-slate-100:hover,
+html.dark :is(main, .fixed) .hover\:bg-blue-50:hover,
+html.dark :is(main, .fixed) .hover\:bg-blue-50\/50:hover,
+html.dark :is(main, .fixed) .hover\:bg-blue-50\/30:hover {
+  background: rgba(56, 189, 248, 0.14) !important;
+  color: #f8fafc;
+}
+
+html.dark [role="option"] label:hover {
+  background-color: rgba(56, 189, 248, 0.16) !important;
+}
+
+html.dark [role="option"] label:hover span {
+  color: #f8fafc !important;
+}
+
+html.dark :is(main, .fixed) .text-\[\#6a7282\] {
+  color: #cbd5e1 !important;
+}
+
+html.dark :is(main, .fixed) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+html.dark :is(main, .fixed) select,
+html.dark :is(main, .fixed) textarea {
+  background-color: #251d50;
+  border-color: rgba(56, 189, 248, 0.25);
+  color: #e2e8f0;
+}
+
+html.dark :is(main, .fixed) input::placeholder,
+html.dark :is(main, .fixed) textarea::placeholder {
+  color: #94a3b8;
+}
+
+/* La franja amarilla institucional no se re-colorea. */
+html.dark main .bg-yellow-400,
+html.dark main .bg-yellow-400 * {
+  color: #1e3a8a;
+}
+
+/* Menús de acciones (portales en body) y diálogos: el menú ES .fixed.bg-white, no un hijo. */
+html.dark .fixed.bg-white,
+html.dark .fixed .bg-white:not(.rounded-full):not(button):not(input):not(textarea):not(select) {
+  background:
+    linear-gradient(165deg, rgba(56, 189, 248, 0.08) 0%, transparent 42%),
+    #251d50;
+  color: #e2e8f0;
+  border-color: rgba(56, 189, 248, 0.22);
+}
+
+html.dark .fixed .bg-gray-50:not(thead),
+html.dark .fixed .bg-gray-50\/80:not(thead),
+html.dark .fixed .from-blue-50,
+html.dark .fixed .bg-gradient-to-r {
+  background: #1a1348 !important;
+  background-image: none !important;
+  color: #e2e8f0;
+}
+
+html.dark .fixed .border-gray-100,
+html.dark .fixed .border-gray-200,
+html.dark .fixed .border-gray-300 {
+  border-color: rgba(56, 189, 248, 0.22);
+}
+
+html.dark [role="menu"] {
+  background: #251d50 !important;
+  border-color: rgba(56, 189, 248, 0.28) !important;
+  color: #f1f5f9;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+html.dark [role="menu"] [role="menuitem"],
+html.dark [role="menu"] button {
+  color: #f1f5f9;
+}
+
+html.dark [role="menu"] [role="menuitem"]:hover,
+html.dark [role="menu"] button:hover {
+  background: rgba(56, 189, 248, 0.14);
+}
+
+html.dark [role="menu"] .text-gray-700,
+html.dark [role="menu"] .text-gray-800,
+html.dark [role="menu"] .text-slate-200 {
+  color: #f1f5f9 !important;
+}
+
+html.dark [role="menu"] .text-red-600 {
+  color: #f87171 !important;
+}
+
+html.dark [role="menu"] .hover\:bg-red-50:hover {
+  background: rgba(127, 29, 29, 0.45) !important;
+}
+
+html.dark [role="menu"] .text-blue-900 {
+  color: #7dd3fc !important;
+}
+
+html.dark .fixed .text-gray-900,
+html.dark .fixed .text-gray-800,
+html.dark .fixed .text-gray-700,
+html.dark .fixed .text-slate-800,
+html.dark .fixed .text-slate-700 {
+  color: #f1f5f9;
+}
+
+html.dark .fixed .text-gray-600,
+html.dark .fixed .text-gray-500 {
+  color: #cbd5e1;
+}
+
+html.dark .fixed .text-blue-900,
+html.dark .fixed .text-blue-800,
+html.dark main .text-blue-800 {
+  color: #7dd3fc;
+}
+
+/* Alertas, chips e iconos pastel: fondo claro + texto forzado a claro = ilegible. */
+html.dark :is(main, .fixed) :is(.bg-amber-50, .bg-amber-50\/70, .bg-amber-100) {
+  background-color: rgba(251, 191, 36, 0.16) !important;
+  color: #fbbf24 !important;
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+html.dark :is(main, .fixed) :is(.text-amber-700, .text-amber-800, .text-amber-950) {
+  color: #fbbf24;
+}
+
+html.dark :is(main, .fixed) :is(.bg-red-50, .bg-red-100, .bg-rose-50, .bg-rose-100) {
+  background-color: rgba(127, 29, 29, 0.45) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(248, 113, 113, 0.4);
+}
+
+html.dark :is(main, .fixed) :is(.text-red-700, .text-red-800) {
+  color: #fca5a5;
+}
+
+html.dark :is(main, .fixed) :is(.bg-blue-50, .bg-blue-50\/80, .bg-blue-50\/70, .bg-blue-50\/30, .bg-sky-50, .bg-sky-100, .bg-blue-100) {
+  background-color: rgba(56, 189, 248, 0.14) !important;
+  color: #7dd3fc !important;
+  border-color: rgba(56, 189, 248, 0.28);
+}
+
+html.dark :is(main, .fixed) :is(.bg-emerald-50, .bg-emerald-100, .bg-green-50, .bg-green-100) {
+  background-color: rgba(52, 211, 153, 0.16) !important;
+  color: #6ee7b7 !important;
+  border-color: rgba(52, 211, 153, 0.32);
+}
+
+html.dark :is(main, .fixed) :is(.bg-indigo-50, .bg-indigo-100, .bg-violet-50, .bg-violet-100, .bg-orange-50, .bg-orange-100, .bg-teal-50, .bg-teal-100, .bg-cyan-100, .bg-slate-50, .bg-slate-100, .bg-stone-100) {
+  background-color: rgba(165, 180, 252, 0.16) !important;
+  color: #c7d2fe !important;
+  border-color: rgba(165, 180, 252, 0.28);
+}
+
+html.dark :is(main, .fixed) :is(.text-sky-600, .text-sky-700, .text-sky-800, .text-sky-900, .text-teal-600, .text-teal-700, .text-teal-900, .text-indigo-600, .text-indigo-900, .text-violet-600, .text-violet-950, .text-slate-500, .text-slate-600, .text-slate-900) {
+  color: #c7d2fe;
+}
+
+html.dark :is(main, .fixed) .rounded-full.bg-blue-50 {
+  background-color: rgba(56, 189, 248, 0.2) !important;
+  color: #7dd3fc !important;
+}
+
+/* Cancelar / Cerrar / secundarios: no deben confundirse con el fondo del modal. */
+html.dark :is(main, .fixed) button.bg-gray-200,
+html.dark button.bg-gray-200,
+html.dark :is(main, .fixed) button.bg-white,
+html.dark :is(main, .fixed) button.border-gray-200:not(.bg-blue-900):not(.bg-red-600):not(.bg-green-600):not(.bg-red-50) {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  color: #f8fafc !important;
+  border-color: rgba(148, 163, 184, 0.5) !important;
+}
+
+html.dark :is(main, .fixed) button.bg-gray-200:hover,
+html.dark button.bg-gray-200:hover,
+html.dark :is(main, .fixed) button.bg-white:hover,
+html.dark :is(main, .fixed) button.border-gray-200:not(.bg-blue-900):hover {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  color: #f8fafc !important;
+}
+
+html.dark :is(main, .fixed) button.border-blue-900:not(.bg-blue-900):not(.bg-blue-800) {
+  color: #7dd3fc !important;
+  border-color: #38bdf8 !important;
+}
+
+html.dark :is(main, .fixed) button.border-blue-900:not(.bg-blue-900):not(.bg-blue-800):hover {
+  background-color: rgba(56, 189, 248, 0.14) !important;
+}
+
+html.dark :is(main, .fixed) button.border-blue-900:disabled,
+html.dark :is(main, .fixed) button.cursor-not-allowed.border-gray-200 {
+  color: #94a3b8 !important;
+  border-color: rgba(148, 163, 184, 0.28) !important;
+  background-color: transparent !important;
 }
 
 .dash-scroll {
@@ -256,8 +675,13 @@ input[type='number'] {
   width: 100%;
   height: 100%;
   padding: 1rem;
-  background: #0d053c;
+  background: #f3f4f6;
   box-sizing: border-box;
+}
+
+html.dark .dash-mapa-fs:fullscreen,
+html.dark .dash-mapa-fs:-webkit-full-screen {
+  background: #0d053c;
 }
 
 .dash-mapa-fs:fullscreen .dash-demanda-map,

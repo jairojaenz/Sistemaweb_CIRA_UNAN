@@ -22,6 +22,7 @@ import ConversionBarChart from "../components/ConversionBarChart";
 import AnalisisCapsuleChart from "../components/AnalisisCapsuleChart";
 import TopClientesList from "../components/TopClientesList";
 import { conTonos } from "../components/dashboardTonos";
+import { useTheme } from "../../../theme/ThemeContext";
 import { getMatrices } from "../../catalogos/service/matrizService";
 import {
   periodoVacio,
@@ -75,7 +76,7 @@ function PeakCallout({ cx, cy, value }) {
 }
 
 const inputClass =
-  "rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-slate-100 outline-none ring-sky-400/0 transition placeholder:text-slate-500 focus:border-sky-400/40 focus:ring-2 focus:ring-sky-400/20";
+  "rounded-xl border border-gray-300 bg-white px-3 py-1.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-sky-400/40 dark:focus:ring-sky-400/20";
 
 const VACIO = {
   kpis: {},
@@ -89,6 +90,9 @@ const VACIO = {
 };
 
 export default function DashboardHomePage() {
+  const { isDark } = useTheme();
+  const axisFill = isDark ? "#94a3b8" : "#64748b";
+  const gridStroke = isDark ? "rgba(148,163,184,0.12)" : "rgba(148,163,184,0.35)";
   const [periodo, setPeriodo] = useState(periodoVacio);
   const [matrixFilter, setMatrixFilter] = useState("todas");
   const [catalogoMatrices, setCatalogoMatrices] = useState([]);
@@ -246,14 +250,14 @@ export default function DashboardHomePage() {
   );
 
   return (
-    <div className="dash-exec min-h-full bg-[#0d053c] p-4 md:p-6 space-y-5">
-      <div className="dash-glass flex flex-wrap items-end gap-4 rounded-2xl bg-[#251d50] p-4 ring-1 ring-sky-400/20">
-        <div className="flex items-center gap-2 text-sm font-medium text-slate-300">
-          <FaFilter className="h-4 w-4 text-sky-300" />
+    <div className="dash-exec min-h-full p-4 md:p-6 space-y-5">
+      <div className="dash-glass flex flex-wrap items-end gap-4 rounded-2xl p-4">
+        <div className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+          <FaFilter className="h-4 w-4 text-blue-700 dark:text-sky-300" />
           Filtros
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-400">Año</label>
+          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Año</label>
           <select
             value={periodo.anio}
             onChange={(e) => {
@@ -282,7 +286,7 @@ export default function DashboardHomePage() {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-400">Mes</label>
+          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Mes</label>
           <select
             value={periodo.mes}
             disabled={!periodo.anio}
@@ -303,7 +307,7 @@ export default function DashboardHomePage() {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-400">Día</label>
+          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Día</label>
           <select
             value={periodo.dia}
             disabled={!periodo.anio || !periodo.mes}
@@ -319,7 +323,7 @@ export default function DashboardHomePage() {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-slate-400">Tipo de matriz</label>
+          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Tipo de matriz</label>
           <select
             value={matrixFilter}
             onChange={(e) => setMatrixFilter(e.target.value)}
@@ -339,17 +343,17 @@ export default function DashboardHomePage() {
             setPeriodo(periodoVacio());
             setMatrixFilter("todas");
           }}
-          className="rounded-xl border border-white/10 px-3 py-1.5 text-sm text-slate-300 transition hover:bg-white/5"
+          className="rounded-xl border border-gray-300 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-gray-50 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5"
         >
           Limpiar
         </button>
-        <p className="w-full text-[11px] text-slate-400">
-          Mostrando: <span className="font-medium text-sky-200">{etiquetaPeriodo(periodo)}</span>
+        <p className="w-full text-[11px] text-slate-500 dark:text-slate-400">
+          Mostrando: <span className="font-medium text-blue-800 dark:text-sky-200">{etiquetaPeriodo(periodo)}</span>
         </p>
       </div>
 
       {error ? (
-        <p className="rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">{error}</p>
+        <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-400/30 dark:bg-rose-500/10 dark:text-rose-100">{error}</p>
       ) : null}
 
       <KpiStatCards kpis={data.kpis} />
@@ -363,7 +367,7 @@ export default function DashboardHomePage() {
           {conversionSeries.length ? (
             <ConversionBarChart data={conversionSeries} />
           ) : (
-            <p className="py-10 text-center text-sm text-slate-400">No hay proformas ni órdenes en este período.</p>
+            <p className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">No hay proformas ni órdenes en este período.</p>
           )}
         </HudPanel>
 
@@ -371,7 +375,7 @@ export default function DashboardHomePage() {
           {matricesChart.length ? (
             <>
               <div className="relative mx-auto h-52 w-52">
-                <div className="absolute inset-2 rounded-full bg-[#251d50] shadow-[inset_0_12px_28px_rgba(0,0,0,0.4)] ring-1 ring-white/10" />
+                <div className="absolute inset-2 rounded-full bg-white shadow-inner ring-1 ring-slate-200 dark:bg-[#251d50] dark:shadow-[inset_0_12px_28px_rgba(0,0,0,0.4)] dark:ring-white/10" />
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <defs>
@@ -402,24 +406,24 @@ export default function DashboardHomePage() {
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                  <p className="text-3xl font-bold tabular-nums text-white">{matrizTotal}%</p>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                  <p className="text-3xl font-bold tabular-nums text-slate-800 dark:text-white">{matrizTotal}%</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
                     {matrixFilter === "todas" ? "Total" : "Filtro"}
                   </p>
                 </div>
               </div>
               <ul className="mt-4 space-y-1.5">
                 {matricesChart.map((item) => (
-                  <li key={item.name} className="flex items-center gap-2 text-xs text-slate-300">
+                  <li key={item.name} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
                     <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: item.color }} />
                     <span className="truncate">{item.name}</span>
-                    <span className="ml-auto tabular-nums text-slate-400">{item.value}%</span>
+                    <span className="ml-auto tabular-nums text-slate-500 dark:text-slate-400">{item.value}%</span>
                   </li>
                 ))}
               </ul>
             </>
           ) : (
-            <p className="py-10 text-center text-sm text-slate-400">No hay muestras en este período.</p>
+            <p className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">No hay muestras en este período.</p>
           )}
         </HudPanel>
       </div>
@@ -440,9 +444,9 @@ export default function DashboardHomePage() {
                       <stop offset="100%" stopColor="#fbbf24" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 10" stroke="rgba(148,163,184,0.12)" vertical={false} />
-                  <XAxis dataKey="mes" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                  <CartesianGrid strokeDasharray="3 10" stroke={gridStroke} vertical={false} />
+                  <XAxis dataKey="mes" tick={{ fontSize: 11, fill: axisFill }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: axisFill }} axisLine={false} tickLine={false} />
                   <Tooltip
                     content={
                       <GlowTooltip
@@ -490,7 +494,7 @@ export default function DashboardHomePage() {
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
-            <div className="mt-2 flex gap-4 text-xs text-slate-400">
+            <div className="mt-2 flex gap-4 text-xs text-slate-500 dark:text-slate-400">
               <span className="flex items-center gap-2">
                 <span className="h-0.5 w-6 rounded bg-sky-300" /> Este período
               </span>
@@ -500,7 +504,7 @@ export default function DashboardHomePage() {
             </div>
           </>
         ) : (
-          <p className="py-10 text-center text-sm text-slate-400">No hay solicitudes en este período.</p>
+          <p className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">No hay solicitudes en este período.</p>
         )}
       </HudPanel>
 
@@ -548,7 +552,7 @@ export default function DashboardHomePage() {
               cargando={cargandoClientes}
             />
           ) : (
-            <p className="py-10 text-center text-sm text-slate-400">No hay clientes con solicitudes en este período.</p>
+            <p className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">No hay clientes con solicitudes en este período.</p>
           )}
         </HudPanel>
 
@@ -556,12 +560,12 @@ export default function DashboardHomePage() {
           {analisisChart.length ? (
             <AnalisisCapsuleChart data={analisisChart} />
           ) : (
-            <p className="py-10 text-center text-sm text-slate-400">No hay análisis solicitados en este período.</p>
+            <p className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">No hay análisis solicitados en este período.</p>
           )}
         </HudPanel>
       </div>
 
-      <p className="px-1 pb-1 text-center text-xs text-slate-500">
+      <p className="px-1 pb-1 text-center text-xs text-slate-500 dark:text-slate-500">
         CIRA UNAN — Centro de Investigación de Recursos Acuáticos · {new Date().getFullYear()}
       </p>
     </div>

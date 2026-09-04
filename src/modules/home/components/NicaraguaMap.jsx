@@ -300,45 +300,49 @@ export default function NicaraguaMap({
   return (
     <div
       ref={pantallaRef}
-      className={`dash-mapa-fs grid gap-4 bg-[#0d053c] lg:grid-cols-[minmax(0,1fr)_11rem] ${
+      className={`dash-mapa-fs grid gap-4 bg-gray-100 dark:bg-[#0d053c] lg:grid-cols-[minmax(0,1fr)_11rem] ${
         completo ? "h-full p-4" : ""
       }`}
     >
       <div className={`relative min-h-0 ${completo ? "h-full" : ""}`}>
         <div
           ref={mapEl}
-          className={`dash-demanda-map w-full overflow-hidden rounded-2xl ring-1 ring-white/10 ${
+          className={`dash-demanda-map w-full overflow-hidden rounded-2xl ring-1 ring-slate-200 dark:ring-white/10 ${
             completo ? "h-full" : "h-[340px]"
           } ${vista3d ? "invisible" : ""}`}
         />
         <div
           ref={map3dHost}
-          className={`dash-demanda-map absolute inset-0 overflow-hidden rounded-2xl ring-1 ring-white/10 ${
+          className={`dash-demanda-map absolute inset-0 overflow-hidden rounded-2xl ring-1 ring-slate-200 dark:ring-white/10 ${
             vista3d ? "" : "hidden"
           }`}
         />
-        <div className="absolute left-2 top-2 z-20 flex overflow-hidden rounded-lg bg-[#251d50]/90 shadow-md ring-1 ring-white/10">
+        <div className="absolute left-2 top-2 z-20 flex overflow-hidden rounded-lg bg-white/95 shadow-md ring-1 ring-slate-200 dark:bg-[#251d50]/90 dark:ring-white/10">
           {MODOS.map((m) => (
             <button
               key={m.id}
               type="button"
               onClick={() => onModo?.(m.id)}
               className={`px-2.5 py-1 text-[10px] font-semibold ${
-                modo === m.id ? "bg-sky-400 text-[#07111f]" : "text-slate-300 hover:bg-white/5"
+                modo === m.id
+                  ? "bg-sky-400 text-[#07111f]"
+                  : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-white/5"
               }`}
             >
               {m.label}
             </button>
           ))}
         </div>
-        <div className="absolute right-2 top-2 z-20 flex overflow-hidden rounded-lg bg-[#251d50]/90 shadow-md ring-1 ring-white/10">
+        <div className="absolute right-2 top-2 z-20 flex overflow-hidden rounded-lg bg-white/95 shadow-md ring-1 ring-slate-200 dark:bg-[#251d50]/90 dark:ring-white/10">
           {CAPAS_BASE.map((capa) => (
             <button
               key={capa.id}
               type="button"
               onClick={() => cambiarCapa(capa.id)}
               className={`px-2.5 py-1 text-[10px] font-semibold ${
-                capaBase === capa.id ? "bg-sky-400 text-[#07111f]" : "text-slate-300 hover:bg-white/5"
+                capaBase === capa.id
+                  ? "bg-sky-400 text-[#07111f]"
+                  : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-white/5"
               }`}
             >
               {capa.label}
@@ -369,29 +373,29 @@ export default function NicaraguaMap({
           </button>
         </div>
         {error3d ? (
-          <div className="absolute bottom-14 left-2 right-14 z-20 rounded-lg bg-[#251d50]/90 px-3 py-2 text-[11px] text-amber-100 ring-1 ring-white/10">
+          <div className="absolute bottom-14 left-2 right-14 z-20 rounded-lg bg-white/95 px-3 py-2 text-[11px] text-amber-800 ring-1 ring-slate-200 dark:bg-[#251d50]/90 dark:text-amber-100 dark:ring-white/10">
             {error3d}
           </div>
         ) : null}
         {sinKey || errorMapa ? (
-          <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-[#251d50]/80 px-4 text-center text-xs text-amber-100">
+          <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-white/80 px-4 text-center text-xs text-amber-800 dark:bg-[#251d50]/80 dark:text-amber-100">
             {sinKey
               ? "Pega tu API key de Google Maps en .env.development (VITE_GOOGLE_MAPS_API_KEY) y reinicia npm run dev."
               : errorMapa}
           </div>
         ) : null}
         {cargando3d ? (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl bg-[#251d50]/45 text-xs text-sky-100">
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl bg-white/60 text-xs text-slate-700 dark:bg-[#251d50]/45 dark:text-sky-100">
             Cargando vista 3D…
           </div>
         ) : null}
         {estado === "cargando" && !sinKey && !vista3d ? (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl bg-[#251d50]/45 text-xs text-sky-100">
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl bg-white/60 text-xs text-slate-700 dark:bg-[#251d50]/45 dark:text-sky-100">
             {esClientes ? "Cargando clientes…" : "Cargando planes de muestreo…"}
           </div>
         ) : null}
         {estado === "vacio" && !sinKey && !errorMapa && !vista3d ? (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl bg-[#251d50]/45 text-xs text-slate-200">
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl bg-white/60 text-xs text-slate-600 dark:bg-[#251d50]/45 dark:text-slate-200">
             {esClientes
               ? "No hay clientes con coordenadas"
               : "No hay planes de muestreo con coordenadas"}
@@ -410,13 +414,13 @@ export default function NicaraguaMap({
                 <button
                   type="button"
                   onClick={() => irAPunto(f)}
-                  className="flex w-full items-center gap-2 rounded-2xl bg-[#251d50] px-2.5 py-2 text-left ring-1 ring-white/10 transition hover:ring-sky-400/40"
+                  className="flex w-full items-center gap-2 rounded-2xl bg-white px-2.5 py-2 text-left ring-1 ring-slate-200 transition hover:ring-blue-300 dark:bg-[#251d50] dark:ring-white/10 dark:hover:ring-sky-400/40"
                 >
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sky-400/15 text-[10px] font-semibold text-sky-200">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[10px] font-semibold text-blue-800 dark:bg-sky-400/15 dark:text-sky-200">
                     {i + 1}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[11px] text-slate-200">
+                    <span className="block truncate text-[11px] text-slate-700 dark:text-slate-200">
                       {f.properties.plan || f.properties.nombre}
                     </span>
                   </span>

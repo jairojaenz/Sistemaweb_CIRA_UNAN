@@ -488,16 +488,15 @@ export default function GestionClientesPage() {
   const rucObligatorioForm = tipoRequiereRucObligatorio(form.NombreTipoCliente);
 
   return (
-    <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col bg-white text-gray-800">
+    <div className="flex min-h-0 w-full flex-1 flex-col">
       <div className="bg-yellow-400 py-2 text-center font-semibold text-blue-900">Clientes</div>
 
-      <main className="flex flex-grow justify-center bg-white py-6 px-4 sm:py-8">
-        <div className="flex w-full max-w-7xl flex-col gap-4">
+      <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 p-4 sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
             <button
               type="button"
               onClick={openCreateModal}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-900 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
             >
               <FaPlus className="h-4 w-4" />
               Nuevo Cliente
@@ -505,7 +504,7 @@ export default function GestionClientesPage() {
           </div>
 
           <div className="relative">
-            <FaSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <FaSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-900" />
             <input
               type="text"
               placeholder="Buscar por nombre, contacto, correo, cédula o RUC..."
@@ -515,7 +514,7 @@ export default function GestionClientesPage() {
             />
           </div>
 
-          <div className="overflow-x-auto rounded-lg border border-gray-200">
+          <div className="theme-table overflow-x-auto rounded-lg border border-gray-200">
             <table className="w-full min-w-[860px] text-left text-sm">
               <thead className="bg-gray-50 text-xs uppercase text-gray-600">
                 <tr>
@@ -613,9 +612,7 @@ export default function GestionClientesPage() {
               </tbody>
             </table>
           </div>
-        </div>
-
-      </main>
+      </div>
 
       <footer className="bg-blue-900 py-2 text-center text-white">
         <p>© {new Date().getFullYear()} CIRA - UNAN Managua | Gestión de Clientes</p>
@@ -626,7 +623,7 @@ export default function GestionClientesPage() {
           <div
             role="menu"
             onClick={(e) => e.stopPropagation()}
-            className="fixed z-[100] min-w-[10.5rem] rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+            className="theme-menu fixed z-[100] min-w-[10.5rem] rounded-md border border-gray-200 bg-white py-1 shadow-lg"
             style={{
               left: accionesMenu.x,
               top: accionesMenu.y,

@@ -33,7 +33,7 @@ export default function GaugeChart({
   return (
     <div className="grid items-center gap-6 sm:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
       <div className="flex justify-center">
-        <div className="rounded-[32px] bg-[#251d50] px-4 pb-2 pt-4 shadow-[inset_0_10px_28px_rgba(0,0,0,0.45)] ring-1 ring-white/10">
+        <div className="rounded-[32px] bg-slate-50 px-4 pb-2 pt-4 shadow-inner ring-1 ring-slate-200 dark:bg-[#251d50] dark:shadow-[inset_0_10px_28px_rgba(0,0,0,0.45)] dark:ring-white/10">
           <svg
             width={size}
             height={size / 2 + 52}
@@ -96,10 +96,10 @@ export default function GaugeChart({
             />
             <circle cx={needle.x} cy={needle.y} r="6" fill="#fff" />
             <circle cx={needle.x} cy={needle.y} r="3" fill="#38bdf8" />
-            <text x={cx} y={cy - 4} textAnchor="middle" fill="#ffffff" fontSize="38" fontWeight="700">
+            <text x={cx} y={cy - 4} textAnchor="middle" className="fill-slate-800 dark:fill-white" fontSize="38" fontWeight="700">
               {value}%
             </text>
-            <text x={cx} y={cy + 16} textAnchor="middle" fill="#94a3b8" fontSize="11">
+            <text x={cx} y={cy + 16} textAnchor="middle" className="fill-slate-500 dark:fill-slate-400" fontSize="11">
               Ejecutados vs programados
             </text>
           </svg>
@@ -109,13 +109,13 @@ export default function GaugeChart({
       <div className="space-y-4">
         <div className="grid grid-cols-3 gap-2">
           {[
-            { n: programados, l: "Programados", c: "text-sky-200" },
-            { n: ejecutados, l: "Ejecutados", c: "text-cyan-200" },
-            { n: pendientes, l: "Pendientes", c: "text-amber-200" },
+            { n: programados, l: "Programados", c: "text-blue-800 dark:text-sky-200" },
+            { n: ejecutados, l: "Ejecutados", c: "text-teal-700 dark:text-cyan-200" },
+            { n: pendientes, l: "Pendientes", c: "text-amber-700 dark:text-amber-200" },
           ].map((item) => (
-            <div key={item.l} className="rounded-2xl bg-[#251d50] px-2 py-2.5 text-center ring-1 ring-white/10">
+            <div key={item.l} className="rounded-2xl bg-slate-50 px-2 py-2.5 text-center ring-1 ring-slate-200 dark:bg-[#251d50] dark:ring-white/10">
               <p className={`text-xl font-bold tabular-nums ${item.c}`}>{item.n}</p>
-              <p className="mt-0.5 text-[10px] uppercase tracking-wide text-slate-400">{item.l}</p>
+              <p className="mt-0.5 text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">{item.l}</p>
             </div>
           ))}
         </div>

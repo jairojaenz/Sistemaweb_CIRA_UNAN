@@ -82,8 +82,8 @@ export default function ListaInfoCampoPage() {
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-4 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-blue-900">Información de Campo</h1>
-          <p className="text-sm text-slate-500">Consulta los formatos de campo y registra uno nuevo.</p>
+          <h1 className="text-2xl font-semibold text-blue-900 dark:text-sky-200">Información de Campo</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Consulta los formatos de campo y registra uno nuevo.</p>
         </div>
         <button
           type="button"
@@ -96,7 +96,7 @@ export default function ListaInfoCampoPage() {
       </div>
 
       <div className="relative">
-        <FaSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-900" />
+        <FaSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-900 dark:text-sky-300" />
         <input
           type="text"
           placeholder="Buscar formato de campo..."
@@ -106,7 +106,7 @@ export default function ListaInfoCampoPage() {
         />
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <div className="theme-table overflow-x-auto rounded-lg border border-gray-200">
         <table className="w-full min-w-[800px] text-left text-sm">
           <thead className="bg-gray-50 text-xs uppercase text-gray-600">
             <tr>
@@ -122,14 +122,14 @@ export default function ListaInfoCampoPage() {
           <tbody className="divide-y divide-gray-200">
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-gray-500">
+                <td colSpan={7} className="px-4 py-10 text-center text-gray-500 dark:text-slate-400">
                   <FaSpinner className="mx-auto h-6 w-6 animate-spin" />
                   <span className="mt-2 block">Cargando formatos...</span>
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-gray-500">
+                <td colSpan={7} className="px-4 py-10 text-center text-gray-500 dark:text-slate-400">
                   {search ? "No se encontraron formatos" : "No hay información de campo registrada"}
                 </td>
               </tr>
@@ -147,7 +147,7 @@ export default function ListaInfoCampoPage() {
                       type="button"
                       title="Más acciones"
                       onClick={(e) => abrirMenu(e, registro)}
-                      className="rounded p-1.5 text-gray-600 hover:bg-gray-100"
+                      className="rounded p-1.5 text-gray-600 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-700"
                     >
                       <FaEllipsisV className="h-4 w-4" />
                     </button>
@@ -164,7 +164,7 @@ export default function ListaInfoCampoPage() {
           <div
             role="menu"
             onClick={(e) => e.stopPropagation()}
-            className="fixed z-[100] min-w-[10.5rem] rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+            className="theme-menu fixed z-[100] min-w-[10.5rem] rounded-md border border-gray-200 bg-white py-1 shadow-lg"
             style={{
               left: accionesMenu.x,
               top: accionesMenu.y,
@@ -175,7 +175,7 @@ export default function ListaInfoCampoPage() {
             <button
               type="button"
               role="menuitem"
-              className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+              className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-slate-200 dark:hover:bg-slate-700"
               onClick={async () => {
                 const registro = accionesMenu.registro;
                 const req = ++detalleRequestId.current;
@@ -199,7 +199,7 @@ export default function ListaInfoCampoPage() {
             <button
               type="button"
               role="menuitem"
-              className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+              className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-slate-200 dark:hover:bg-slate-700"
               onClick={() => {
                 navigate(ROUTES.infoCampoEditar(accionesMenu.registro.idFormatoCampo));
                 setAccionesMenu(null);
@@ -210,7 +210,7 @@ export default function ListaInfoCampoPage() {
             <button
               type="button"
               role="menuitem"
-              className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+              className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
               onClick={() => {
                 setConfirmDelete(accionesMenu.registro);
                 setAccionesMenu(null);

@@ -12,9 +12,9 @@ export default function AnalisisCapsuleChart({ data }) {
 
         return (
           <div key={item.name} className="flex min-w-[4.75rem] shrink-0 flex-col items-center gap-2">
-            <span className="text-sm font-bold tabular-nums text-white">{item.cantidad}</span>
+            <span className="text-sm font-bold tabular-nums text-slate-800 dark:text-white">{item.cantidad}</span>
             <div
-              className="relative h-44 w-7 overflow-hidden rounded-full shadow-[inset_0_8px_16px_rgba(0,0,0,0.55)] ring-1 ring-white/10"
+              className="relative h-44 w-7 overflow-hidden rounded-full bg-slate-100 shadow-inner ring-1 ring-slate-200 dark:bg-transparent dark:shadow-[inset_0_8px_16px_rgba(0,0,0,0.55)] dark:ring-white/10"
               style={{ background: `${mid}26` }}
             >
               <div
@@ -26,7 +26,7 @@ export default function AnalisisCapsuleChart({ data }) {
                 }}
               />
             </div>
-            <span className="h-8 w-full text-center text-[10px] leading-tight text-slate-400">{item.name}</span>
+            <span className="h-8 w-full text-center text-[10px] leading-tight text-slate-500 dark:text-slate-400">{item.name}</span>
           </div>
         );
       })}
