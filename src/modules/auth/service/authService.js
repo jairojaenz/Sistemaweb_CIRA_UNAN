@@ -39,19 +39,3 @@ async function fetchMeProfile(fallbackUser) {
   }
 }
 
-/**
- * Cambia la contraseña del usuario autenticado (POST /api/auth/change-password).
- * Body: { contraseñaActual, contraseñaNueva } — IdUsuario lo toma la API del JWT.
- * Tras el éxito la API revoca refresh tokens: hay que volver a iniciar sesión.
- *
- * @param {string} contraseñaActual
- * @param {string} contraseñaNueva
- * @returns {Promise<string>} mensaje de la API
- */
-export async function changePassword(contraseñaActual, contraseñaNueva) {
-  const body = await apiPost("/api/auth/change-password", {
-    contraseñaActual,
-    contraseñaNueva,
-  });
-  return body.message || "Contraseña actualizada exitosamente";
-}

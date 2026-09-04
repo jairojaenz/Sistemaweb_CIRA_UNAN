@@ -21,7 +21,6 @@ import {
 import { useAuth } from "../auth/AuthContext";
 import { isAdministrador } from "../modules/auth/model/constants.js";
 import { ROUTES } from "../router/routes";
-import ChangePasswordModal from "../components/ChangePasswordModal.jsx";
 import { useToast } from "../components/ToastContext.jsx";
 import ciraLogo from "../assets/CIRA.png";
 import unanLogo from "../assets/unan-managua.png";
@@ -73,7 +72,6 @@ export default function DashboardLayout() {
   const { pathname } = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [showChangePassword, setShowChangePassword] = useState(false);
 
   const planMuestreoActive = pathname.includes("/plan-muestreo");
   const catalogosActive = pathname.includes("/catalogos");
@@ -98,7 +96,7 @@ export default function DashboardLayout() {
   ];
 
   function getPageTitle(p) {
-    if (p === "/dashboard" || p === "/dashboard/") return "Bienvenido al Sistema de Gestión de Información de Campo de Muestras";
+    if (p === "/dashboard" || p === "/dashboard/") return "Bienvenido al Sistema de Gestión de Información de Campo de Muestras (SGIMA)";
     if (p.includes("/info-campo/editar/")) return "Editar Información de Campo";
     if (p.includes("/info-campo/nueva")) return "Nueva Información de Campo";
     if (p.includes("/info-campo")) return "Lista de Información de Campo";
@@ -144,14 +142,6 @@ export default function DashboardLayout() {
     navigate(ROUTES.login);
   };
 
-  /** Tras change-password la API revoca refresh tokens: cierra sesión local y vuelve al login. */
-  const handlePasswordChanged = async () => {
-    setShowChangePassword(false);
-    addToast("Contraseña actualizada. Inicie sesión de nuevo.", "success");
-    await logout();
-    navigate(ROUTES.login);
-  };
-
   return (
     <div className="flex h-screen min-h-0 overflow-hidden bg-gray-100">
       <aside
@@ -165,7 +155,7 @@ export default function DashboardLayout() {
               sidebarOpen ? "opacity-100" : "pointer-events-none max-w-0 opacity-0"
             }`}
           >
-            <h2 className="truncate text-lg font-bold tracking-tight">CIRA UNAN</h2>
+            <h2 className="truncate text-lg font-bold tracking-tight">UNAN Managua/CIRA</h2>
           </div>
           <button
             type="button"
@@ -398,18 +388,6 @@ export default function DashboardLayout() {
           )}
           <button
             type="button"
-            title={!sidebarOpen ? "Cambiar contraseña" : undefined}
-            onClick={() => setShowChangePassword(true)}
-            className={[
-              "flex w-full items-center rounded-lg py-2.5 text-sm font-medium text-blue-100 transition hover:bg-blue-800/70 hover:text-white",
-              sidebarOpen ? "gap-3 px-4" : "justify-center px-0",
-            ].join(" ")}
-          >
-            <FaKey className="h-5 w-5 flex-shrink-0 opacity-90" />
-            {sidebarOpen && <span className="truncate">Cambiar contraseña</span>}
-          </button>
-          <button
-            type="button"
             title={!sidebarOpen ? "Cerrar sesión" : undefined}
             onClick={() => setShowLogoutConfirm(true)}
             className={[
@@ -426,11 +404,6 @@ export default function DashboardLayout() {
         open={showLogoutConfirm}
         onConfirm={handleLogout}
         onCancel={() => setShowLogoutConfirm(false)}
-      />
-      <ChangePasswordModal
-        open={showChangePassword}
-        onClose={() => setShowChangePassword(false)}
-        onSuccess={handlePasswordChanged}
       />
       </aside>
 
