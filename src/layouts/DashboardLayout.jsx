@@ -377,26 +377,59 @@ export default function DashboardLayout() {
           )}
         </nav>
 
-        <div className="border-t border-blue-800 p-2 space-y-1">
-          {sidebarOpen && user && (
-            <div className="flex items-center gap-2 px-3 py-2 text-sm text-blue-200 truncate">
-              <FaUserCircle className="h-4 w-4 flex-shrink-0" />
-              <span className="truncate">{user.nombre} {user.apellido}</span>
-            </div>
-          )}
-          <button
-            type="button"
-            title={!sidebarOpen ? "Cerrar sesión" : undefined}
-            onClick={() => setShowLogoutConfirm(true)}
-            className={[
-              "flex w-full items-center rounded-lg bg-red-500 py-2.5 font-medium text-white transition hover:bg-red-600",
-              sidebarOpen ? "gap-3 px-4" : "justify-center px-0",
-            ].join(" ")}
-          >
-            <FaSignOutAlt className="h-5 w-5 flex-shrink-0" />
-            {sidebarOpen && <span className="truncate">Cerrar Sesión</span>}
-          </button>
-        </div>
+        <div className="border-t border-blue-800/60 p-3 space-y-2">
+
+<div className="border-t border-blue-800/70 bg-blue-950/20 p-3">
+  {/* Información del usuario */}
+  {sidebarOpen && user && (
+    <div className="mb-3 flex items-center gap-3 rounded-xl border border-blue-700/50 bg-blue-800/40 p-3 shadow-sm backdrop-blur-sm">
+      
+      {/* Avatar */}
+      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-blue-600 shadow-md ring-2 ring-blue-400/30">
+        <FaUserCircle className="h-7 w-7 text-white" />
+      </div>
+
+      {/* Información */}
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-white">
+          {user.nombre} {user.apellido}
+        </p>
+
+        <p className="mt-0.5 truncate text-xs text-blue-300">
+          Usuario del sistema
+        </p>
+      </div>
+    </div>
+  )}
+
+  {/* Botón cerrar sesión */}
+  <button
+    type="button"
+    title={!sidebarOpen ? "Cerrar sesión" : undefined}
+    onClick={() => setShowLogoutConfirm(true)}
+    className={[
+      "group flex w-full items-center justify-center rounded-xl",
+      "border border-red-400/20 bg-red-500",
+      "py-2.5 font-semibold text-white shadow-sm",
+      "transition-all duration-200",
+      "hover:bg-red-600 hover:shadow-md hover:-translate-y-[1px]",
+      "active:translate-y-0 active:scale-[0.98]",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300",
+      sidebarOpen ? "gap-3 px-4" : "h-11 w-11 p-0",
+    ].join(" ")}
+  >
+    <FaSignOutAlt className="h-5 w-5 flex-shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" />
+
+    {sidebarOpen && (
+      <span className="truncate">
+        Cerrar Sesión
+      </span>
+    )}
+  </button>
+</div>
+
+
+</div>
 
       <ConfirmDialog
         open={showLogoutConfirm}

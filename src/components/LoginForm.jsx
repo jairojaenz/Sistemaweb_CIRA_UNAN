@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FaUserAlt, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
 import { useAuth } from "../auth/AuthContext.jsx";
+import Inve from "../assets/Investigadores.jpg";
 
 /**
  * Formulario de login.
@@ -53,8 +54,8 @@ export default function LoginForm({ onSuccess }) {
 
       <div className="mb-4 text-center">
         <img
-          src="https://img.freepik.com/fotos-premium/grupo-jovenes-investigadores-que-analizan-datos-quimicos-laboratorio_52137-34195.jpg?semt=ais_hybrid&w=740&q=80"
-          alt=""
+          src={Inve}
+          alt="Investigadores"
           className="h-auto w-full rounded"
         />
       </div>
