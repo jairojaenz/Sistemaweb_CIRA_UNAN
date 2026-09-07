@@ -26,38 +26,52 @@ import unanLogo from "../assets/unan-managua.png";
 
 function navLinkClass({ isActive }) {
   return [
-    "flex w-full items-center rounded-lg py-2.5 text-sm font-medium transition",
+    "flex w-full items-center rounded-xl border-l-4 py-2.5 text-sm font-medium transition-colors duration-200",
     "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/60",
     isActive
-      ? "bg-blue-800 text-white shadow-inner"
-      : "text-blue-100 hover:bg-blue-800/70 hover:text-white",
+      ? "border-yellow-400 bg-blue-800 text-white shadow-inner"
+      : "border-transparent text-blue-100 hover:border-yellow-400/50 hover:bg-blue-800/70 hover:text-white",
   ].join(" ");
 }
 
 function ConfirmDialog({ open, onConfirm, onCancel }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-80 rounded-lg bg-white p-6 shadow-xl dark:bg-slate-800">
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-slate-100">Cerrar Sesión</h3>
-        <p className="mt-2 text-sm text-gray-600 dark:text-slate-300">
-          ¿Está seguro de que desea cerrar la sesión?
-        </p>
-        <div className="mt-5 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 dark:bg-slate-600 dark:text-slate-100 dark:hover:bg-slate-500"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-          >
-            Cerrar Sesión
-          </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-blue-950/60 backdrop-blur-sm">
+      <div className="w-80 overflow-hidden rounded-2xl border border-blue-800/50 bg-white shadow-2xl shadow-black/40 dark:border-blue-800/60 dark:bg-[#12123a]">
+        <div className="h-1 w-full bg-gradient-to-r from-yellow-400 via-amber-400 to-red-500" />
+
+        <div className="p-6">
+          <div className="flex items-start gap-4">
+            <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-500 ring-4 ring-red-500/5 dark:bg-red-500/15 dark:text-red-400">
+              <FaSignOutAlt className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 pt-1">
+              <h3 className="text-base font-semibold text-gray-800 dark:text-slate-100">
+                Cerrar Sesión
+              </h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
+                ¿Está seguro de que desea salir del sistema? Tendrá que iniciar sesión de nuevo para continuar.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-end gap-2.5">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:border-slate-600 dark:bg-transparent dark:text-slate-200 dark:hover:bg-slate-700/60"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              className="rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-red-500/30 transition-colors hover:bg-red-600"
+            >
+              Sí, cerrar sesión
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -213,11 +227,11 @@ export default function DashboardLayout() {
             to={ROUTES.planMuestreo}
             title={!sidebarOpen ? "Plan de Muestreo" : undefined}
             className={[
-              "flex w-full items-center rounded-lg py-2.5 text-sm font-medium transition",
+              "flex w-full items-center rounded-xl border-l-4 py-2.5 text-sm font-medium transition-colors duration-200",
               sidebarOpen ? "gap-3 px-4" : "justify-center px-0",
               planMuestreoActive
-                ? "bg-blue-800 text-white shadow-inner"
-                : "text-blue-100 hover:bg-blue-800/70 hover:text-white",
+                ? "border-yellow-400 bg-blue-800 text-white shadow-inner"
+                : "border-transparent text-blue-100 hover:border-yellow-400/50 hover:bg-blue-800/70 hover:text-white",
             ].join(" ")}
           >
             <FaTasks className="h-5 w-5 flex-shrink-0 opacity-90" />
@@ -288,11 +302,11 @@ export default function DashboardLayout() {
               onClick={() => setCatalogosOpen((v) => !v)}
               title={!sidebarOpen ? "Catálogos" : undefined}
               className={[
-                "flex w-full items-center rounded-lg py-2.5 text-sm font-medium transition",
+                "flex w-full items-center rounded-xl border-l-4 py-2.5 text-sm font-medium transition-colors duration-200",
                 sidebarOpen ? "gap-3 px-4" : "justify-center px-0",
                 catalogosActive
-                  ? "bg-blue-800 text-white shadow-inner"
-                  : "text-blue-100 hover:bg-blue-800/70 hover:text-white",
+                  ? "border-yellow-400 bg-blue-800 text-white shadow-inner"
+                  : "border-transparent text-blue-100 hover:border-yellow-400/50 hover:bg-blue-800/70 hover:text-white",
               ].join(" ")}
             >
               <FaFolder className="h-5 w-5 flex-shrink-0 opacity-90" />
@@ -315,10 +329,10 @@ export default function DashboardLayout() {
                     to={item.to}
                     className={({ isActive }) =>
                       [
-                        "flex w-full items-center rounded-lg py-2 text-sm font-medium transition",
+                        "flex w-full items-center rounded-xl border-l-4 py-2 text-sm font-medium transition-colors duration-200",
                         isActive
-                          ? "bg-blue-800 text-white shadow-inner"
-                          : "text-blue-100 hover:bg-blue-800/70 hover:text-white",
+                          ? "border-yellow-400 bg-blue-800 text-white shadow-inner"
+                          : "border-transparent text-blue-100 hover:border-yellow-400/50 hover:bg-blue-800/70 hover:text-white",
                         sidebarOpen ? "px-3" : "justify-center px-0",
                       ].join(" ")
                     }
@@ -382,11 +396,11 @@ export default function DashboardLayout() {
 <div className="border-t border-blue-800/70 bg-blue-950/20 p-3">
   {/* Información del usuario */}
   {sidebarOpen && user && (
-    <div className="mb-3 flex items-center gap-3 rounded-xl border border-blue-700/50 bg-blue-800/40 p-3 shadow-sm backdrop-blur-sm">
-      
+    <div className="mb-3 flex items-center gap-3 rounded-xl border border-yellow-400/30 bg-blue-800/40 p-3 shadow-sm backdrop-blur-sm">
+
       {/* Avatar */}
-      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-blue-600 shadow-md ring-2 ring-blue-400/30">
-        <FaUserCircle className="h-7 w-7 text-white" />
+      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-yellow-400 shadow-md ring-2 ring-yellow-400/30">
+        <FaUserCircle className="h-6 w-6 text-blue-900" />
       </div>
 
       {/* Información */}
@@ -396,7 +410,7 @@ export default function DashboardLayout() {
         </p>
 
         <p className="mt-0.5 truncate text-xs text-blue-300">
-          Usuario del sistema
+          {user.cargoNombre}
         </p>
       </div>
     </div>
@@ -408,20 +422,21 @@ export default function DashboardLayout() {
     title={!sidebarOpen ? "Cerrar sesión" : undefined}
     onClick={() => setShowLogoutConfirm(true)}
     className={[
-      "group flex w-full items-center justify-center rounded-xl",
-      "border border-red-400/20 bg-red-500",
-      "py-2.5 font-semibold text-white shadow-sm",
+      "group flex w-full items-center rounded-xl border border-yellow-400/30 bg-blue-800/40 shadow-sm backdrop-blur-sm",
+      "py-2.5 font-semibold text-white",
       "transition-all duration-200",
-      "hover:bg-red-600 hover:shadow-md hover:-translate-y-[1px]",
+      "hover:border-yellow-400/60 hover:bg-blue-800/70 hover:shadow-md hover:-translate-y-[1px]",
       "active:translate-y-0 active:scale-[0.98]",
-      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300",
-      sidebarOpen ? "gap-3 px-4" : "h-11 w-11 p-0",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-300/60",
+      sidebarOpen ? "justify-start gap-3 px-3" : "h-[3.25rem] w-[3.25rem] justify-center p-0",
     ].join(" ")}
   >
-    <FaSignOutAlt className="h-5 w-5 flex-shrink-0 transition-transform duration-200 group-hover:translate-x-0.5" />
+    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-yellow-400 text-blue-900 shadow-md ring-2 ring-yellow-400/30 transition-transform duration-200 group-hover:scale-105">
+      <FaSignOutAlt className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+    </span>
 
     {sidebarOpen && (
-      <span className="truncate">
+      <span className="truncate text-sm">
         Cerrar Sesión
       </span>
     )}
