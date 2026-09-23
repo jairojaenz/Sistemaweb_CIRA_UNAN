@@ -204,7 +204,7 @@ export function sincronizarMarcadores3d(lib, mapa3d, features, onClick) {
   });
 }
 
-export function opcionesMapaNicaragua(maps, { center, zoom, mapTypeId = "hybrid" } = {}) {
+export function opcionesMapaNicaragua(maps, { center, zoom, mapTypeId = "hybrid", zoomControl = true } = {}) {
   return {
     center: center || NICARAGUA_CENTER,
     zoom: zoom ?? 6.4,
@@ -212,8 +212,10 @@ export function opcionesMapaNicaragua(maps, { center, zoom, mapTypeId = "hybrid"
     maxZoom: 20,
     mapTypeId,
     disableDefaultUI: true,
-    zoomControl: true,
-    zoomControlOptions: { position: 1 },
+    zoomControl,
+    ...(zoomControl
+      ? { zoomControlOptions: { position: maps.ControlPosition?.TOP_LEFT ?? 1 } }
+      : {}),
     gestureHandling: "greedy",
     restriction: {
       latLngBounds: NICARAGUA_BOUNDS,

@@ -179,7 +179,11 @@ export default function NicaraguaMap({
         mapsRef.current = maps;
         const created = new maps.Map(
           mapEl.current,
-          opcionesMapaNicaragua(maps, { zoom: 6.4, mapTypeId: mapTypeDeCapa("satelite") }),
+          opcionesMapaNicaragua(maps, {
+            zoom: 6.4,
+            mapTypeId: mapTypeDeCapa("satelite"),
+            zoomControl: false,
+          }),
         );
         mapRef.current = created;
         syncMarkers(maps, created, featuresRef.current, markersRef, infoRef);
@@ -282,6 +286,15 @@ export default function NicaraguaMap({
     apagarVista3d();
   }
 
+  function cambiarZoom(delta) {
+    if (!mapRef.current || vista3dRef.current) return;
+    const actual = mapRef.current.getZoom?.();
+    if (actual == null) return;
+    const min = 6;
+    const max = 20;
+    mapRef.current.setZoom(Math.min(max, Math.max(min, actual + delta)));
+  }
+
   function irAPunto(feature) {
     if (!feature) return;
     if (vista3dRef.current && mapa3dRef.current) {
@@ -317,21 +330,49 @@ export default function NicaraguaMap({
             vista3d ? "" : "hidden"
           }`}
         />
-        <div className="absolute left-2 top-2 z-20 flex overflow-hidden rounded-lg bg-white/95 shadow-md ring-1 ring-slate-200 dark:bg-[#251d50]/90 dark:ring-white/10">
-          {MODOS.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => onModo?.(m.id)}
-              className={`px-2.5 py-1 text-[10px] font-semibold ${
-                modo === m.id
-                  ? "bg-sky-400 text-[#07111f]"
-                  : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-white/5"
-              }`}
+        <div className="absolute left-2 top-2 z-20 flex flex-col gap-1.5">
+          <div className="flex overflow-hidden rounded-lg bg-white/95 shadow-md ring-1 ring-slate-200 dark:bg-[#251d50]/90 dark:ring-white/10">
+            {MODOS.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => onModo?.(m.id)}
+                className={`px-2.5 py-1 text-[10px] font-semibold ${
+                  modo === m.id
+                    ? "bg-sky-400 text-[#07111f]"
+                    : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-white/5"
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+          {!vista3d && !sinKey && !errorMapa ? (
+            <div
+              className="flex w-10 flex-col overflow-hidden rounded bg-white shadow-[0_1px_4px_rgba(0,0,0,0.3)] dark:bg-[#251d50]/95 dark:ring-1 dark:ring-white/10"
+              aria-label="Zoom del mapa"
             >
-              {m.label}
-            </button>
-          ))}
+              <button
+                type="button"
+                onClick={() => cambiarZoom(1)}
+                title="Acercar"
+                aria-label="Acercar"
+                className="flex h-10 w-10 items-center justify-center text-xl font-light leading-none text-[#666] hover:bg-slate-50 hover:text-[#333] dark:text-slate-200 dark:hover:bg-white/10"
+              >
+                +
+              </button>
+              <div className="h-px shrink-0 bg-slate-200 dark:bg-white/15" />
+              <button
+                type="button"
+                onClick={() => cambiarZoom(-1)}
+                title="Alejar"
+                aria-label="Alejar"
+                className="flex h-10 w-10 items-center justify-center text-xl font-light leading-none text-[#666] hover:bg-slate-50 hover:text-[#333] dark:text-slate-200 dark:hover:bg-white/10"
+              >
+                −
+              </button>
+            </div>
+          ) : null}
         </div>
         <div className="absolute right-2 top-2 z-20 flex overflow-hidden rounded-lg bg-white/95 shadow-md ring-1 ring-slate-200 dark:bg-[#251d50]/90 dark:ring-white/10">
           {CAPAS_BASE.map((capa) => (
