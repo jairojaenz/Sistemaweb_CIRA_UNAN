@@ -1634,6 +1634,50 @@ html.dark .catalog-choice-tone--disabled {
   border-color: rgba(255, 255, 255, 0.06) !important;
 }
 
+/*
+ * Modo claro: iconos conservan su tinte; el acento de fondo/borde al llenar o
+ * seleccionar solo aplica en modo oscuro (IconField, param cards, catálogo).
+ */
+html:not(.dark) .campo-field.catalog-choice-tone.campo-field--filled,
+html:not(.dark) .campo-param-card.catalog-choice-tone.campo-param-card--filled {
+  background: rgb(255 255 255 / 0.85) !important;
+  border-color: rgb(226 232 240) !important;
+  border-width: 1px;
+  transform: none;
+  box-shadow: none;
+}
+
+html:not(.dark) .campo-field.catalog-choice-tone.campo-field--filled:focus-within,
+html:not(.dark) .campo-param-card.catalog-choice-tone.campo-param-card--filled:focus-within {
+  border-color: rgb(30 64 175) !important;
+  box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.12) !important;
+}
+
+html:not(.dark) .campo-choice.catalog-choice-tone:not(.catalog-choice-tone--disabled) {
+  background: rgb(248 250 252 / 0.9) !important;
+  border-color: rgb(226 232 240) !important;
+}
+
+html:not(.dark) .campo-choice.catalog-choice-tone:not(.catalog-choice-tone--disabled):hover {
+  background: rgb(241 245 249) !important;
+  border-color: rgb(147 197 253) !important;
+}
+
+html:not(.dark) .campo-choice.catalog-choice-tone.campo-choice--selected:not(.catalog-choice-tone--disabled) {
+  background: linear-gradient(135deg, rgb(239 246 255) 0%, rgb(219 234 254 / 0.5) 100%) !important;
+  border-color: rgb(30 58 138) !important;
+  box-shadow:
+    0 4px 12px rgba(30, 58, 138, 0.12),
+    inset 0 0 0 1px rgba(30, 58, 138, 0.06) !important;
+}
+
+html:not(.dark) .campo-field.catalog-choice-tone.campo-field--filled .campo-input,
+html:not(.dark) .campo-field.catalog-choice-tone.campo-field--filled .date-picker-input .react-date-picker__wrapper,
+html:not(.dark) .campo-param-card.catalog-choice-tone.campo-param-card--filled .campo-param-input-wrap {
+  border-color: rgb(226 232 240) !important;
+  background: #fff !important;
+}
+
 .catalog-choice-check {
   display: flex;
   height: 1.75rem;
