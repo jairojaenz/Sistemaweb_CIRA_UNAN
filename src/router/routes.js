@@ -3,6 +3,7 @@ export const ROUTES = {
   login: "/",
   dashboard: "/dashboard",
   home: "/dashboard",
+  geolocalizacion: "/dashboard/geolocalizacion",
   infoCampo: "/dashboard/info-campo",
   infoCampoNueva: "/dashboard/info-campo/nueva",
   infoCampoEditar: (id) => `/dashboard/info-campo/editar/${id}`,

@@ -1193,6 +1193,83 @@ html.dark .campo-wizard-card {
   padding: 0.75rem 1rem 0.875rem;
 }
 
+/* Geolocalización: fondo negro fijo (claro y oscuro) */
+.geoloc-page {
+  background: #000 !important;
+  color: #f1f5f9;
+}
+
+html:not(.dark) main:has(.geoloc-page),
+html.dark main:has(.geoloc-page) {
+  background: #000 !important;
+}
+
+/* Lista lateral: mismo aspecto en tema claro u oscuro (mapa siempre negro) */
+.geoloc-page .dash-mapa-lista {
+  border-left-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.geoloc-page .dash-mapa-lista .geoloc-lista-titulo {
+  color: #94a3b8 !important;
+}
+
+.geoloc-page .dash-mapa-lista .geoloc-lista-vacio {
+  color: #94a3b8 !important;
+}
+
+.geoloc-page .dash-mapa-lista .geoloc-lista-btn {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #f1f5f9 !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12) !important;
+}
+
+.geoloc-page .dash-mapa-lista .geoloc-lista-btn:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.45) !important;
+}
+
+.geoloc-page .dash-mapa-lista .geoloc-lista-btn .geoloc-lista-texto,
+.geoloc-page .dash-mapa-lista .geoloc-lista-btn .geoloc-lista-texto span {
+  color: #f1f5f9 !important;
+}
+
+.geoloc-page .dash-mapa-lista .geoloc-lista-num {
+  background: rgba(56, 189, 248, 0.22) !important;
+  color: #e0f2fe !important;
+}
+
+/* Controles sobre el mapa (legibles sobre fondo negro en tema claro) */
+html:not(.dark) .geoloc-page .geoloc-mapa-control {
+  background: rgba(15, 23, 42, 0.88) !important;
+  color: #e2e8f0 !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45) !important;
+}
+
+html:not(.dark) .geoloc-page .geoloc-mapa-control .geoloc-mapa-control-inactivo {
+  color: #cbd5e1 !important;
+}
+
+html:not(.dark) .geoloc-page .geoloc-mapa-control .geoloc-mapa-control-inactivo:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #f8fafc !important;
+}
+
+html:not(.dark) .geoloc-page .geoloc-mapa-btn-flotante {
+  background: rgba(15, 23, 42, 0.92) !important;
+  color: #e2e8f0 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45) !important;
+}
+
+html:not(.dark) .geoloc-page .geoloc-mapa-btn-flotante:hover {
+  color: #fff !important;
+}
+
+html:not(.dark) .geoloc-page .geoloc-mapa-btn-flotante.geoloc-mapa-btn-flotante--activo {
+  background: #1a73e8 !important;
+  color: #fff !important;
+}
+
 html.dark .campo-step-intro {
   border-bottom-color: rgba(255, 255, 255, 0.08);
 }

@@ -9,6 +9,7 @@ import {
   FaFileInvoiceDollar,
   FaFolder,
   FaFlask,
+  FaGlobeAmericas,
   FaHome,
   FaMicroscope,
   FaSignOutAlt,
@@ -87,6 +88,7 @@ export default function DashboardLayout() {
 
   const planMuestreoActive = pathname.includes("/plan-muestreo");
   const catalogosActive = pathname.includes("/catalogos");
+  const esGeolocalizacion = pathname.includes("/geolocalizacion");
   const [catalogosOpen, setCatalogosOpen] = useState(catalogosActive);
 
   const catalogosSubmenu = [
@@ -109,6 +111,7 @@ export default function DashboardLayout() {
 
   function getPageTitle(p) {
     if (p === "/dashboard" || p === "/dashboard/") return "Bienvenido al Sistema de Gestión de Información de Campo de Muestras (SGIMA)";
+    if (p.includes("/geolocalizacion")) return "Geolocalización";
     if (p.includes("/info-campo/editar/")) return "Editar Información de Campo";
     if (p.includes("/info-campo/nueva")) return "Nueva Información de Campo";
     if (p.includes("/info-campo")) return "Lista de Información de Campo";
@@ -193,6 +196,20 @@ export default function DashboardLayout() {
           >
             <FaHome className="h-5 w-5 flex-shrink-0 opacity-90" />
             {sidebarOpen && <span className="truncate">Inicio</span>}
+          </NavLink>
+
+          <NavLink
+            to={ROUTES.geolocalizacion}
+            title={!sidebarOpen ? "Geolocalización" : undefined}
+            className={({ isActive }) =>
+              [
+                navLinkClass({ isActive }),
+                sidebarOpen ? "gap-3 px-4" : "justify-center px-0",
+              ].join(" ")
+            }
+          >
+            <FaGlobeAmericas className="h-5 w-5 flex-shrink-0 opacity-90" />
+            {sidebarOpen && <span className="truncate">Geolocalización</span>}
           </NavLink>
 
           <NavLink
@@ -509,7 +526,13 @@ export default function DashboardLayout() {
         </header>
 
         {/* El tema solo pinta el contenido: claro = gray-100; oscuro = #0d053c. Sidebar y topbar no cambian. */}
-        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain bg-gray-100 dark:bg-[#0d053c]">
+        <main
+          className={
+            esGeolocalizacion
+              ? "flex min-h-0 flex-1 flex-col overflow-hidden bg-black"
+              : "flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain bg-gray-100 dark:bg-[#0d053c]"
+          }
+        >
           <Outlet />
         </main>
       </div>

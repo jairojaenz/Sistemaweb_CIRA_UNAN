@@ -54,6 +54,9 @@ const FormatosOrdenServicioPage = lazy(() =>
 );
 const ProformaPage = lazy(() => import("../modules/proforma/page/ProformaPage.jsx"));
 const NuevaProformaPage = lazy(() => import("../modules/proforma/page/NuevaProformaPage.jsx"));
+const GeolocalizacionPage = lazy(() =>
+  import("../modules/geolocalizacion/page/GeolocalizacionPage.jsx")
+);
 
 function RouteFallback() {
   return (
@@ -82,6 +85,7 @@ export default function AppRoutes() {
             }
           >
             <Route index element={<DashboardHomePage />} />
+            <Route path="geolocalizacion" element={<GeolocalizacionPage />} />
             <Route path="info-campo" element={<ListaInfoCampoPage />} />
             <Route path="info-campo/nueva" element={<InfoCampoPage />} />
             <Route path="info-campo/editar/:idCampo" element={<InfoCampoPage />} />

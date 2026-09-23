@@ -4,6 +4,8 @@ import {
   cargarGoogleMaps,
   cargarMaps3d,
   crearMapa3d,
+  iniciarRotacionGlobo,
+  iniciarOrbitaAlrededorPunto,
   destruirMapa3d,
   escucharPantallaCompleta,
   estaEnPantallaCompleta,
@@ -16,7 +18,8 @@ import {
   salirPantallaCompleta,
   sincronizarMarcadores3d,
   solicitarPantallaCompleta,
-  volarAPunto3d,
+  volarYOrbitarPunto3d,
+  ajustarRango3d,
 } from "../../../utils/googleMapsNicaragua.js";
 import IconoPantallaCompleta from "../../../components/IconoPantallaCompleta.jsx";
 
@@ -135,6 +138,10 @@ export default function NicaraguaMap({
   modo = "muestras",
   onModo,
   cargando = false,
+  alturaMapa = "h-[340px]",
+  vista3dInicial = false,
+  mapaGlobo = false,
+  rellenoPantalla = false,
 }) {
   const pantallaRef = useRef(null);
   const mapEl = useRef(null);
@@ -153,6 +160,56 @@ export default function NicaraguaMap({
   const [vista3d, setVista3d] = useState(false);
   const [cargando3d, setCargando3d] = useState(false);
   const vista3dRef = useRef(false);
+  const rotacionGloboCleanupRef = useRef(null);
+  const puntoOrbitaRef = useRef(null);
+  const centroGloboRef = useRef(null);
+  const [giroOrbitalActivo, setGiroOrbitalActivo] = useState(false);
+
+  function avisoGiroDetenido() {
+    setGiroOrbitalActivo(false);
+  }
+
+  function pararGiroOrbital() {
+    rotacionGloboCleanupRef.current?.();
+    rotacionGloboCleanupRef.current = null;
+    mapa3dRef.current?.stopCameraAnimation?.();
+    setGiroOrbitalActivo(false);
+  }
+
+  function iniciarGiroOrbital() {
+    const mapa = mapa3dRef.current;
+    if (!mapa || !vista3dRef.current) return;
+
+    rotacionGloboCleanupRef.current?.();
+    rotacionGloboCleanupRef.current = null;
+
+    if (puntoOrbitaRef.current) {
+      const { lat, lng } = puntoOrbitaRef.current;
+      rotacionGloboCleanupRef.current = iniciarOrbitaAlrededorPunto(mapa, {
+        lat,
+        lng,
+        alDetenerse: avisoGiroDetenido,
+      });
+      setGiroOrbitalActivo(true);
+      return;
+    }
+
+    if (mapaGlobo) {
+      rotacionGloboCleanupRef.current = iniciarRotacionGlobo(mapa, {
+        center: centroGloboRef.current,
+        alDetenerse: avisoGiroDetenido,
+      });
+      setGiroOrbitalActivo(true);
+    }
+  }
+
+  function alternarGiroOrbital() {
+    if (giroOrbitalActivo) {
+      pararGiroOrbital();
+      return;
+    }
+    iniciarGiroOrbital();
+  }
 
   const features = useMemo(() => featuresDesdeApi(puntos), [puntos]);
   const listaLateral = useMemo(() => {
@@ -200,12 +257,26 @@ export default function NicaraguaMap({
         infoRef.current.close();
         infoRef.current = null;
       }
+      pararGiroOrbital();
       destruirMapa3d(map3dHost.current);
       mapa3dRef.current = null;
       mapRef.current = null;
       mapsRef.current = null;
     };
   }, [sinKey]);
+
+  useEffect(() => {
+    if (!vista3dInicial || sinKey) return undefined;
+    const id = window.setTimeout(() => {
+      if (!vista3dRef.current && map3dHost.current) {
+        vista3dRef.current = true;
+        setVista3d(true);
+        activarVista3d();
+      }
+    }, 500);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al montar con vista3dInicial
+  }, [vista3dInicial, sinKey]);
 
   useEffect(() => {
     if (mapRef.current && mapsRef.current && !vista3dRef.current) {
@@ -250,12 +321,24 @@ export default function NicaraguaMap({
       if (!vista3dRef.current) return;
       lib3dRef.current = lib;
       const center = mapRef.current?.getCenter?.();
+      const centroMapa = center ? { lat: center.lat(), lng: center.lng() } : undefined;
       mapa3dRef.current = crearMapa3d(lib, map3dHost.current, {
-        center: center ? { lat: center.lat(), lng: center.lng() } : undefined,
-        zoom: mapRef.current?.getZoom?.() ?? 6.4,
+        center: centroMapa,
+        zoom: mapRef.current?.getZoom?.() ?? (mapaGlobo ? 4.2 : 6.4),
         idCapa: "satelite",
+        restringirNicaragua: !mapaGlobo,
       });
       sincronizarMarcadores3d(lib, mapa3dRef.current, featuresRef.current, irAPunto);
+      centroGloboRef.current = centroMapa;
+      puntoOrbitaRef.current = null;
+      pararGiroOrbital();
+      if (mapaGlobo) {
+        rotacionGloboCleanupRef.current = iniciarRotacionGlobo(mapa3dRef.current, {
+          center: centroMapa,
+          alDetenerse: avisoGiroDetenido,
+        });
+        setGiroOrbitalActivo(true);
+      }
       setCapaBase("satelite");
     } catch (err) {
       vista3dRef.current = false;
@@ -270,6 +353,7 @@ export default function NicaraguaMap({
   }
 
   function apagarVista3d() {
+    pararGiroOrbital();
     destruirMapa3d(map3dHost.current);
     mapa3dRef.current = null;
     window.setTimeout(() => redimensionarMapa(mapRef.current), 80);
@@ -287,7 +371,12 @@ export default function NicaraguaMap({
   }
 
   function cambiarZoom(delta) {
-    if (!mapRef.current || vista3dRef.current) return;
+    if (vista3dRef.current && mapa3dRef.current) {
+      pararGiroOrbital();
+      ajustarRango3d(mapa3dRef.current, delta > 0 ? 0.72 : 1.38);
+      return;
+    }
+    if (!mapRef.current) return;
     const actual = mapRef.current.getZoom?.();
     if (actual == null) return;
     const min = 6;
@@ -298,11 +387,25 @@ export default function NicaraguaMap({
   function irAPunto(feature) {
     if (!feature) return;
     if (vista3dRef.current && mapa3dRef.current) {
-      volarAPunto3d(mapa3dRef.current, {
+      puntoOrbitaRef.current = {
         lat: feature.properties.lat,
         lng: feature.properties.lng,
-        zoom: 15,
-      });
+        zoom: 16,
+      };
+      pararGiroOrbital();
+      setGiroOrbitalActivo(true);
+      rotacionGloboCleanupRef.current = volarYOrbitarPunto3d(
+        mapa3dRef.current,
+        {
+          lat: feature.properties.lat,
+          lng: feature.properties.lng,
+          zoom: 16,
+        },
+        {
+          orbitaAlFinal: true,
+          alDetenerse: avisoGiroDetenido,
+        },
+      );
       return;
     }
     if (!mapRef.current) return;
@@ -310,28 +413,38 @@ export default function NicaraguaMap({
     mapRef.current.setZoom(Math.max(mapRef.current.getZoom() ?? 11, 14));
   }
 
+  const mapaShellClass = rellenoPantalla
+    ? "h-full rounded-none ring-0"
+    : `rounded-2xl ring-1 ring-slate-200 dark:ring-white/10 ${completo ? "h-full" : alturaMapa}`;
+
   return (
     <div
       ref={pantallaRef}
-      className={`dash-mapa-fs grid gap-4 bg-gray-100 dark:bg-[#0d053c] lg:grid-cols-[minmax(0,1fr)_11rem] ${
-        completo ? "h-full p-4" : ""
+      className={`dash-mapa-fs grid lg:grid-cols-[minmax(0,1fr)_11rem] ${
+        rellenoPantalla
+          ? "h-full min-h-0 flex-1 gap-0 bg-black"
+          : `gap-4 bg-gray-100 dark:bg-[#0d053c] ${completo ? "h-full p-4" : ""}`
       }`}
     >
-      <div className={`relative min-h-0 ${completo ? "h-full" : ""}`}>
+      <div className={`relative min-h-0 ${rellenoPantalla || completo ? "h-full" : ""}`}>
         <div
           ref={mapEl}
-          className={`dash-demanda-map w-full overflow-hidden rounded-2xl ring-1 ring-slate-200 dark:ring-white/10 ${
-            completo ? "h-full" : "h-[340px]"
-          } ${vista3d ? "invisible" : ""}`}
+          className={`dash-demanda-map w-full overflow-hidden ${mapaShellClass} ${vista3d ? "invisible" : ""}`}
         />
         <div
           ref={map3dHost}
-          className={`dash-demanda-map absolute inset-0 overflow-hidden rounded-2xl ring-1 ring-slate-200 dark:ring-white/10 ${
+          className={`dash-demanda-map absolute inset-0 overflow-hidden ${mapaShellClass} ${
             vista3d ? "" : "hidden"
           }`}
         />
         <div className="absolute left-2 top-2 z-20 flex flex-col gap-1.5">
-          <div className="flex overflow-hidden rounded-lg bg-white/95 shadow-md ring-1 ring-slate-200 dark:bg-[#251d50]/90 dark:ring-white/10">
+          <div
+            className={`flex overflow-hidden rounded-lg shadow-md ring-1 ring-slate-200 dark:ring-white/10 ${
+              rellenoPantalla
+                ? "geoloc-mapa-control bg-[#251d50]/90"
+                : "bg-white/95 dark:bg-[#251d50]/90"
+            }`}
+          >
             {MODOS.map((m) => (
               <button
                 key={m.id}
@@ -340,16 +453,24 @@ export default function NicaraguaMap({
                 className={`px-2.5 py-1 text-[10px] font-semibold ${
                   modo === m.id
                     ? "bg-sky-400 text-[#07111f]"
-                    : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-white/5"
+                    : `geoloc-mapa-control-inactivo ${
+                        rellenoPantalla
+                          ? "text-slate-300 hover:bg-white/10"
+                          : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-white/5"
+                      }`
                 }`}
               >
                 {m.label}
               </button>
             ))}
           </div>
-          {!vista3d && !sinKey && !errorMapa ? (
+          {!sinKey && !errorMapa ? (
             <div
-              className="flex w-10 flex-col overflow-hidden rounded bg-white shadow-[0_1px_4px_rgba(0,0,0,0.3)] dark:bg-[#251d50]/95 dark:ring-1 dark:ring-white/10"
+              className={`flex w-10 flex-col overflow-hidden rounded shadow-[0_1px_4px_rgba(0,0,0,0.3)] ${
+                rellenoPantalla
+                  ? "geoloc-mapa-control geoloc-mapa-btn-flotante ring-1 ring-white/15"
+                  : "bg-white dark:bg-[#251d50]/95 dark:ring-1 dark:ring-white/10"
+              }`}
               aria-label="Zoom del mapa"
             >
               <button
@@ -357,24 +478,40 @@ export default function NicaraguaMap({
                 onClick={() => cambiarZoom(1)}
                 title="Acercar"
                 aria-label="Acercar"
-                className="flex h-10 w-10 items-center justify-center text-xl font-light leading-none text-[#666] hover:bg-slate-50 hover:text-[#333] dark:text-slate-200 dark:hover:bg-white/10"
+                className={`flex h-10 w-10 items-center justify-center text-xl font-light leading-none ${
+                  rellenoPantalla
+                    ? "text-slate-200 hover:bg-white/10 hover:text-white"
+                    : "text-[#666] hover:bg-slate-50 hover:text-[#333] dark:text-slate-200 dark:hover:bg-white/10"
+                }`}
               >
                 +
               </button>
-              <div className="h-px shrink-0 bg-slate-200 dark:bg-white/15" />
+              <div
+                className={`h-px shrink-0 ${rellenoPantalla ? "bg-white/15" : "bg-slate-200 dark:bg-white/15"}`}
+              />
               <button
                 type="button"
                 onClick={() => cambiarZoom(-1)}
                 title="Alejar"
                 aria-label="Alejar"
-                className="flex h-10 w-10 items-center justify-center text-xl font-light leading-none text-[#666] hover:bg-slate-50 hover:text-[#333] dark:text-slate-200 dark:hover:bg-white/10"
+                className={`flex h-10 w-10 items-center justify-center text-xl font-light leading-none ${
+                  rellenoPantalla
+                    ? "text-slate-200 hover:bg-white/10 hover:text-white"
+                    : "text-[#666] hover:bg-slate-50 hover:text-[#333] dark:text-slate-200 dark:hover:bg-white/10"
+                }`}
               >
                 −
               </button>
             </div>
           ) : null}
         </div>
-        <div className="absolute right-2 top-2 z-20 flex overflow-hidden rounded-lg bg-white/95 shadow-md ring-1 ring-slate-200 dark:bg-[#251d50]/90 dark:ring-white/10">
+        <div
+          className={`absolute right-2 top-2 z-20 flex overflow-hidden rounded-lg shadow-md ring-1 ring-slate-200 dark:ring-white/10 ${
+            rellenoPantalla
+              ? "geoloc-mapa-control bg-[#251d50]/90"
+              : "bg-white/95 dark:bg-[#251d50]/90"
+          }`}
+        >
           {CAPAS_BASE.map((capa) => (
             <button
               key={capa.id}
@@ -383,7 +520,11 @@ export default function NicaraguaMap({
               className={`px-2.5 py-1 text-[10px] font-semibold ${
                 capaBase === capa.id
                   ? "bg-sky-400 text-[#07111f]"
-                  : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-white/5"
+                  : `geoloc-mapa-control-inactivo ${
+                      rellenoPantalla
+                        ? "text-slate-300 hover:bg-white/10"
+                        : "text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-white/5"
+                    }`
               }`}
             >
               {capa.label}
@@ -397,18 +538,46 @@ export default function NicaraguaMap({
             title={vista3d ? "Salir de vista 3D" : "Vista 3D"}
             aria-label={vista3d ? "Salir de vista 3D" : "Vista 3D"}
             aria-pressed={vista3d}
-            className={`flex h-10 w-10 items-center justify-center rounded text-[13px] font-bold shadow-[0_1px_4px_rgba(0,0,0,0.3)] ${
-              vista3d ? "bg-[#1a73e8] text-white" : "bg-white text-[#666] hover:text-[#333]"
+            className={`geoloc-mapa-btn-flotante flex h-10 w-10 items-center justify-center rounded text-[13px] font-bold shadow-[0_1px_4px_rgba(0,0,0,0.3)] ${
+              vista3d
+                ? "geoloc-mapa-btn-flotante--activo bg-[#1a73e8] text-white"
+                : rellenoPantalla
+                  ? "bg-[#251d50]/90 text-slate-200 hover:text-white"
+                  : "bg-white text-[#666] hover:text-[#333]"
             }`}
           >
             3D
           </button>
+          {vista3d && !sinKey ? (
+            <button
+              type="button"
+              onClick={alternarGiroOrbital}
+              title={giroOrbitalActivo ? "Desactivar giro orbital" : "Activar giro orbital"}
+              aria-label={giroOrbitalActivo ? "Desactivar giro orbital" : "Activar giro orbital"}
+              aria-pressed={giroOrbitalActivo}
+              className={`geoloc-mapa-btn-flotante flex h-10 w-10 items-center justify-center rounded text-lg shadow-[0_1px_4px_rgba(0,0,0,0.3)] ${
+                giroOrbitalActivo
+                  ? "geoloc-mapa-btn-flotante--activo bg-[#1a73e8] text-white"
+                  : rellenoPantalla
+                    ? "bg-[#251d50]/90 text-slate-200 hover:text-white"
+                    : "bg-white text-[#666] hover:text-[#333]"
+              }`}
+            >
+              <span className={giroOrbitalActivo ? "inline-block animate-spin" : ""} aria-hidden>
+                ↻
+              </span>
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={alternarPantallaCompleta}
             title={completo ? "Salir de pantalla completa" : "Pantalla completa"}
             aria-label={completo ? "Salir de pantalla completa" : "Pantalla completa"}
-            className="flex h-10 w-10 items-center justify-center rounded bg-white text-[#666] shadow-[0_1px_4px_rgba(0,0,0,0.3)] hover:text-[#333]"
+            className={`geoloc-mapa-btn-flotante flex h-10 w-10 items-center justify-center rounded shadow-[0_1px_4px_rgba(0,0,0,0.3)] ${
+              rellenoPantalla
+                ? "bg-[#251d50]/90 text-slate-200 hover:text-white"
+                : "bg-white text-[#666] hover:text-[#333]"
+            }`}
           >
             <IconoPantallaCompleta activo={completo} />
           </button>
@@ -444,8 +613,20 @@ export default function NicaraguaMap({
         ) : null}
       </div>
 
-      <div className={`dash-mapa-lista flex min-h-0 flex-col ${completo ? "h-full" : "h-[340px]"}`}>
-        <p className="mb-2 shrink-0 px-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+      <div
+        className={`dash-mapa-lista flex min-h-0 flex-col ${
+          rellenoPantalla
+            ? "h-full border-l border-white/10 bg-black py-2 pl-2 pr-1"
+            : completo
+              ? "h-full"
+              : alturaMapa
+        }`}
+      >
+        <p
+          className={`mb-2 shrink-0 px-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${
+            rellenoPantalla ? "geoloc-lista-titulo text-slate-400" : "text-slate-500"
+          }`}
+        >
           {esClientes ? "Clientes" : "Planes de muestreo"}
         </p>
         <ul className="dash-scroll min-h-0 flex-1 space-y-2 overflow-y-auto overflow-x-hidden pr-1">
@@ -455,13 +636,23 @@ export default function NicaraguaMap({
                 <button
                   type="button"
                   onClick={() => irAPunto(f)}
-                  className="flex w-full items-center gap-2 rounded-2xl bg-white px-2.5 py-2 text-left ring-1 ring-slate-200 transition hover:ring-blue-300 dark:bg-[#251d50] dark:ring-white/10 dark:hover:ring-sky-400/40"
+                  className={
+                    rellenoPantalla
+                      ? "geoloc-lista-btn flex w-full items-center gap-2 rounded-2xl px-2.5 py-2 text-left transition"
+                      : "flex w-full items-center gap-2 rounded-2xl bg-white px-2.5 py-2 text-left ring-1 ring-slate-200 transition hover:ring-blue-300 dark:bg-[#251d50] dark:ring-white/10 dark:hover:ring-sky-400/40"
+                  }
                 >
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[10px] font-semibold text-blue-800 dark:bg-sky-400/15 dark:text-sky-200">
+                  <span
+                    className={
+                      rellenoPantalla
+                        ? "geoloc-lista-num flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold"
+                        : "flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[10px] font-semibold text-blue-800 dark:bg-sky-400/15 dark:text-sky-200"
+                    }
+                  >
                     {i + 1}
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[11px] text-slate-700 dark:text-slate-200">
+                  <span className="geoloc-lista-texto min-w-0 flex-1">
+                    <span className="block truncate text-[11px]">
                       {f.properties.plan || f.properties.nombre}
                     </span>
                   </span>
@@ -469,7 +660,9 @@ export default function NicaraguaMap({
               </li>
             ))
           ) : (
-            <li className="px-2.5 text-[11px] text-slate-500">
+            <li
+              className={`px-2.5 text-[11px] ${rellenoPantalla ? "geoloc-lista-vacio" : "text-slate-500"}`}
+            >
               {esClientes ? "Sin clientes aún" : "Sin planes aún"}
             </li>
           )}
