@@ -6,6 +6,7 @@ import {
   Building2,
   CalendarCheck,
   CalendarDays,
+  Check,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
@@ -39,7 +40,7 @@ import { formatLatLng, parseLatLng } from '../../../components/NicaraguaMapModal
 import { useAuth } from '../../../auth/AuthContext.jsx';
 import { useToast } from '../../../components/ToastContext.jsx';
 import ValidationIssuesModal from '../../../components/ValidationIssuesModal.jsx';
-import WizardStepIndicator from '../../../components/WizardStepIndicator.jsx';
+import CampoWizardStepIndicator from '../components/CampoWizardStepIndicator.jsx';
 import {
   CAMPO_STEP_LABELS,
   collectCampoIssues,
@@ -52,6 +53,9 @@ import {
   estiloFuente,
   estiloMatriz,
   estiloTipoMuestreo,
+  accentFromTone,
+  catalogChoiceButtonClasses,
+  catalogIconSurfaceClasses,
 } from '../../../utils/catalogIcons.js';
 import { getCentroDepartamento } from '../../../utils/nicaraguaUbicaciones.js';
 import { getProformas } from '../../proforma/service/proformaService.js';
@@ -112,44 +116,116 @@ const PARAMETROS_CAMPO = [
   { name: "satOxigeno", label: "Saturación O₂", unit: "%", icon: Percent, tone: "bg-emerald-50 text-emerald-700" },
 ];
 
-function CatalogChoiceCard({ selected, onClick, icon: Icon, tone, label }) {
+/** accent: sky = Cliente / azul · amber = Técnico CIRA / naranja-amarillo */
+function chipClass(active, accent = "sky") {
+  const tone = accent === "amber" ? "amber" : "sky";
+  return `campo-chip campo-chip--accent-${tone} ${active ? "campo-chip--active" : ""}`.trim();
+}
+
+function parametroCampoConValor(value) {
+  const t = String(value ?? "").trim();
+  return t !== "" && t !== "—" && t !== "-";
+}
+
+/** Ilumina la tarjeta con el acento del icono cuando hay dato capturado. */
+function campoAccentFilledClasses(tone, value, base = "campo-param-card") {
+  if (!parametroCampoConValor(value)) return base;
+  const accent = accentFromTone(tone);
+  return [
+    base,
+    `${base}--filled`,
+    "catalog-choice-tone",
+    `catalog-choice-tone--${accent}`,
+    "campo-choice--selected",
+    "catalog-choice-tone--selected",
+  ].join(" ");
+}
+
+function paramCardClass(tone, value) {
+  return campoAccentFilledClasses(tone, value, "campo-param-card");
+}
+
+function CatalogChoiceCard({ selected, onClick, icon, tone, label }) {
+  const ChoiceIcon = icon;
+  const accent = accentFromTone(tone);
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-xl border p-4 text-left transition ${
-        selected
-          ? "border-blue-900 bg-blue-50 shadow-sm"
-          : "border-gray-200 bg-gray-50/80 hover:border-blue-300"
-      }`}
+      data-accent={accent}
+      className={catalogChoiceButtonClasses(tone, { selected, extra: "w-full" })}
+      aria-pressed={selected}
     >
       <div className="flex items-center gap-3">
-        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${tone}`}>
-          <Icon className="h-5 w-5" aria-hidden />
+        <span className={catalogIconSurfaceClasses(tone, "lg")}>
+          <ChoiceIcon className="h-5 w-5" aria-hidden />
         </span>
-        <span className={`text-sm font-semibold leading-snug ${selected ? "text-blue-900" : "text-gray-800"}`}>
+        <span
+          className={`min-w-0 flex-1 text-sm font-semibold leading-snug ${
+            selected ? "text-blue-950 dark:text-sky-100" : "text-gray-800 dark:text-slate-200"
+          }`}
+        >
           {label}
         </span>
+        {selected ? (
+          <span className={`catalog-choice-check catalog-choice-check--${accent}`}>
+            <Check className="h-4 w-4" strokeWidth={2.5} aria-hidden />
+          </span>
+        ) : null}
       </div>
     </button>
   );
 }
 
 const ICON_INPUT =
-  "w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-900 outline-none placeholder:text-gray-400 focus:border-blue-800 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400";
+  "campo-input disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-white/5";
 
-function IconField({ id, icon: Icon, tone, label, required, error, hint, children }) {
+function CampoStepIntro({ title, description }) {
   return (
-    <div className={`rounded-xl border bg-gray-50/80 p-4 ${error ? "border-red-300" : "border-gray-200"}`}>
+    <header className="campo-step-intro">
+      <h2 className="text-xl font-bold tracking-tight text-blue-950 dark:text-white sm:text-2xl md:text-[1.65rem]">
+        {title}
+      </h2>
+      <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300 md:text-[0.9375rem]">
+        {description}
+      </p>
+    </header>
+  );
+}
+
+function IconField({ id, icon, tone, label, required, error, hint, filledValue, children }) {
+  const FieldIcon = icon;
+  const conValor = parametroCampoConValor(filledValue);
+  const wrapClass = [
+    campoAccentFilledClasses(tone, filledValue, "campo-field"),
+    error ? "campo-field--error" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return (
+    <div className={wrapClass}>
       <div className="mb-3 flex items-start gap-2.5">
-        <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tone}`}>
-          <Icon className="h-4 w-4" aria-hidden />
+        <span className={catalogIconSurfaceClasses(tone, "field")}>
+          <FieldIcon className="h-4 w-4" aria-hidden />
         </span>
-        <div>
-          <label htmlFor={id} className="text-sm font-semibold text-gray-800 dark:text-slate-100">
+        <div className="min-w-0">
+          <label
+            htmlFor={id}
+            className={`text-sm font-semibold ${
+              conValor ? "text-blue-950 dark:text-slate-100" : "text-gray-800 dark:text-slate-100"
+            }`}
+          >
             {label} {required ? <span className="text-red-500">*</span> : null}
           </label>
-          {hint ? <p className="text-xs font-normal text-gray-500 dark:text-slate-300">{hint}</p> : null}
+          {hint ? (
+            <p
+              className={`text-xs font-normal leading-snug ${
+                conValor ? "text-slate-600 dark:text-slate-300" : "text-gray-500 dark:text-slate-400"
+              }`}
+            >
+              {hint}
+            </p>
+          ) : null}
         </div>
       </div>
       {children}
@@ -473,26 +549,28 @@ export default function FormWizard() {
   };
 
   return (
-    <div className="flex min-h-full flex-1 flex-col bg-gray-100 dark:bg-[#0d053c]">
-      <div className="bg-yellow-400 text-center py-2 font-semibold text-blue-900">
+    <div className="campo-wizard flex min-h-full flex-1 flex-col">
+      <div className="campo-wizard-banner py-2.5 text-center text-sm font-bold text-blue-950 sm:text-base">
         ÁREA TÉCNICA, ASEGURAMIENTO Y CONTROL DE LA CALIDAD
       </div>
 
       <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        <WizardStepIndicator
-          currentStep={currentStep}
-          labels={CAMPO_STEP_LABELS}
-        />
+        <CampoWizardStepIndicator currentStep={currentStep} labels={CAMPO_STEP_LABELS} />
 
-        <div className="overflow-hidden rounded-xl bg-white shadow-lg">
+        <div className="campo-wizard-card">
+          <div
+            className="campo-wizard-card-progress"
+            style={{ width: `${(currentStep / 3) * 100}%` }}
+            aria-hidden
+          />
           {currentStep === 1 && (
-            <div className="space-y-8 p-6 sm:p-8 md:p-10">
-              <div>
-                <h2 className="mb-1 text-2xl font-bold text-blue-900 sm:text-3xl">Información de la Muestra</h2>
-                <p className="text-gray-600">Complete los datos de identificación y ubicación de la muestra</p>
-              </div>
+            <div className="campo-wizard-step-body campo-wizard-step-pane">
+              <CampoStepIntro
+                title="Información de la Muestra"
+                description="Complete los datos de identificación y ubicación de la muestra"
+              />
 
-              <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <section className="campo-section">
                 <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
                   <span className="h-7 w-1 rounded-full bg-blue-900" />
                   Vínculos con la solicitud
@@ -507,6 +585,7 @@ export default function FormWizard() {
                     hint="Número de proforma asociada"
                     required
                     error={errors.idProforma}
+                    filledValue={formData.idProforma}
                   >
                     <select
                       id="id-proforma"
@@ -539,6 +618,7 @@ export default function FormWizard() {
                     hint="Identificación registrada en el catálogo"
                     required
                     error={errors.idMuestra}
+                    filledValue={formData.idMuestra}
                   >
                     <select
                       id="id-muestra"
@@ -580,7 +660,7 @@ export default function FormWizard() {
                 </div>
               </section>
 
-              <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <section className="campo-section">
                 <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
                   <span className="h-7 w-1 rounded-full bg-blue-900" />
                   Datos principales
@@ -593,6 +673,7 @@ export default function FormWizard() {
                     tone="bg-slate-100 text-slate-700"
                     label="Usuario"
                     hint="Usuario de la sesión actual"
+                    filledValue={formData.usuario}
                   >
                     <input
                       id="usuario-campo"
@@ -608,6 +689,7 @@ export default function FormWizard() {
                     tone="bg-blue-50 text-blue-800"
                     label="Identificación de la muestra"
                     hint="Se toma de la muestra seleccionada"
+                    filledValue={formData.identificacion}
                   >
                     <input
                       id="identificacion-muestra"
@@ -621,7 +703,7 @@ export default function FormWizard() {
                 </div>
               </section>
 
-              <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <section className="campo-section">
                 <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
                   <span className="h-7 w-1 rounded-full bg-yellow-400" />
                   Ubicación geográfica
@@ -636,6 +718,7 @@ export default function FormWizard() {
                     hint="Nombre del sitio de muestreo"
                     required
                     error={errors.lugar}
+                    filledValue={formData.lugar}
                   >
                     <input
                       id="lugar-muestreo"
@@ -653,6 +736,7 @@ export default function FormWizard() {
                     tone="bg-amber-50 text-amber-800"
                     label="Comunidad"
                     hint="Comunidad o localidad cercana"
+                    filledValue={formData.comunidad}
                   >
                     <input
                       id="comunidad-muestreo"
@@ -672,6 +756,7 @@ export default function FormWizard() {
                     hint="Departamento de Nicaragua"
                     required
                     error={errors.idDepartamento}
+                    filledValue={formData.idDepartamento}
                   >
                     <select
                       id="id-departamento"
@@ -707,6 +792,7 @@ export default function FormWizard() {
                     hint="Primero elija un departamento"
                     required
                     error={errors.idMunicipio}
+                    filledValue={formData.idMunicipio}
                   >
                     <select
                       id="id-municipio"
@@ -741,6 +827,7 @@ export default function FormWizard() {
                       tone="bg-cyan-50 text-cyan-700"
                       label="Coordenadas"
                       hint="Latitud y longitud. Puede escribirlas o marcarlas en el mapa"
+                      filledValue={coordsFromForm(formData) || coordsInput}
                     >
                       <div className="flex gap-2">
                         <input
@@ -775,7 +862,7 @@ export default function FormWizard() {
                         />
                         <button
                           type="button"
-                          className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-blue-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800"
+                          className="campo-btn-primary shrink-0 px-4 py-2.5 text-sm"
                           onClick={() => setMapOpen(true)}
                         >
                           <MapPin className="h-4 w-4" />
@@ -791,6 +878,7 @@ export default function FormWizard() {
                       tone="bg-emerald-50 text-emerald-700"
                       label="Elevación"
                       hint="Metros sobre el nivel del mar"
+                      filledValue={formData.elevacion}
                     >
                       <ElevationField
                         id="info-campo-elevacion"
@@ -805,7 +893,7 @@ export default function FormWizard() {
                 </div>
               </section>
 
-              <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <section className="campo-section">
                 <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
                   <span className="h-7 w-1 rounded-full bg-blue-900" />
                   Muestreo
@@ -820,6 +908,7 @@ export default function FormWizard() {
                     hint="Día en que se recolectó la muestra"
                     required
                     error={errors.fecha}
+                    filledValue={formData.fecha}
                   >
                     <input
                       id="fecha-toma-muestra"
@@ -838,6 +927,7 @@ export default function FormWizard() {
                     hint="Hora en que se recolectó la muestra"
                     required
                     error={errors.hora}
+                    filledValue={formData.hora}
                   >
                     <input
                       id="hora-toma-muestra"
@@ -851,7 +941,7 @@ export default function FormWizard() {
                 </div>
               </section>
 
-              <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <section className="campo-section">
                 <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
@@ -864,7 +954,7 @@ export default function FormWizard() {
                     type="button"
                     onClick={handleAddEnsayo}
                     disabled={!formData.ensayoIdTemp}
-                    className="inline-flex items-center gap-2 rounded-lg bg-blue-900 px-5 py-2.5 font-semibold text-white shadow-md transition hover:bg-blue-950 disabled:cursor-not-allowed disabled:bg-gray-300"
+                    className="campo-btn-primary disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none disabled:hover:transform-none"
                   >
                     <Plus className="h-4 w-4" />
                     Agregar
@@ -878,6 +968,7 @@ export default function FormWizard() {
                     tone="bg-violet-50 text-violet-700"
                     label="Tipo de análisis"
                     hint="Seleccione un análisis del catálogo"
+                    filledValue={formData.ensayoIdTemp}
                   >
                     <select
                       id="ensayo-tipo"
@@ -908,6 +999,7 @@ export default function FormWizard() {
                     tone="bg-teal-50 text-teal-700"
                     label="Técnica"
                     hint="Se completa al elegir el análisis; puede editarla"
+                    filledValue={formData.ensayoTecnicaTemp}
                   >
                     <input
                       id="ensayo-tecnica"
@@ -926,9 +1018,13 @@ export default function FormWizard() {
                     {formData.ensayos.map((ensayo, index) => (
                       <div
                         key={`${ensayo.idAnalisis}-${index}`}
-                        className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/80 p-4"
+                        className={`flex items-start gap-3 !p-4 ${campoAccentFilledClasses(
+                          "bg-violet-50 text-violet-700",
+                          ensayo.tecnica || ensayo.tipoAnalisis,
+                          "campo-field",
+                        )}`}
                       >
-                        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
+                        <span className={catalogIconSurfaceClasses("bg-violet-50 text-violet-700", "sm")}>
                           <FlaskConical className="h-4 w-4" aria-hidden />
                         </span>
                         <div className="min-w-0 flex-1">
@@ -953,8 +1049,8 @@ export default function FormWizard() {
                     ))}
                   </div>
                 ) : (
-                  <div className="rounded-xl border border-blue-100 bg-blue-50/80 p-5 text-center">
-                    <p className="text-sm text-gray-600">
+                  <div className="rounded-xl border border-dashed border-blue-200/80 bg-blue-50/50 p-6 text-center dark:border-sky-400/25 dark:bg-sky-400/5">
+                    <p className="text-sm text-slate-600 dark:text-slate-300">
                       No hay ensayos agregados. Seleccione un análisis y haga clic en Agregar.
                     </p>
                   </div>
@@ -966,14 +1062,14 @@ export default function FormWizard() {
 
           {/* Step 2: Características de Muestreo */}
           {currentStep === 2 && (
-            <div className="p-8 md:p-10 space-y-8">
-              <div>
-                <h2 className="text-3xl font-bold text-primary mb-2">Características de Muestreo</h2>
-                <p className="text-gray-600">Complete los detalles técnicos del muestreo realizado</p>
-              </div>
+            <div className="campo-wizard-step-body campo-wizard-step-pane">
+              <CampoStepIntro
+                title="Características de Muestreo"
+                description="Complete los detalles técnicos del muestreo realizado"
+              />
 
               {/* MATRIZ */}
-              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="campo-section">
                 <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
                   <span className="h-7 w-1 rounded-full bg-blue-900" />
                   Matriz <span className="text-red-500">*</span>
@@ -981,11 +1077,11 @@ export default function FormWizard() {
                 <p className="mb-5 ml-4 text-sm text-gray-500">Seleccione una del catálogo</p>
 
                 {catalogosLoading ? (
-                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                  <div className="campo-notice campo-notice--info">
                     <p className="text-sm text-gray-600">Cargando matrices del catálogo…</p>
                   </div>
                 ) : matricesApi.length === 0 ? (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                  <div className="campo-notice campo-notice--warn">
                     <p className="text-sm text-gray-600">No hay matrices activas en el catálogo.</p>
                   </div>
                 ) : (
@@ -1020,7 +1116,7 @@ export default function FormWizard() {
               </div>
 
               {/* FUENTE */}
-              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="campo-section">
                 <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
                   <span className="h-7 w-1 rounded-full bg-yellow-400" />
                   Fuente <span className="text-red-500">*</span>
@@ -1028,15 +1124,15 @@ export default function FormWizard() {
                 <p className="mb-5 ml-4 text-sm text-gray-500">Según la matriz seleccionada</p>
 
                 {!formData.idMatriz ? (
-                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                  <div className="campo-notice campo-notice--info">
                     <p className="text-sm text-gray-600">Primero debe seleccionar una matriz</p>
                   </div>
                 ) : catalogosLoading ? (
-                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                  <div className="campo-notice campo-notice--info">
                     <p className="text-sm text-gray-600">Cargando fuentes del catálogo…</p>
                   </div>
                 ) : fuentesFiltradas.length === 0 ? (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                  <div className="campo-notice campo-notice--warn">
                     <p className="text-sm text-gray-600">
                       Esta matriz no tiene fuentes activas en el catálogo.
                     </p>
@@ -1075,7 +1171,7 @@ export default function FormWizard() {
               </div>
 
               {/* PARÁMETROS DE CAMPO */}
-              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="campo-section">
                 <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
                   <span className="h-7 w-1 rounded-full bg-blue-900" />
                   Parámetros de campo
@@ -1085,20 +1181,28 @@ export default function FormWizard() {
                 <div className="ml-0 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   {PARAMETROS_CAMPO.map((param) => {
                     const Icon = param.icon;
+                    const conValor = parametroCampoConValor(formData[param.name]);
                     return (
                       <div
                         key={param.name}
-                        className="rounded-xl border border-gray-200 bg-gray-50/80 p-4 transition focus-within:border-blue-800 focus-within:ring-2 focus-within:ring-blue-800/15"
+                        className={paramCardClass(param.tone, formData[param.name])}
                       >
                         <div className="mb-3 flex items-center gap-2.5">
-                          <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${param.tone}`}>
+                          <span className={catalogIconSurfaceClasses(param.tone, "sm")}>
                             <Icon className="h-4 w-4" aria-hidden />
                           </span>
-                          <label htmlFor={`param-${param.name}`} className="text-sm font-semibold text-gray-800">
+                          <label
+                            htmlFor={`param-${param.name}`}
+                            className={`text-sm font-semibold ${
+                              conValor
+                                ? "text-blue-950 dark:text-slate-100"
+                                : "text-gray-800 dark:text-slate-200"
+                            }`}
+                          >
                             {param.label}
                           </label>
                         </div>
-                        <div className="flex items-center rounded-lg border border-gray-200 bg-white px-3">
+                        <div className="campo-param-input-wrap flex items-center rounded-lg border border-gray-200 bg-white px-3 dark:border-white/10 dark:bg-black/20">
                           <input
                             id={`param-${param.name}`}
                             type="text"
@@ -1107,9 +1211,15 @@ export default function FormWizard() {
                             value={formData[param.name]}
                             onChange={handleChange}
                             placeholder="—"
-                            className="w-full bg-transparent py-2.5 text-sm font-semibold text-gray-900 outline-none placeholder:text-gray-300"
+                            className="w-full bg-transparent py-2.5 text-sm font-semibold text-gray-900 outline-none placeholder:text-gray-300 dark:text-slate-100 dark:placeholder:text-slate-500"
                           />
-                          <span className="shrink-0 pl-2 text-xs font-medium text-gray-500">{param.unit}</span>
+                          <span
+                            className={`shrink-0 pl-2 text-xs font-medium ${
+                              conValor ? "text-slate-600 dark:text-slate-300" : "text-gray-500 dark:text-slate-400"
+                            }`}
+                          >
+                            {param.unit}
+                          </span>
                         </div>
                       </div>
                     );
@@ -1118,7 +1228,7 @@ export default function FormWizard() {
               </div>
 
               {/* TIPO DE MUESTREO */}
-              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="campo-section">
                 <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
                   <span className="h-7 w-1 rounded-full bg-yellow-400" />
                   Tipo de muestreo <span className="text-red-500">*</span>
@@ -1161,9 +1271,9 @@ export default function FormWizard() {
                 </div>
 
                 {esCompuesto && (
-                  <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50/70 p-5">
+                  <div className="mt-5 rounded-xl border border-blue-200/60 bg-gradient-to-br from-blue-50/90 to-slate-50/80 p-5 dark:border-sky-400/20 dark:from-sky-400/10 dark:to-transparent">
                     <div className="mb-4 flex items-center gap-2">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 text-blue-900">
+                      <span className={catalogIconSurfaceClasses("bg-blue-100 text-blue-900", "sm")}>
                         <Clock className="h-4 w-4" aria-hidden />
                       </span>
                       <div>
@@ -1194,11 +1304,7 @@ export default function FormWizard() {
                                 return next;
                               });
                             }}
-                            className={`rounded-lg border px-3 py-1.5 text-sm font-semibold transition ${
-                              activo
-                                ? "border-blue-900 bg-blue-900 text-white"
-                                : "border-gray-200 bg-white text-gray-700 hover:border-blue-400"
-                            }`}
+                            className={chipClass(activo)}
                           >
                             {h} h
                           </button>
@@ -1218,11 +1324,7 @@ export default function FormWizard() {
                             return next;
                           });
                         }}
-                        className={`rounded-lg border px-3 py-1.5 text-sm font-semibold transition ${
-                          formData.compuestoHorasOpcion === "otros"
-                            ? "border-blue-900 bg-blue-900 text-white"
-                            : "border-gray-200 bg-white text-gray-700 hover:border-blue-400"
-                        }`}
+                        className={chipClass(formData.compuestoHorasOpcion === "otros")}
                       >
                         Otros
                       </button>
@@ -1293,7 +1395,7 @@ export default function FormWizard() {
               </div>
 
               {/* EQUIPOS UTILIZADOS */}
-              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="campo-section">
                 <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
                   <span className="h-7 w-1 rounded-full bg-blue-900" />
                   Equipos utilizados <span className="text-red-500">*</span>
@@ -1342,14 +1444,14 @@ export default function FormWizard() {
 
           {/* Step 3: Procedimientos y Verificación */}
           {currentStep === 3 && (
-            <div className="p-8 md:p-10 space-y-8">
-              <div>
-                <h2 className="text-3xl font-bold text-primary mb-2">Procedimientos y Verificación</h2>
-                <p className="text-gray-600">Información final y verificación del proceso de muestreo</p>
-              </div>
+            <div className="campo-wizard-step-body campo-wizard-step-pane">
+              <CampoStepIntro
+                title="Procedimientos y Verificación"
+                description="Información final y verificación del proceso de muestreo"
+              />
 
               {/* ¿QUIÉN TOMA LA MUESTRA? */}
-              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="campo-section">
                 <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
                   <span className="h-7 w-1 rounded-full bg-blue-900" />
                   ¿Quién tomó la muestra? <span className="text-red-500">*</span>
@@ -1410,13 +1512,13 @@ export default function FormWizard() {
               </div>
 
               {formData.quienTomaMuestra === "cliente" && (
-                <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                <div className="campo-section">
                   <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
                     <span className="h-7 w-1 rounded-full bg-yellow-400" />
                     Instructivo operativo <span className="text-red-500">*</span>
                   </h3>
                   <p className="mb-5 ml-4 text-sm text-gray-500">Documento que siguió el cliente</p>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="campo-chip-group campo-chip-group--sky flex flex-wrap gap-2">
                     {INSTRUCTIVOS.map((codigo) => (
                       <button
                         key={codigo}
@@ -1433,11 +1535,7 @@ export default function FormWizard() {
                             return next;
                           });
                         }}
-                        className={`rounded-lg border px-3 py-2 text-sm font-semibold transition ${
-                          formData.instructivoCliente === codigo
-                            ? "border-blue-900 bg-blue-900 text-white"
-                            : "border-gray-200 bg-gray-50 text-gray-700 hover:border-blue-400"
-                        }`}
+                        className={chipClass(formData.instructivoCliente === codigo, "sky")}
                       >
                         {codigo}
                       </button>
@@ -1452,11 +1550,7 @@ export default function FormWizard() {
                           return next;
                         });
                       }}
-                      className={`rounded-lg border px-3 py-2 text-sm font-semibold transition ${
-                        formData.instructivoCliente === "otro"
-                          ? "border-blue-900 bg-blue-900 text-white"
-                          : "border-gray-200 bg-gray-50 text-gray-700 hover:border-blue-400"
-                      }`}
+                      className={chipClass(formData.instructivoCliente === "otro", "sky")}
                     >
                       Otro
                     </button>
@@ -1478,13 +1572,13 @@ export default function FormWizard() {
               )}
 
               {formData.quienTomaMuestra === "tecnico" && (
-                <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                <div className="campo-section">
                   <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
                     <span className="h-7 w-1 rounded-full bg-yellow-400" />
                     Procedimiento CIRA <span className="text-red-500">*</span>
                   </h3>
                   <p className="mb-5 ml-4 text-sm text-gray-500">Procedimiento aplicado por el técnico</p>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="campo-chip-group campo-chip-group--amber flex flex-wrap gap-2">
                     {PROCEDIMIENTOS.map((codigo) => (
                       <button
                         key={codigo}
@@ -1501,11 +1595,7 @@ export default function FormWizard() {
                             return next;
                           });
                         }}
-                        className={`rounded-lg border px-3 py-2 text-sm font-semibold transition ${
-                          formData.procedimientoCIRA === codigo
-                            ? "border-blue-900 bg-blue-900 text-white"
-                            : "border-gray-200 bg-gray-50 text-gray-700 hover:border-blue-400"
-                        }`}
+                        className={chipClass(formData.procedimientoCIRA === codigo, "amber")}
                       >
                         {codigo}
                       </button>
@@ -1520,11 +1610,7 @@ export default function FormWizard() {
                           return next;
                         });
                       }}
-                      className={`rounded-lg border px-3 py-2 text-sm font-semibold transition ${
-                        formData.procedimientoCIRA === "otro"
-                          ? "border-blue-900 bg-blue-900 text-white"
-                          : "border-gray-200 bg-gray-50 text-gray-700 hover:border-blue-400"
-                      }`}
+                      className={chipClass(formData.procedimientoCIRA === "otro", "amber")}
                     >
                       Otro
                     </button>
@@ -1546,14 +1632,14 @@ export default function FormWizard() {
               )}
 
               {/* OBSERVACIONES */}
-              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="campo-section">
                 <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
                   <span className="h-7 w-1 rounded-full bg-yellow-400" />
                   Observaciones
                 </h3>
                 <p className="mb-5 ml-4 text-sm text-gray-500">Opcional. Notas relevantes de la toma de muestra.</p>
-                <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/80 p-4">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
+                <div className="campo-field flex items-start gap-3 !p-4">
+                  <span className={catalogIconSurfaceClasses("bg-violet-50 text-violet-700", "sm")}>
                     <StickyNote className="h-4 w-4" aria-hidden />
                   </span>
                   <textarea
@@ -1561,34 +1647,36 @@ export default function FormWizard() {
                     value={formData.observaciones}
                     onChange={handleChange}
                     placeholder="Agregue cualquier observación relevante..."
-                    className="min-h-[96px] w-full resize-y rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-blue-800"
+                    className="campo-input min-h-[96px] resize-y font-medium"
                     rows={3}
                   />
                 </div>
               </div>
 
               {/* RESUMEN DINÁMICO */}
-              <div className="bg-blue-50 border-l-4 border-primary p-6 rounded-lg">
-                <h3 className="text-lg font-bold text-primary mb-4">Resumen de la Información de Muestra</h3>
-                <div className="space-y-4">
+              <div className="campo-wizard-summary">
+                <h3 className="mb-4 text-lg font-bold text-blue-950 dark:text-sky-100">
+                  Resumen de la Información de Muestra
+                </h3>
+                <div className="space-y-5">
                   <div>
-                    <h4 className="font-semibold text-foreground text-sm mb-2">Información Básica</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <p className="text-muted-foreground">Usuario</p>
-                        <p className="font-medium text-foreground">{formData.usuario || 'No especificado'}</p>
+                    <h4 className="campo-summary-heading">Información básica</h4>
+                    <div className="campo-summary-grid">
+                      <div className="campo-summary-cell">
+                        <p className="campo-summary-label">Usuario</p>
+                        <p className="campo-summary-value">{formData.usuario || "No especificado"}</p>
                       </div>
-                      <div>
-                        <p className="text-muted-foreground">ID Muestra</p>
-                        <p className="font-medium text-foreground">{formData.identificacion || 'No especificado'}</p>
+                      <div className="campo-summary-cell">
+                        <p className="campo-summary-label">ID muestra</p>
+                        <p className="campo-summary-value">{formData.identificacion || "No especificado"}</p>
                       </div>
-                      <div>
-                        <p className="text-muted-foreground">Lugar</p>
-                        <p className="font-medium text-foreground">{formData.lugar || 'No especificado'}</p>
+                      <div className="campo-summary-cell">
+                        <p className="campo-summary-label">Lugar</p>
+                        <p className="campo-summary-value">{formData.lugar || "No especificado"}</p>
                       </div>
-                      <div>
-                        <p className="text-muted-foreground">Municipio/Departamento</p>
-                        <p className="font-medium text-foreground">
+                      <div className="campo-summary-cell">
+                        <p className="campo-summary-label">Municipio / departamento</p>
+                        <p className="campo-summary-value">
                           {(() => {
                             const mun = municipios.find((m) => String(m.idMunicipio) === String(formData.idMunicipio));
                             const dep = departamentos.find((d) => String(d.idDepartamento) === String(formData.idDepartamento));
@@ -1598,42 +1686,42 @@ export default function FormWizard() {
                           })()}
                         </p>
                       </div>
-                      <div>
-                        <p className="text-muted-foreground">Comunidad</p>
-                        <p className="font-medium text-foreground">{formData.comunidad || "No especificado"}</p>
+                      <div className="campo-summary-cell">
+                        <p className="campo-summary-label">Comunidad</p>
+                        <p className="campo-summary-value">{formData.comunidad || "No especificado"}</p>
                       </div>
-                      <div>
-                        <p className="text-muted-foreground">Coordenadas</p>
-                        <p className="font-medium text-foreground">{coordsFromForm(formData) || "No especificado"}</p>
+                      <div className="campo-summary-cell">
+                        <p className="campo-summary-label">Coordenadas</p>
+                        <p className="campo-summary-value">{coordsFromForm(formData) || "No especificado"}</p>
                       </div>
-                      <div>
-                        <p className="text-muted-foreground">Elevación</p>
-                        <p className="font-medium text-foreground">
+                      <div className="campo-summary-cell">
+                        <p className="campo-summary-label">Elevación</p>
+                        <p className="campo-summary-value">
                           {formData.elevacion ? `${formData.elevacion} msnm` : "No especificado"}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="border-t pt-4">
-                    <h4 className="font-semibold text-foreground text-sm mb-2">Características</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <p className="text-muted-foreground">Matriz</p>
-                        <p className="font-medium text-foreground">
+                  <div className="campo-summary-divider">
+                    <h4 className="campo-summary-heading">Características</h4>
+                    <div className="campo-summary-grid campo-summary-grid--3">
+                      <div className="campo-summary-cell">
+                        <p className="campo-summary-label">Matriz</p>
+                        <p className="campo-summary-value">
                           {matricesApi.find((m) => String(m.idMatriz) === String(formData.idMatriz))?.nombreMatriz || "No especificado"}
                         </p>
                       </div>
-                      <div>
-                        <p className="text-muted-foreground">Fuente</p>
-                        <p className="font-medium text-foreground">
+                      <div className="campo-summary-cell">
+                        <p className="campo-summary-label">Fuente</p>
+                        <p className="campo-summary-value">
                           {fuentesApi.find((f) => String(f.idFuente) === String(formData.idFuente))?.nombreFuente
                             || "No especificado"}
                         </p>
                       </div>
-                      <div>
-                        <p className="text-muted-foreground">Tipo Muestreo</p>
-                        <p className="font-medium text-foreground">
+                      <div className="campo-summary-cell">
+                        <p className="campo-summary-label">Tipo muestreo</p>
+                        <p className="campo-summary-value">
                           {esCompuesto && (formData.compuestoHorasOpcion === "otros"
                             ? formData.compuestoHorasOtro
                             : formData.compuestoHoras)
@@ -1651,7 +1739,7 @@ export default function FormWizard() {
               </div>
 
               {/* VERIFICACIÓN FINAL */}
-              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="campo-section">
                 <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
                   <span className="h-7 w-1 rounded-full bg-blue-900" />
                   Verificación final
@@ -1667,6 +1755,7 @@ export default function FormWizard() {
                     hint="Nombre de quien recolectó la muestra"
                     required
                     error={errors.muestraCapturadaPor}
+                    filledValue={formData.muestraCapturadaPor}
                   >
                     <input
                       id="muestra-captada-por"
@@ -1675,7 +1764,7 @@ export default function FormWizard() {
                       value={formData.muestraCapturadaPor}
                       onChange={handleChange}
                       placeholder="Nombre completo"
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-900 outline-none focus:border-blue-800"
+                      className={ICON_INPUT}
                     />
                   </IconField>
 
@@ -1687,6 +1776,7 @@ export default function FormWizard() {
                     hint="Persona que revisa el formato"
                     required
                     error={errors.verificacionNombre}
+                    filledValue={formData.verificacionNombre}
                   >
                     <input
                       id="verificacion-nombre"
@@ -1695,7 +1785,7 @@ export default function FormWizard() {
                       value={formData.verificacionNombre}
                       onChange={handleChange}
                       placeholder="Nombre completo"
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-900 outline-none focus:border-blue-800"
+                      className={ICON_INPUT}
                     />
                   </IconField>
 
@@ -1707,6 +1797,7 @@ export default function FormWizard() {
                     hint="Día en que se verificó el formato"
                     required
                     error={errors.verificacionFecha}
+                    filledValue={formData.verificacionFecha}
                   >
                     <input
                       id="verificacion-fecha"
@@ -1723,7 +1814,7 @@ export default function FormWizard() {
                           });
                         }
                       }}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-900 outline-none focus:border-blue-800"
+                      className={ICON_INPUT}
                     />
                   </IconField>
 
@@ -1735,6 +1826,7 @@ export default function FormWizard() {
                     hint="Hasta 3 caracteres"
                     required
                     error={errors.inicialesAnalista}
+                    filledValue={formData.inicialesAnalista}
                   >
                     <input
                       id="iniciales-analista"
@@ -1744,7 +1836,7 @@ export default function FormWizard() {
                       onChange={handleChange}
                       placeholder="Ej. JD"
                       maxLength={3}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold uppercase tracking-widest text-gray-900 outline-none focus:border-blue-800"
+                      className={`${ICON_INPUT} uppercase tracking-widest`}
                     />
                   </IconField>
 
@@ -1757,6 +1849,7 @@ export default function FormWizard() {
                       hint="Código asignado por el laboratorio"
                       required
                       error={errors.codigoMuestra}
+                      filledValue={formData.codigoMuestra}
                     >
                       <input
                         id="codigo-muestra"
@@ -1765,7 +1858,7 @@ export default function FormWizard() {
                         value={formData.codigoMuestra}
                         onChange={handleChange}
                         placeholder="Ej. LAB-2026-001"
-                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-900 outline-none focus:border-blue-800"
+                        className={ICON_INPUT}
                       />
                     </IconField>
                   </div>
@@ -1774,52 +1867,23 @@ export default function FormWizard() {
             </div>
           )}
 
-          {/* Dots Indicator */}
-          <div className="bg-gray-50 px-8 md:px-10 py-6 border-t border-gray-200 flex justify-center items-center gap-3">
-            {[1, 2, 3].map((step, index) => (
-              <div key={step} className="flex items-center gap-3">
-                <div
-                  className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
-                    step < currentStep
-                      ? 'bg-yellow-400 w-3 h-3'
-                      : step === currentStep
-                        ? 'bg-primary w-3 h-3'
-                        : 'bg-gray-300'
-                  }`}
-                ></div>
-                {index < 2 && (
-                  <div
-                    className={`h-0.5 w-6 transition-all duration-300 ${
-                      step < currentStep ? 'bg-yellow-400' : 'bg-gray-300'
-                    }`}
-                  ></div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Navigation Footer */}
-          <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-6 py-5 sm:px-8 md:px-10">
+          <div className="campo-wizard-footer sticky bottom-0 z-10 flex items-center justify-between gap-3 px-6 py-5 sm:px-8 md:px-10">
             <button
               type="button"
               onClick={handlePrevious}
               disabled={currentStep === 1}
-              className="flex items-center gap-2 rounded-lg border-2 border-blue-900 px-6 py-2 font-semibold text-blue-900 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400"
+              className="campo-btn-outline disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400 disabled:hover:bg-transparent"
             >
               <ChevronLeft className="h-5 w-5" />
               Anterior
             </button>
 
-            <div className="text-sm font-semibold text-gray-600">
+            <div className="rounded-full bg-white/80 px-4 py-1.5 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 dark:bg-white/5 dark:text-slate-300 dark:ring-white/10">
               Paso {currentStep} de 3
             </div>
 
             {currentStep < 3 ? (
-              <button
-                type="button"
-                onClick={handleNext}
-                className="flex items-center gap-2 rounded-lg bg-blue-900 px-6 py-2 font-semibold text-white shadow-md transition hover:bg-blue-950"
-              >
+              <button type="button" onClick={handleNext} className="campo-btn-primary">
                 Siguiente
                 <ChevronRight className="h-5 w-5" />
               </button>
@@ -1828,7 +1892,7 @@ export default function FormWizard() {
                 type="button"
                 onClick={handleSubmit}
                 disabled={saving}
-                className="flex items-center gap-2 rounded-lg bg-blue-900 px-6 py-2 font-semibold text-white shadow-md transition hover:bg-green-700 disabled:opacity-60"
+                className="campo-btn-primary campo-btn-primary--save disabled:opacity-60"
               >
                 {saving ? "Guardando…" : isEdit ? "Actualizar" : "Guardar"}
                 <ChevronRight className="h-5 w-5" />

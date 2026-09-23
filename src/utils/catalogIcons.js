@@ -42,6 +42,43 @@ export function normalizarCatalogo(nombre) {
     .toLowerCase();
 }
 
+/** Extrae el acento de color de clases tipo `bg-amber-50 text-amber-700`. */
+export function accentFromTone(tone) {
+  const m = String(tone ?? "").match(/(?:^|\s)bg-([a-z]+)-(?:50|100)/);
+  return m?.[1] ?? "slate";
+}
+
+const ICON_SURFACE_LAYOUT = {
+  sm: "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+  md: "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
+  lg: "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-sm",
+  field: "mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm",
+};
+
+/**
+ * Contenedor del icono en tarjetas de catálogo y campos.
+ * En modo oscuro, `catalog-icon-surface--*` en App.css sustituye el fondo claro.
+ */
+export function catalogIconSurfaceClasses(tone, layout = "md") {
+  const accent = accentFromTone(tone);
+  const size = ICON_SURFACE_LAYOUT[layout] ?? ICON_SURFACE_LAYOUT.md;
+  return `${size} catalog-icon-surface catalog-icon-surface--${accent} ${tone}`.trim();
+}
+
+/** Botones/tarjetas de catálogo con tinte según el icono (sobre todo en modo oscuro). */
+export function catalogChoiceButtonClasses(tone, { selected = false, disabled = false, extra = "" } = {}) {
+  const accent = accentFromTone(tone);
+  const parts = [
+    "campo-choice",
+    "catalog-choice-tone",
+    `catalog-choice-tone--${accent}`,
+    extra,
+  ];
+  if (selected) parts.push("campo-choice--selected", "catalog-choice-tone--selected");
+  if (disabled) parts.push("catalog-choice-tone--disabled", "cursor-not-allowed", "opacity-55");
+  return parts.filter(Boolean).join(" ");
+}
+
 const ICON_FALLBACK = [
   { icon: Inbox, tone: "bg-slate-100 text-slate-700" },
   { icon: Building2, tone: "bg-violet-50 text-violet-700" },
