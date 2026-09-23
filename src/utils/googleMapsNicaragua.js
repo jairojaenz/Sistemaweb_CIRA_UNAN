@@ -134,6 +134,63 @@ export function camaraGloboDesdeCentro(center) {
 
 export const PUNTO_RANGE_MIN = 380;
 export const PUNTO_RANGE_MAX = 2_500_000;
+/** Metro extra sobre el terreno para no meter la cámara en la ladera. */
+export const ORBITA_MARGEN_SUELO_M = 40;
+
+const cacheElevacion = new Map();
+
+function claveElevacion(lat, lng) {
+  return `${Number(lat).toFixed(4)},${Number(lng).toFixed(4)}`;
+}
+
+function leerElevacionRespuesta(data) {
+  const results = data?.results ?? data;
+  const primero = Array.isArray(results) ? results[0] : results;
+  const elev = Number(primero?.elevation);
+  return Number.isFinite(elev) ? elev : 0;
+}
+
+/** Elevación del terreno (msnm). Se cachea para no consultar en cada giro. */
+export async function obtenerElevacionTerreno(lat, lng) {
+  const key = claveElevacion(lat, lng);
+  if (cacheElevacion.has(key)) return cacheElevacion.get(key);
+
+  try {
+    await cargarGoogleMaps();
+    const maps = window.google?.maps;
+    if (!maps) return 0;
+    if (!maps.ElevationService && maps.importLibrary) {
+      await maps.importLibrary("elevation");
+    }
+    if (!maps.ElevationService) return 0;
+
+    const service = new maps.ElevationService();
+    const pedido = { locations: [{ lat: Number(lat), lng: Number(lng) }] };
+    const maybe = service.getElevationForLocations(pedido);
+    const data =
+      maybe && typeof maybe.then === "function"
+        ? await maybe
+        : await new Promise((resolve, reject) => {
+            service.getElevationForLocations(pedido, (results, status) => {
+              if (status === "OK" || status === maps.ElevationStatus?.OK) {
+                resolve(results);
+                return;
+              }
+              reject(new Error(String(status || "elevation")));
+            });
+          });
+    const valor = leerElevacionRespuesta(data);
+    cacheElevacion.set(key, valor);
+    return valor;
+  } catch {
+    return cacheElevacion.get(key) ?? 0;
+  }
+}
+
+export function altitudOrbitaSobreTerreno(elevacion) {
+  const e = Number(elevacion);
+  return Math.max(0, Number.isFinite(e) ? e : 0) + ORBITA_MARGEN_SUELO_M;
+}
 
 export function rangoDesdeZoom(zoom) {
   const z = Number(zoom);
@@ -300,13 +357,15 @@ function enlazarEnContenedorMapa(mapa3d, tipo, handler, opciones) {
   return () => quitar.forEach((fn) => fn());
 }
 
-function aplicarCentroOrbita(mapa3d, centroFijo) {
+function aplicarCentroOrbita(mapa3d, centroFijo, { range, tilt } = {}) {
   if (!mapa3d || !centroFijo) return;
   mapa3d.center = {
     lat: centroFijo.lat,
     lng: centroFijo.lng,
     altitude: centroFijo.altitude ?? 0,
   };
+  if (Number.isFinite(range)) mapa3d.range = range;
+  if (Number.isFinite(tilt)) mapa3d.tilt = tilt;
 }
 
 function enlazarDetenerAnimacionAlArrastrar(mapa3d, detener) {
@@ -318,16 +377,22 @@ function enlazarDetenerAnimacionAlArrastrar(mapa3d, detener) {
  * Giro automático alrededor del pin. Cualquier zoom o arrastre detiene el giro
  * y deja el mapa 3D libre (trackpad, botones +/-, mover el mapa).
  */
-function vincularOrbitaContinua(mapa3d, { durationMillis, centroFijo, alDetenerse }) {
+function vincularOrbitaContinua(mapa3d, { durationMillis, centroFijo, alDetenerse, rangeFijo, tiltFijo }) {
   let activo = true;
   let rafId = 0;
   let ultimoTs = 0;
   const gradosPorMs = 360 / durationMillis;
   const quitarGestos = [];
+  const rangeOrbita = Number.isFinite(Number(rangeFijo))
+    ? Number(rangeFijo)
+    : numeroEnMapa3d(mapa3d, "range", PUNTO_RANGE_MIN);
+  const tiltOrbita = Number.isFinite(Number(tiltFijo))
+    ? Number(tiltFijo)
+    : numeroEnMapa3d(mapa3d, "tilt", TILT_3D);
 
   const paso = (ts) => {
     if (!activo) return;
-    aplicarCentroOrbita(mapa3d, centroFijo);
+    aplicarCentroOrbita(mapa3d, centroFijo, { range: rangeOrbita, tilt: tiltOrbita });
     if (ultimoTs > 0) {
       const dt = Math.min(ts - ultimoTs, 48);
       let heading = numeroEnMapa3d(mapa3d, "heading", 0);
@@ -356,7 +421,7 @@ function vincularOrbitaContinua(mapa3d, { durationMillis, centroFijo, alDeteners
     if (!activo) return;
     cancelAnimationFrame(rafId);
     ultimoTs = 0;
-    aplicarCentroOrbita(mapa3d, centroFijo);
+    aplicarCentroOrbita(mapa3d, centroFijo, { range: rangeOrbita, tilt: tiltOrbita });
     rafId = requestAnimationFrame(paso);
 
     quitarGestos.push(enlazarDetenerAnimacionAlArrastrar(mapa3d, liberarNavegacion));
@@ -385,11 +450,15 @@ export function iniciarRotacionGlobo(
 ) {
   if (!mapa3d) return () => {};
 
-  const centroOrbita = camaraGloboDesdeCentro(center).center;
+  const centroOrbita = center
+    ? { lat: center.lat, lng: center.lng, altitude: 0 }
+    : centroActual3d(mapa3d);
   const orbita = vincularOrbitaContinua(mapa3d, {
     durationMillis,
     centroFijo: centroOrbita,
     alDetenerse,
+    rangeFijo: numeroEnMapa3d(mapa3d, "range", GLOBE_RANGE),
+    tiltFijo: numeroEnMapa3d(mapa3d, "tilt", GLOBE_TILT),
   });
 
   let fallbackId = 0;
@@ -417,44 +486,64 @@ export function iniciarRotacionGlobo(
 
 export const PUNTO_ORBIT_MS = 48_000;
 
-export function camaraPuntoOrbita({ lat, lng, zoom }) {
+export function camaraPuntoOrbita({ lat, lng, zoom, range, tilt, heading, altitude }) {
   return {
-    center: { lat, lng, altitude: 0 },
-    range: rangoDesdeZoom(zoom ?? 14),
-    tilt: TILT_3D,
-    heading: HEADING_3D,
+    center: {
+      lat,
+      lng,
+      altitude: Number.isFinite(Number(altitude)) ? Number(altitude) : 0,
+    },
+    range: Number.isFinite(Number(range)) ? Number(range) : rangoDesdeZoom(zoom ?? 14),
+    tilt: Number.isFinite(Number(tilt)) ? Number(tilt) : TILT_3D,
+    heading: Number.isFinite(Number(heading)) ? Number(heading) : HEADING_3D,
   };
 }
 
-export function anclarCamaraEnPunto(mapa3d, { lat, lng, zoom }) {
+export function anclarCamaraEnPunto(mapa3d, { lat, lng, zoom, range, tilt, heading, altitude }) {
   if (!mapa3d) return;
-  const cam = camaraPuntoOrbita({ lat, lng, zoom });
+  const cam = camaraPuntoOrbita({ lat, lng, zoom, range, tilt, heading, altitude });
   mapa3d.center = cam.center;
   mapa3d.range = cam.range;
   mapa3d.tilt = cam.tilt;
   mapa3d.heading = cam.heading;
-  acotarRangoPunto(mapa3d, cam.range);
+}
+
+function resolverAltitudOrbita(lat, lng, altitude) {
+  if (Number.isFinite(Number(altitude))) return Promise.resolve(Number(altitude));
+  return obtenerElevacionTerreno(lat, lng).then(altitudOrbitaSobreTerreno);
 }
 
 export function iniciarOrbitaAlrededorPunto(
   mapa3d,
-  { lat, lng, durationMillis = PUNTO_ORBIT_MS, alDetenerse } = {},
+  { lat, lng, durationMillis = PUNTO_ORBIT_MS, alDetenerse, range, tilt, altitude } = {},
 ) {
   if (!mapa3d) return () => {};
-  const centroOrbita = { lat, lng, altitude: 0 };
-  const orbita = vincularOrbitaContinua(mapa3d, {
-    durationMillis,
-    centroFijo: centroOrbita,
-    alDetenerse,
+  let cancelado = false;
+  let orbita = { limpiar() {} };
+
+  resolverAltitudOrbita(lat, lng, altitude).then((alt) => {
+    if (cancelado) return;
+    const centroOrbita = { lat, lng, altitude: alt };
+    orbita = vincularOrbitaContinua(mapa3d, {
+      durationMillis,
+      centroFijo: centroOrbita,
+      alDetenerse,
+      rangeFijo: Number.isFinite(Number(range)) ? Number(range) : numeroEnMapa3d(mapa3d, "range", 0),
+      tiltFijo: Number.isFinite(Number(tilt)) ? Number(tilt) : numeroEnMapa3d(mapa3d, "tilt", TILT_3D),
+    });
+    orbita.iniciar();
   });
-  orbita.iniciar();
-  return () => orbita.limpiar();
+
+  return () => {
+    cancelado = true;
+    orbita.limpiar();
+  };
 }
 
 /** Vuela al marcador y, al llegar, orbita alrededor en bucle. Devuelve limpieza. */
 export function volarYOrbitarPunto3d(
   mapa3d,
-  { lat, lng, zoom },
+  { lat, lng, zoom, altitude },
   {
     flyDurationMillis = 1400,
     orbitDurationMillis = PUNTO_ORBIT_MS,
@@ -464,53 +553,63 @@ export function volarYOrbitarPunto3d(
 ) {
   if (!mapa3d) return () => {};
 
-  const camera = camaraPuntoOrbita({ lat, lng, zoom });
-  mapa3d.stopCameraAnimation?.();
-
+  let cancelado = false;
   let cleanupOrbita = () => {};
   let orbitaIniciada = false;
+  let fallbackId = 0;
+  let onFinVuelo = null;
 
-  const comenzarOrbita = () => {
-    if (orbitaIniciada || !orbitaAlFinal) return;
-    orbitaIniciada = true;
+  resolverAltitudOrbita(lat, lng, altitude).then((alt) => {
+    if (cancelado) return;
+    const camera = camaraPuntoOrbita({ lat, lng, zoom, altitude: alt });
     mapa3d.stopCameraAnimation?.();
-    anclarCamaraEnPunto(mapa3d, { lat, lng, zoom });
-    cleanupOrbita = iniciarOrbitaAlrededorPunto(mapa3d, {
-      lat,
-      lng,
-      durationMillis: orbitDurationMillis,
-      alDetenerse,
-    });
-  };
 
-  const onFinVuelo = () => comenzarOrbita();
-  const fallbackId = window.setTimeout(comenzarOrbita, flyDurationMillis + 250);
+    const comenzarOrbita = () => {
+      if (cancelado || orbitaIniciada || !orbitaAlFinal) return;
+      orbitaIniciada = true;
+      mapa3d.stopCameraAnimation?.();
+      anclarCamaraEnPunto(mapa3d, { lat, lng, zoom, altitude: alt });
+      cleanupOrbita = iniciarOrbitaAlrededorPunto(mapa3d, {
+        lat,
+        lng,
+        altitude: alt,
+        durationMillis: orbitDurationMillis,
+        alDetenerse,
+      });
+    };
 
-  if (typeof mapa3d.flyCameraTo === "function") {
-    mapa3d.addEventListener("gmp-animationend", onFinVuelo, { once: true });
-    mapa3d.flyCameraTo({ endCamera: camera, durationMillis: flyDurationMillis });
-  } else {
-    window.clearTimeout(fallbackId);
-    Object.assign(mapa3d, camera);
-    comenzarOrbita();
-  }
+    onFinVuelo = comenzarOrbita;
+    fallbackId = window.setTimeout(comenzarOrbita, flyDurationMillis + 250);
+
+    if (typeof mapa3d.flyCameraTo === "function") {
+      mapa3d.addEventListener("gmp-animationend", onFinVuelo, { once: true });
+      mapa3d.flyCameraTo({ endCamera: camera, durationMillis: flyDurationMillis });
+    } else {
+      window.clearTimeout(fallbackId);
+      Object.assign(mapa3d, camera);
+      comenzarOrbita();
+    }
+  });
 
   return () => {
+    cancelado = true;
     window.clearTimeout(fallbackId);
-    mapa3d.removeEventListener?.("gmp-animationend", onFinVuelo);
+    if (onFinVuelo) mapa3d.removeEventListener?.("gmp-animationend", onFinVuelo);
     cleanupOrbita();
     mapa3d.stopCameraAnimation?.();
   };
 }
 
-export function volarAPunto3d(mapa3d, { lat, lng, zoom }) {
+export function volarAPunto3d(mapa3d, { lat, lng, zoom, altitude }) {
   if (!mapa3d) return;
-  const camera = camaraPuntoOrbita({ lat, lng, zoom });
-  if (typeof mapa3d.flyCameraTo === "function") {
-    mapa3d.flyCameraTo({ endCamera: camera, durationMillis: 1400 });
-    return;
-  }
-  Object.assign(mapa3d, camera);
+  resolverAltitudOrbita(lat, lng, altitude).then((alt) => {
+    const camera = camaraPuntoOrbita({ lat, lng, zoom, altitude: alt });
+    if (typeof mapa3d.flyCameraTo === "function") {
+      mapa3d.flyCameraTo({ endCamera: camera, durationMillis: 1400 });
+      return;
+    }
+    Object.assign(mapa3d, camera);
+  });
 }
 
 export function sincronizarMarcadores3d(lib, mapa3d, features, onClick) {

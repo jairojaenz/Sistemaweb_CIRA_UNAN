@@ -1286,35 +1286,38 @@ html.dark main:has(.geoloc-page) {
   color: #e0f2fe !important;
 }
 
-/* Controles sobre el mapa (legibles sobre fondo negro en tema claro) */
-html:not(.dark) .geoloc-page .geoloc-mapa-control {
-  background: rgba(15, 23, 42, 0.88) !important;
-  color: #e2e8f0 !important;
-  border-color: rgba(255, 255, 255, 0.15) !important;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45) !important;
+/* Controles del mapa: mismo cristal transparente que + / − */
+.geoloc-page .geoloc-mapa-control,
+.geoloc-page .geoloc-mapa-btn-flotante {
+  background: rgba(255, 255, 255, 0.16) !important;
+  color: #fff !important;
+  border-color: rgba(255, 255, 255, 0.32) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28) !important;
+  backdrop-filter: blur(8px);
 }
 
-html:not(.dark) .geoloc-page .geoloc-mapa-control .geoloc-mapa-control-inactivo {
-  color: #cbd5e1 !important;
+.geoloc-page .geoloc-mapa-control .geoloc-mapa-control-inactivo {
+  color: rgba(255, 255, 255, 0.78) !important;
+  background: transparent !important;
 }
 
-html:not(.dark) .geoloc-page .geoloc-mapa-control .geoloc-mapa-control-inactivo:hover {
-  background: rgba(255, 255, 255, 0.08) !important;
-  color: #f8fafc !important;
-}
-
-html:not(.dark) .geoloc-page .geoloc-mapa-btn-flotante {
-  background: rgba(15, 23, 42, 0.92) !important;
-  color: #e2e8f0 !important;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45) !important;
-}
-
-html:not(.dark) .geoloc-page .geoloc-mapa-btn-flotante:hover {
+.geoloc-page .geoloc-mapa-control .geoloc-mapa-control-inactivo:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
   color: #fff !important;
 }
 
-html:not(.dark) .geoloc-page .geoloc-mapa-btn-flotante.geoloc-mapa-btn-flotante--activo {
-  background: #1a73e8 !important;
+.geoloc-page .geoloc-mapa-control .geoloc-mapa-control-activo {
+  background: rgba(255, 255, 255, 0.28) !important;
+  color: #fff !important;
+}
+
+.geoloc-page .geoloc-mapa-btn-flotante:hover {
+  background: rgba(255, 255, 255, 0.24) !important;
+  color: #fff !important;
+}
+
+.geoloc-page .geoloc-mapa-btn-flotante.geoloc-mapa-btn-flotante--activo {
+  background: rgba(255, 255, 255, 0.28) !important;
   color: #fff !important;
 }
 
