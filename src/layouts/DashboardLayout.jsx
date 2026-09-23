@@ -408,25 +408,23 @@ export default function DashboardLayout() {
           )}
         </nav>
 
-        <div className="border-t border-blue-800/60 p-3 space-y-2">
-
-<div className="border-t border-blue-800/70 bg-blue-950/20 p-3">
+        <div className="border-t border-blue-800/60 bg-blue-950/20 p-2">
   {/* Información del usuario */}
   {sidebarOpen && user && (
-    <div className="mb-3 flex items-center gap-3 rounded-xl border border-yellow-400/30 bg-blue-800/40 p-3 shadow-sm backdrop-blur-sm">
+    <div className="mb-1.5 flex items-center gap-2 rounded-lg border border-yellow-400/30 bg-blue-800/40 px-2 py-1.5">
 
       {/* Avatar */}
-      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-yellow-400 shadow-md ring-2 ring-yellow-400/30">
-        <FaUserCircle className="h-6 w-6 text-blue-900" />
+      <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-yellow-400">
+        <FaUserCircle className="h-4 w-4 text-blue-900" />
       </div>
 
       {/* Información */}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-white">
+        <p className="truncate text-xs font-semibold leading-tight text-white">
           {user.nombre} {user.apellido}
         </p>
 
-        <p className="mt-0.5 truncate text-xs text-blue-300">
+        <p className="truncate text-[10px] leading-tight text-blue-300">
           {user.cargoNombre}
         </p>
       </div>
@@ -439,28 +437,24 @@ export default function DashboardLayout() {
     title={!sidebarOpen ? "Cerrar sesión" : undefined}
     onClick={() => setShowLogoutConfirm(true)}
     className={[
-      "group flex w-full items-center rounded-xl border border-yellow-400/30 bg-blue-800/40 shadow-sm backdrop-blur-sm",
-      "py-2.5 font-semibold text-white",
+      "group flex w-full items-center rounded-lg border border-yellow-400/30 bg-blue-800/40",
+      "font-semibold text-white",
       "transition-all duration-200",
-      "hover:border-yellow-400/60 hover:bg-blue-800/70 hover:shadow-md hover:-translate-y-[1px]",
-      "active:translate-y-0 active:scale-[0.98]",
+      "hover:border-yellow-400/60 hover:bg-blue-800/70",
       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-300/60",
-      sidebarOpen ? "justify-start gap-3 px-3" : "h-[3.25rem] w-[3.25rem] justify-center p-0",
+      sidebarOpen ? "justify-start gap-2 px-2 py-1.5" : "h-9 w-9 justify-center p-0",
     ].join(" ")}
   >
-    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-yellow-400 text-blue-900 shadow-md ring-2 ring-yellow-400/30 transition-transform duration-200 group-hover:scale-105">
-      <FaSignOutAlt className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+    <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-yellow-400 text-blue-900">
+      <FaSignOutAlt className="h-3 w-3" />
     </span>
 
     {sidebarOpen && (
-      <span className="truncate text-sm">
+      <span className="truncate text-xs">
         Cerrar Sesión
       </span>
     )}
   </button>
-</div>
-
-
 </div>
 
       <ConfirmDialog
