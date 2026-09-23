@@ -87,6 +87,115 @@
   @apply border border-gray-300 rounded-md p-2 bg-white dark:border-sky-400/25 dark:bg-[#251d50] dark:text-slate-100;
 }
 
+.react-date-picker__calendar {
+  z-index: 60;
+}
+
+html.dark .react-date-picker__inputGroup,
+html.dark .react-date-picker__inputGroup__input,
+html.dark .react-date-picker__inputGroup__leadingZero {
+  color: #f1f5f9;
+}
+
+html.dark .react-date-picker__button:enabled .react-date-picker__button__icon,
+html.dark .react-date-picker__button:enabled .react-date-picker__clear-button__icon {
+  stroke: #94a3b8;
+}
+
+html.dark .react-date-picker__button:enabled:hover .react-date-picker__button__icon,
+html.dark .react-date-picker__button:enabled:focus .react-date-picker__button__icon,
+html.dark .react-date-picker__button:enabled:hover .react-date-picker__clear-button__icon,
+html.dark .react-date-picker__button:enabled:focus .react-date-picker__clear-button__icon {
+  stroke: #38bdf8;
+}
+
+html.dark .react-date-picker--disabled .react-date-picker__wrapper {
+  background: rgba(255, 255, 255, 0.06);
+  color: #94a3b8;
+}
+
+/* Calendario emergente (react-calendar) — tema oscuro coherente con formularios CIRA */
+html.dark .react-calendar {
+  background: linear-gradient(165deg, rgba(37, 29, 80, 0.98) 0%, rgba(13, 5, 60, 0.98) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #f1f5f9;
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+html.dark .react-calendar__navigation button {
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+html.dark .react-calendar__navigation button:disabled {
+  background-color: rgba(255, 255, 255, 0.06);
+  color: #64748b;
+}
+
+html.dark .react-calendar__navigation button:enabled:hover,
+html.dark .react-calendar__navigation button:enabled:focus {
+  background-color: rgba(56, 189, 248, 0.18);
+}
+
+html.dark .react-calendar__month-view__weekdays {
+  color: #94a3b8;
+}
+
+html.dark .react-calendar__month-view__weekdays abbr {
+  text-decoration: none;
+}
+
+html.dark .react-calendar__tile {
+  color: #f1f5f9;
+}
+
+html.dark .react-calendar__month-view__days__day--weekend {
+  color: #fca5a5;
+}
+
+html.dark .react-calendar__month-view__days__day--neighboringMonth,
+html.dark .react-calendar__decade-view__years__year--neighboringDecade,
+html.dark .react-calendar__century-view__decades__decade--neighboringCentury {
+  color: #64748b;
+}
+
+html.dark .react-calendar__tile:disabled {
+  background-color: rgba(255, 255, 255, 0.04);
+  color: #475569;
+}
+
+html.dark .react-calendar__tile:enabled:hover,
+html.dark .react-calendar__tile:enabled:focus {
+  background-color: rgba(56, 189, 248, 0.22);
+  color: #f8fafc;
+}
+
+html.dark .react-calendar__tile--now {
+  background: rgba(251, 191, 36, 0.35);
+  color: #fef9c3;
+}
+
+html.dark .react-calendar__tile--now:enabled:hover,
+html.dark .react-calendar__tile--now:enabled:focus {
+  background: rgba(251, 191, 36, 0.5);
+}
+
+html.dark .react-calendar__tile--active {
+  background: linear-gradient(180deg, rgb(5 150 105) 0%, rgb(4 120 87) 100%);
+  color: #fff;
+}
+
+html.dark .react-calendar__tile--active:enabled:hover,
+html.dark .react-calendar__tile--active:enabled:focus {
+  background: rgb(16 185 129);
+}
+
+html.dark .react-calendar--selectRange .react-calendar__tile--hover {
+  background-color: rgba(56, 189, 248, 0.15);
+}
+
 /* Habilita las clases dark: de Tailwind cuando <html> tiene la clase `dark` (ThemeProvider). */
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -1050,6 +1159,40 @@ html.dark .campo-wizard-card {
   margin-bottom: 0.125rem;
 }
 
+/* Nueva proforma: menos espacio vertical (sin tocar estilos de tabla) */
+.campo-wizard-step-body--proforma {
+  gap: 0.5rem;
+  padding: 1rem 1.25rem 1.375rem;
+}
+
+@media (min-width: 640px) {
+  .campo-wizard-step-body--proforma {
+    gap: 0.625rem;
+    padding: 1.125rem 1.5rem 1.5rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .campo-wizard-step-body--proforma {
+    gap: 0.75rem;
+    padding: 1.25rem 2rem 1.75rem;
+  }
+}
+
+.proforma-form-intro .campo-step-intro {
+  padding-bottom: 0.375rem;
+  margin-bottom: 0;
+}
+
+.proforma-form-intro .campo-step-intro p {
+  margin-top: 0.375rem;
+  line-height: 1.45;
+}
+
+.proforma-solicitud-section.campo-section {
+  padding: 0.75rem 1rem 0.875rem;
+}
+
 html.dark .campo-step-intro {
   border-bottom-color: rgba(255, 255, 255, 0.08);
 }
@@ -1599,6 +1742,35 @@ html.dark .campo-chip-group--amber .campo-chip:not(.campo-chip--active):hover:no
 html.dark .campo-chip--accent-amber:not(.campo-chip--active):hover:not(:disabled) {
   border-color: rgba(251, 191, 36, 0.5);
   color: rgb(254 249 195);
+}
+
+/* Usuario / opción afirmativa — esmeralda */
+.campo-chip--accent-emerald.campo-chip--active {
+  border-color: rgb(16 185 129);
+  background: rgb(5 150 105);
+}
+
+html.dark .campo-chip--accent-emerald.campo-chip--active {
+  border-color: rgba(52, 211, 153, 0.75);
+  background: rgb(4 120 87);
+  box-shadow:
+    0 0 0 1px rgba(52, 211, 153, 0.35),
+    0 2px 8px rgba(0, 0, 0, 0.28);
+}
+
+.campo-chip--accent-emerald.campo-chip--active:hover:not(:disabled) {
+  border-color: rgb(16 185 129);
+  background: rgb(4 120 87);
+}
+
+html.dark .campo-chip--accent-emerald.campo-chip--active:hover:not(:disabled) {
+  border-color: rgb(110 231 183);
+  background: rgb(5 150 105);
+}
+
+html.dark .campo-chip--accent-emerald:not(.campo-chip--active):hover:not(:disabled) {
+  border-color: rgba(52, 211, 153, 0.45);
+  color: rgb(209 250 229);
 }
 
 .campo-wizard-summary {

@@ -25,10 +25,18 @@ import {
   UserRound,
   XCircle,
 } from "lucide-react";
-import WizardStepIndicator from "../../../components/WizardStepIndicator.jsx";
+import WizardFormStepIndicator from "../../../components/WizardFormStepIndicator.jsx";
 import ValidationIssuesModal from "../../../components/ValidationIssuesModal.jsx";
 import FirmaDisplay from "../../../components/FirmaDisplay.jsx";
-import { CatalogChoiceCard, HoraChoiceCard, ICON_INPUT, IconField } from "../../../components/formFields.jsx";
+import {
+  CatalogChoiceCard,
+  HoraChoiceCard,
+  IconField,
+  WizardStepIntro,
+} from "../../../components/formFields.jsx";
+
+const ICON_INPUT =
+  "campo-input disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-white/5";
 import { asignarEstilosUnicos, estiloTipoMuestreo } from "../../../utils/catalogIcons.js";
 import { modalidadFromTipoNombre } from "../utils/formToOrdenServicioPayload.js";
 import { labelFormatoCampo } from "../service/catalogosOrdenService.js";
@@ -50,10 +58,34 @@ const HORAS_COMPUESTO = [
 ];
 
 const SERVICIOS_OPCIONES = [
-  { name: "analisisOrden", label: "Análisis", desc: "Determinación en laboratorio", icon: FlaskConical },
-  { name: "muestreoOrden", label: "Muestreo in situ", desc: "Toma de muestra en campo", icon: MapPin },
-  { name: "hojaObservacionOrden", label: "Hoja de observación", desc: "Registro de condiciones", icon: FileText },
-  { name: "informeTecnicoOrden", label: "Informe técnico", desc: "Documento de resultados", icon: BarChart3 },
+  {
+    name: "analisisOrden",
+    label: "Análisis",
+    desc: "Determinación en laboratorio",
+    icon: FlaskConical,
+    tone: "bg-violet-50 text-violet-700",
+  },
+  {
+    name: "muestreoOrden",
+    label: "Muestreo in situ",
+    desc: "Toma de muestra en campo",
+    icon: MapPin,
+    tone: "bg-emerald-50 text-emerald-700",
+  },
+  {
+    name: "hojaObservacionOrden",
+    label: "Hoja de observación",
+    desc: "Registro de condiciones",
+    icon: FileText,
+    tone: "bg-amber-50 text-amber-800",
+  },
+  {
+    name: "informeTecnicoOrden",
+    label: "Informe técnico",
+    desc: "Documento de resultados",
+    icon: BarChart3,
+    tone: "bg-indigo-50 text-indigo-700",
+  },
 ];
 
 function labelUsuario(u) {
@@ -146,6 +178,7 @@ function FloatInput({
       error={error}
       hint={hint}
       className={className}
+      filledValue={value}
     >
       <input
         id={id}
@@ -160,23 +193,18 @@ function FloatInput({
 }
 
 function Panel({ children, className = "" }) {
-  return (
-    <div className={`rounded-xl border border-gray-200 bg-white p-6 shadow-sm ${className}`}>
-      {children}
-    </div>
-  );
+  return <div className={`campo-section ${className}`.trim()}>{children}</div>;
 }
 
-function ChoiceButton({ active, onClick, children, className = "" }) {
+function ChoiceButton({ active, onClick, children, className = "", accent = "sky" }) {
+  const accentClass = ["sky", "amber", "emerald"].includes(accent) ? accent : "sky";
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-xl border-2 px-5 py-3.5 text-sm font-semibold transition-all duration-200 ${className} ${
-        active
-          ? "border-blue-900 bg-blue-900 text-white shadow-md"
-          : "border-gray-200 bg-white text-gray-700 hover:border-blue-400 hover:bg-blue-50/50"
-      }`}
+      className={`campo-chip px-5 py-3.5 text-sm campo-chip--accent-${accentClass} ${
+        active ? "campo-chip--active" : ""
+      } ${className}`.trim()}
     >
       {children}
     </button>
@@ -187,12 +215,12 @@ function OtroTiempoModal({ open, value, onChange, onConfirm, onCancel }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-        <h3 className="text-lg font-semibold text-blue-900">Tiempo de muestreo distinto</h3>
-        <p className="mt-2 text-sm text-gray-600">
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-[#251d50] dark:ring-1 dark:ring-sky-400/20">
+        <h3 className="text-lg font-semibold text-blue-900 dark:text-sky-100">Tiempo de muestreo distinto</h3>
+        <p className="mt-2 text-sm text-gray-600 dark:text-slate-300">
           Use este campo si el muestreo no se realizó en el lapso de 8 a 24 horas (por ejemplo 36 h, 48 h o 3 días).
         </p>
-        <label className="mt-4 block text-sm font-semibold text-gray-700">
+        <label className="mt-4 block text-sm font-semibold text-gray-700 dark:text-slate-200">
           Hora o tiempo
           <input
             type="text"
@@ -203,57 +231,20 @@ function OtroTiempoModal({ open, value, onChange, onConfirm, onCancel }) {
           />
         </label>
         <div className="mt-5 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
-          >
+          <button type="button" onClick={onCancel} className="campo-btn-outline px-4 py-2 text-sm">
             Cancelar
           </button>
           <button
             type="button"
             disabled={!String(value ?? "").trim()}
             onClick={onConfirm}
-            className="rounded-lg bg-blue-900 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="campo-btn-primary px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
           >
             Guardar
           </button>
         </div>
       </div>
     </div>
-  );
-}
-
-function ServiceCard({ name, label, desc, icon: Icon, checked, onChange }) {
-  return (
-    <label
-      className={`group flex cursor-pointer flex-col gap-3 rounded-xl border-2 p-5 transition-all duration-200 ${
-        checked
-          ? "border-blue-900 bg-gradient-to-br from-blue-50 to-white shadow-md ring-1 ring-blue-100"
-          : "border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm"
-      }`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div
-          className={`flex h-11 w-11 items-center justify-center rounded-lg transition-colors ${
-            checked ? "bg-blue-900 text-white" : "bg-gray-100 text-blue-900 group-hover:bg-blue-100"
-          }`}
-        >
-          <Icon className="h-5 w-5" />
-        </div>
-        <input
-          type="checkbox"
-          name={name}
-          checked={checked}
-          onChange={onChange}
-          className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-900 focus:ring-blue-900"
-        />
-      </div>
-      <div>
-        <p className="font-semibold text-gray-900">{label}</p>
-        <p className="mt-0.5 text-xs text-gray-500">{desc}</p>
-      </div>
-    </label>
   );
 }
 
@@ -390,12 +381,12 @@ export default function OrdenServicioFormView({
   }
 
   return (
-    <div className="flex min-h-full w-full flex-1 flex-col bg-gray-100 dark:bg-[#0d053c]">
-      <div className="bg-yellow-400 py-2.5 text-center text-sm font-bold tracking-wide text-blue-900">
+    <div className="campo-wizard flex min-h-full w-full flex-1 flex-col">
+      <div className="campo-wizard-banner py-2.5 text-center text-sm font-bold text-blue-950 sm:text-base">
         ORDEN DE SERVICIO DE LABORATORIO — CIRA · UNAN-Managua
       </div>
 
-      <div className="mx-auto w-full max-w-6xl px-6 py-10 xl:max-w-7xl">
+      <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10 xl:max-w-7xl">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <button
             type="button"
@@ -414,30 +405,45 @@ export default function OrdenServicioFormView({
         </div>
 
         {solicitudOrigen && (
-          <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-            <p className="font-medium">Orden vinculada a la solicitud</p>
-            <p className="mt-0.5 text-blue-800">
+          <div className="campo-notice campo-notice--info mb-6 text-sm">
+            <p className="font-semibold">Orden vinculada a la solicitud</p>
+            <p className="mt-0.5 font-medium">
               Se cargaron los datos del cliente y del servicio desde la solicitud{" "}
               <span className="font-semibold">{solicitudOrigen}</span>.
             </p>
           </div>
         )}
 
-        <WizardStepIndicator currentStep={currentStep} totalSteps={TOTAL_STEPS} labels={STEP_LABELS} />
+        <WizardFormStepIndicator currentStep={currentStep} labels={STEP_LABELS} />
 
         <form id="orden-servicio-form" onSubmit={handleFinalSubmit} noValidate>
-          <div className="w-full overflow-hidden rounded-xl bg-white shadow-lg">
-            <div className="p-8 md:p-10">
+          <div className="campo-wizard-card">
+            <div
+              className="campo-wizard-card-progress"
+              style={{ width: `${(currentStep / TOTAL_STEPS) * 100}%` }}
+              aria-hidden
+            />
+            <div className="campo-wizard-step-body campo-wizard-step-pane">
+              <WizardStepIntro
+                title={
+                  currentStep === 1
+                    ? "Información del cliente"
+                    : currentStep === 2
+                      ? "Servicios solicitados"
+                      : "Logística y cierre"
+                }
+                description={
+                  currentStep === 1
+                    ? "Datos de la orden, contacto y ubicación. Los campos marcados con * son obligatorios."
+                    : currentStep === 2
+                      ? "Servicios, tipo de muestreo, detalle de muestras y control de recepción"
+                      : "Muestreo, transporte, normativa, observaciones y firmas de conformidad"
+                }
+              />
+
               {/* ── SECCIÓN 1: CLIENTE ── */}
               {currentStep === 1 && (
-                <div className="space-y-10">
-                  <div>
-                    <h2 className="text-3xl font-bold text-blue-900">Información del cliente</h2>
-                    <p className="mt-1 text-gray-500 dark:text-slate-300">
-                      Datos de la orden, contacto y ubicación. Campos con{" "}
-                      <span className="text-red-500">*</span> son obligatorios.
-                    </p>
-                  </div>
+                <div className="space-y-6">
 
                   <Panel>
                     <SectionHeader
@@ -497,6 +503,7 @@ export default function OrdenServicioFormView({
                         hint="Responsable de la orden"
                         required
                         error={formErrors.idUsuario}
+                        filledValue={form.idUsuario}
                       >
                         <select
                           id="orden-idUsuario"
@@ -527,6 +534,7 @@ export default function OrdenServicioFormView({
                         hint="Información de campo asociada"
                         required
                         error={formErrors.idFormatoCampo}
+                        filledValue={form.idFormatoCampo}
                       >
                         <select
                           id="orden-idFormatoCampo"
@@ -638,6 +646,7 @@ export default function OrdenServicioFormView({
                         tone="bg-amber-50 text-amber-800"
                         label="Departamento"
                         hint="Departamento de Nicaragua"
+                        filledValue={form.departamento}
                       >
                         <select
                           id="orden-departamento"
@@ -663,6 +672,7 @@ export default function OrdenServicioFormView({
                         tone="bg-cyan-50 text-cyan-700"
                         label="Municipio"
                         hint="Según el departamento elegido"
+                        filledValue={form.municipio}
                       >
                         <select
                           id="orden-municipio"
@@ -691,30 +701,31 @@ export default function OrdenServicioFormView({
 
               {/* ── SECCIÓN 2: SERVICIOS SOLICITADOS + TABLAS ── */}
               {currentStep === 2 && (
-                <div className="space-y-10">
-                  <div>
-                    <h2 className="text-2xl font-bold text-blue-900 sm:text-3xl">Servicios solicitados</h2>
-                    <p className="mt-1 text-gray-500 dark:text-slate-300">
-                      Servicios, tipo de muestreo, detalle de muestras y control de recepción
-                    </p>
-                  </div>
-
-                  <div>
-                    <SectionHeader title="Servicios requeridos" subtitle="Seleccione uno o más servicios" />
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="space-y-6">
+                  <Panel>
+                    <SectionHeader
+                      accent="bg-yellow-400"
+                      title="Servicios requeridos"
+                      subtitle="Seleccione uno o más servicios"
+                    />
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                       {SERVICIOS_OPCIONES.map((s) => (
-                        <ServiceCard
+                        <CatalogChoiceCard
                           key={s.name}
-                          name={s.name}
-                          label={s.label}
-                          desc={s.desc}
+                          selected={!!form[s.name]}
                           icon={s.icon}
-                          checked={form[s.name]}
-                          onChange={onChange}
+                          tone={s.tone}
+                          label={s.label}
+                          hint={s.desc}
+                          onClick={() =>
+                            onChange({
+                              target: { name: s.name, type: "checkbox", checked: !form[s.name] },
+                            })
+                          }
                         />
                       ))}
                     </div>
-                  </div>
+                  </Panel>
 
                   <Panel>
                     <SectionHeader
@@ -790,7 +801,7 @@ export default function OrdenServicioFormView({
 
                     {compuesto && (
                       <div className="mt-5">
-                        <p className="mb-3 text-sm text-gray-600">
+                        <p className="mb-3 text-sm text-slate-600 dark:text-slate-300">
                           Puede marcar una o más duraciones (8 a 24 h). Si el tiempo es distinto, use Otro.
                         </p>
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -811,11 +822,11 @@ export default function OrdenServicioFormView({
                           />
                         </div>
                         {form.compuestoOtroTiempo ? (
-                          <p className="mt-3 text-sm text-gray-700">
+                          <div className="campo-notice campo-notice--info mt-3 text-sm">
                             Tiempo adicional: <span className="font-semibold">{form.compuestoOtroTiempo}</span>
                             <button
                               type="button"
-                              className="ml-3 font-semibold text-blue-800 underline hover:text-blue-900"
+                              className="ml-3 font-semibold underline opacity-90 hover:opacity-100"
                               onClick={() => {
                                 setOtroTiempoDraft(form.compuestoOtroTiempo);
                                 setModalOtroHoraOpen(true);
@@ -823,7 +834,7 @@ export default function OrdenServicioFormView({
                             >
                               Cambiar
                             </button>
-                          </p>
+                          </div>
                         ) : null}
                         {formErrors.compuestoOpcion && (
                           <p className="mt-2 text-xs font-medium text-red-500">{formErrors.compuestoOpcion}</p>
@@ -832,26 +843,27 @@ export default function OrdenServicioFormView({
                     )}
                   </Panel>
 
-                  <div>
-                    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <Panel>
+                    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <SectionHeader
+                        accent="bg-blue-900"
                         title="Detalle de muestras"
                         subtitle="Registre cada muestra y el análisis o medición solicitada"
                       />
                       <button
                         type="button"
                         onClick={onAddDetalleRow}
-                        className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl bg-blue-900 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-blue-800 hover:shadow-lg"
+                        className="campo-btn-primary shrink-0 self-start text-sm"
                       >
                         <Plus className="h-4 w-4" />
                         Añadir muestra
                       </button>
                     </div>
 
-                    <div className="theme-table overflow-hidden rounded-xl border border-gray-200 shadow-sm">
+                    <div className="theme-table overflow-x-auto rounded-xl border border-gray-200/90 shadow-sm dark:border-sky-400/20">
                       <table className="w-full min-w-[580px] text-left text-sm">
                         <thead>
-                          <tr className="bg-blue-900 text-xs uppercase tracking-wide text-white">
+                          <tr className="bg-blue-900 text-xs uppercase tracking-wide text-white dark:bg-[#0a082d]/80">
                             <th className="w-12 px-4 py-3.5 font-semibold">#</th>
                             <th className="px-4 py-3.5 font-semibold">Nº muestra / medición</th>
                             <th className="px-4 py-3.5 font-semibold">Análisis solicitado</th>
@@ -859,10 +871,13 @@ export default function OrdenServicioFormView({
                             <th className="w-14 px-2 py-3.5" />
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100 bg-white">
+                        <tbody className="divide-y divide-gray-100/90 dark:divide-sky-400/10">
                           {form.detalleMuestras.map((row, index) => (
-                            <tr key={index} className="transition-colors hover:bg-blue-50/30">
-                              <td className="px-4 py-3 text-center text-xs font-bold text-blue-900">
+                            <tr
+                              key={index}
+                              className="transition-colors hover:bg-blue-50/30 dark:hover:bg-sky-400/10"
+                            >
+                              <td className="px-4 py-3 text-center text-xs font-bold text-blue-900 dark:text-sky-100">
                                 {String(index + 1).padStart(2, "0")}
                               </td>
                               <td className="px-3 py-2">
@@ -870,7 +885,7 @@ export default function OrdenServicioFormView({
                                   type="text"
                                   value={row.numeroMuestra}
                                   onChange={(e) => onDetalleChange(index, "numeroMuestra", e.target.value)}
-                                  className="input border-gray-200"
+                                  className={`${ICON_INPUT} py-2 text-sm`}
                                 />
                               </td>
                               <td className="px-3 py-2">
@@ -878,7 +893,7 @@ export default function OrdenServicioFormView({
                                   type="text"
                                   value={row.analisis}
                                   onChange={(e) => onDetalleChange(index, "analisis", e.target.value)}
-                                  className="input border-gray-200"
+                                  className={`${ICON_INPUT} py-2 text-sm`}
                                   placeholder="DQO, DBO5, pH…"
                                 />
                               </td>
@@ -889,10 +904,10 @@ export default function OrdenServicioFormView({
                                   onChange={(e) =>
                                     onDetalleChange(index, "codigoAsignado", e.target.value)
                                   }
-                                  className={`input bg-gray-50 font-mono text-sm ${
+                                  className={`${ICON_INPUT} py-2 font-mono text-sm ${
                                     formErrors[`detalleMuestras.${index}.codigoAsignado`]
                                       ? "border-red-500"
-                                      : "border-gray-200"
+                                      : ""
                                   }`}
                                   placeholder="AR-0001"
                                 />
@@ -907,7 +922,7 @@ export default function OrdenServicioFormView({
                                   <button
                                     type="button"
                                     onClick={() => onRemoveDetalleRow(index)}
-                                    className="rounded-lg p-2 text-red-500 transition hover:bg-red-50"
+                                    className="rounded-lg p-2 text-red-500 transition hover:bg-red-50 dark:hover:bg-red-950/40"
                                     title="Eliminar fila"
                                   >
                                     <Trash2 className="h-4 w-4" />
@@ -923,11 +938,11 @@ export default function OrdenServicioFormView({
                       <p className="mt-2 text-xs text-red-600">{formErrors.detalleMuestras}</p>
                     )}
                     {form.detalleMuestras.length === 0 && (
-                      <p className="mt-3 text-center text-sm text-gray-500">
+                      <p className="mt-3 text-center text-sm text-slate-600 dark:text-slate-300">
                         No hay muestras registradas. Use el botón «Añadir muestra».
                       </p>
                     )}
-                  </div>
+                  </Panel>
 
                   <Panel>
                     <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -939,24 +954,24 @@ export default function OrdenServicioFormView({
                       <button
                         type="button"
                         onClick={onAddControlRecepcionRow}
-                        className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl border-2 border-blue-900 px-4 py-2 text-sm font-semibold text-blue-900 transition hover:bg-blue-50"
+                        className="campo-btn-primary shrink-0 self-start text-sm"
                       >
                         <Plus className="h-4 w-4" />
                         Añadir fila
                       </button>
                     </div>
 
-                    <div className="theme-table overflow-hidden rounded-xl border border-gray-200 bg-white">
+                    <div className="theme-table overflow-x-auto rounded-xl border border-gray-200/90 dark:border-sky-400/20">
                       <table className="w-full min-w-[600px] text-left text-sm">
                         <thead>
-                          <tr className="bg-gray-100 text-xs uppercase tracking-wide text-gray-600">
+                          <tr className="bg-gray-100 text-xs uppercase tracking-wide text-gray-600 dark:bg-[#0a082d]/80 dark:text-slate-300">
                             <th className="px-4 py-3 font-semibold">Laboratorio</th>
                             <th className="px-4 py-3 font-semibold">Recibido por</th>
                             <th className="px-4 py-3 font-semibold">Fecha entrega resultados</th>
                             <th className="w-14 px-2 py-3" />
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100">
+                        <tbody className="divide-y divide-gray-100/90 dark:divide-sky-400/10">
                           {form.controlRecepcion.map((row, index) => {
                             const labsOpciones = laboratorios.map((l) => l.nombreLaboratorio).filter(Boolean);
                             const labActual = row.laboratorio;
@@ -1043,14 +1058,7 @@ export default function OrdenServicioFormView({
 
               {/* ── SECCIÓN 3: LOGÍSTICA, DEMÁS CAMPOS Y FIRMAS ── */}
               {currentStep === 3 && (
-                <div className="space-y-10">
-                  <div>
-                    <h2 className="text-2xl font-bold text-blue-900 sm:text-3xl">Logística y cierre</h2>
-                    <p className="mt-1 text-gray-500 dark:text-slate-300">
-                      Muestreo, transporte, normativa, observaciones y firmas de conformidad
-                    </p>
-                  </div>
-
+                <div className="space-y-6">
                   <Panel>
                     <SectionHeader
                       accent="bg-amber-400"
@@ -1061,7 +1069,7 @@ export default function OrdenServicioFormView({
                       <CatalogChoiceCard
                         selected={form.estadoOrden === "Pendiente"}
                         icon={Clock}
-                        tone="bg-amber-100 text-amber-700"
+                        tone="bg-amber-50 text-amber-700"
                         label="Pendiente"
                         hint="Aún no inicia"
                         onClick={() => onChange({ target: { name: "estadoOrden", value: "Pendiente" } })}
@@ -1069,7 +1077,7 @@ export default function OrdenServicioFormView({
                       <CatalogChoiceCard
                         selected={form.estadoOrden === "En proceso"}
                         icon={Truck}
-                        tone="bg-sky-100 text-sky-700"
+                        tone="bg-sky-50 text-sky-700"
                         label="En proceso"
                         hint="En ejecución"
                         onClick={() => onChange({ target: { name: "estadoOrden", value: "En proceso" } })}
@@ -1077,7 +1085,7 @@ export default function OrdenServicioFormView({
                       <CatalogChoiceCard
                         selected={form.estadoOrden === "Completada"}
                         icon={PackageCheck}
-                        tone="bg-emerald-100 text-emerald-700"
+                        tone="bg-emerald-50 text-emerald-700"
                         label="Completada"
                         hint="Ya finalizó"
                         onClick={() => onChange({ target: { name: "estadoOrden", value: "Completada" } })}
@@ -1085,7 +1093,7 @@ export default function OrdenServicioFormView({
                       <CatalogChoiceCard
                         selected={form.estadoOrden === "Anulada"}
                         icon={XCircle}
-                        tone="bg-rose-100 text-rose-700"
+                        tone="bg-rose-50 text-rose-700"
                         label="Anulada"
                         hint="No aplica"
                         onClick={() => onChange({ target: { name: "estadoOrden", value: "Anulada" } })}
@@ -1104,18 +1112,20 @@ export default function OrdenServicioFormView({
                     />
                     <div className="grid gap-8 sm:grid-cols-2">
                       <div>
-                        <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
-                          <MapPin className="h-4 w-4 text-blue-900" />
+                        <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-slate-200">
+                          <MapPin className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                           Muestreo realizado por
                         </p>
                         <div className="flex flex-wrap gap-3">
                           <ChoiceButton
+                            accent="emerald"
                             active={form.muestreoPor === "usuario"}
                             onClick={() => setRadio("muestreoPor", "usuario")}
                           >
                             Usuario
                           </ChoiceButton>
                           <ChoiceButton
+                            accent="amber"
                             active={form.muestreoPor === "cira"}
                             onClick={() => setRadio("muestreoPor", "cira")}
                           >
@@ -1124,18 +1134,20 @@ export default function OrdenServicioFormView({
                         </div>
                       </div>
                       <div>
-                        <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
-                          <Truck className="h-4 w-4 text-blue-900" />
+                        <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-slate-200">
+                          <Truck className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                           Transporte a cargo del
                         </p>
                         <div className="flex flex-wrap gap-3">
                           <ChoiceButton
+                            accent="emerald"
                             active={form.transportePor === "usuario"}
                             onClick={() => setRadio("transportePor", "usuario")}
                           >
                             Usuario
                           </ChoiceButton>
                           <ChoiceButton
+                            accent="amber"
                             active={form.transportePor === "cira"}
                             onClick={() => setRadio("transportePor", "cira")}
                           >
@@ -1150,12 +1162,14 @@ export default function OrdenServicioFormView({
                     <SectionHeader title="Normativa e informe" subtitle="Inclusión de normas en el documento final" />
                     <div className="mb-5 flex flex-wrap gap-3">
                       <ChoiceButton
+                        accent="emerald"
                         active={form.incluirNormaInforme === "si"}
                         onClick={() => setRadio("incluirNormaInforme", "si")}
                       >
                         Sí, incluir norma
                       </ChoiceButton>
                       <ChoiceButton
+                        accent="amber"
                         active={form.incluirNormaInforme === "no"}
                         onClick={() => setRadio("incluirNormaInforme", "no")}
                       >
@@ -1193,7 +1207,7 @@ export default function OrdenServicioFormView({
                         rows={4}
                         value={form.observacionOrden}
                         onChange={onChange}
-                        className="textarea w-full resize-y rounded-xl border-gray-200 focus:ring-blue-900"
+                        className="campo-input min-h-[96px] w-full resize-y font-medium"
                         placeholder="Escriba aquí cualquier nota adicional…"
                         maxLength={200}
                       />
@@ -1218,6 +1232,7 @@ export default function OrdenServicioFormView({
                           tone="bg-sky-50 text-sky-700"
                           label="Usuario firmante"
                           hint="Quien firma como usuario"
+                          filledValue={form.idFirmaUsuario}
                         >
                           <select
                             id="orden-idFirmaUsuario"
@@ -1259,6 +1274,7 @@ export default function OrdenServicioFormView({
                           tone="bg-emerald-50 text-emerald-700"
                           label="Receptor CIRA (APE)"
                           hint="Recepción CIRA"
+                          filledValue={form.idFirmaApe}
                         >
                           <select
                             id="orden-idFirmaApe"
@@ -1295,54 +1311,23 @@ export default function OrdenServicioFormView({
               )}
             </div>
 
-            <div className="flex items-center justify-center gap-2 border-t border-gray-100 bg-gray-50/80 px-6 py-5">
-              {Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map((step, index) => (
-                <div key={step} className="flex items-center gap-2">
-                  <div
-                    className={`rounded-full transition-all duration-300 ${
-                      step < currentStep
-                        ? "h-2.5 w-2.5 bg-yellow-400"
-                        : step === currentStep
-                          ? "h-3.5 w-3.5 bg-blue-900 ring-2 ring-blue-200"
-                          : "h-2 w-2 bg-gray-300"
-                    }`}
-                  />
-                  {index < TOTAL_STEPS - 1 && (
-                    <div
-                      className={`h-0.5 w-8 transition-all duration-300 ${
-                        step < currentStep ? "bg-yellow-400" : "bg-gray-300"
-                      }`}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <div className="flex flex-col-reverse gap-3 border-t border-gray-200 bg-gray-50 px-6 py-6 sm:flex-row sm:items-center sm:justify-between md:px-10">
+            <div className="campo-wizard-footer sticky bottom-0 z-10 flex flex-col-reverse gap-3 px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-8 md:px-10">
               <button
                 type="button"
                 onClick={goPrev}
                 disabled={currentStep === 1}
-                className={`inline-flex items-center justify-center gap-2 rounded-xl border-2 px-6 py-2.5 text-sm font-semibold transition-all ${
-                  currentStep === 1
-                    ? "cursor-not-allowed border-gray-200 text-gray-400"
-                    : "border-blue-900 text-blue-900 hover:bg-blue-50"
-                }`}
+                className="campo-btn-outline disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400 disabled:hover:bg-transparent"
               >
                 <ChevronLeft className="h-5 w-5" />
                 Anterior
               </button>
 
-              <span className="text-center text-sm font-semibold text-gray-500">
-                Paso {currentStep} de {TOTAL_STEPS} — {STEP_LABELS[currentStep - 1]}
-              </span>
+              <div className="rounded-full bg-white/80 px-4 py-1.5 text-center text-sm font-semibold text-slate-600 ring-1 ring-slate-200 dark:bg-white/5 dark:text-slate-300 dark:ring-white/10">
+                Paso {currentStep} de {TOTAL_STEPS}
+              </div>
 
               {currentStep < TOTAL_STEPS ? (
-                <button
-                  type="button"
-                  onClick={goNext}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-900 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-blue-800 hover:shadow-lg"
-                >
+                <button type="button" onClick={goNext} className="campo-btn-primary">
                   Siguiente
                   <ChevronRight className="h-5 w-5" />
                 </button>
@@ -1351,7 +1336,7 @@ export default function OrdenServicioFormView({
                   type="button"
                   disabled={saving}
                   onClick={handleFinalSubmit}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-green-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-green-700 hover:shadow-lg disabled:opacity-50"
+                  className="campo-btn-primary campo-btn-primary--save disabled:opacity-50"
                 >
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                   {saving ? "Guardando…" : isEditing ? "Guardar cambios" : "Crear orden"}
@@ -1360,6 +1345,10 @@ export default function OrdenServicioFormView({
             </div>
           </div>
         </form>
+
+        <div className="mt-10 text-center text-sm text-gray-500 dark:text-slate-400">
+          <p>© {new Date().getFullYear()} UNAN Managua - CIRA | Orden de servicio</p>
+        </div>
       </div>
 
       <ValidationIssuesModal
