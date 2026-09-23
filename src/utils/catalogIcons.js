@@ -42,10 +42,14 @@ export function normalizarCatalogo(nombre) {
     .toLowerCase();
 }
 
+/** Tailwind `red` usa las mismas variables que `rose` en App.css (.catalog-choice-tone--rose). */
+const ACCENT_ALIASES = { red: "rose" };
+
 /** Extrae el acento de color de clases tipo `bg-amber-50 text-amber-700`. */
 export function accentFromTone(tone) {
   const m = String(tone ?? "").match(/(?:^|\s)bg-([a-z]+)-(?:50|100)/);
-  return m?.[1] ?? "slate";
+  const raw = m?.[1] ?? "slate";
+  return ACCENT_ALIASES[raw] ?? raw;
 }
 
 const ICON_SURFACE_LAYOUT = {
@@ -77,6 +81,25 @@ export function catalogChoiceButtonClasses(tone, { selected = false, disabled = 
   if (selected) parts.push("campo-choice--selected", "catalog-choice-tone--selected");
   if (disabled) parts.push("catalog-choice-tone--disabled", "cursor-not-allowed", "opacity-55");
   return parts.filter(Boolean).join(" ");
+}
+
+export function campoTieneValor(value) {
+  const t = String(value ?? "").trim();
+  return t !== "" && t !== "—" && t !== "-";
+}
+
+/** Resalta tarjetas/campos con el acento del icono cuando hay dato. */
+export function campoAccentFilledClasses(tone, value, base = "campo-field") {
+  if (!campoTieneValor(value)) return base;
+  const accent = accentFromTone(tone);
+  return [
+    base,
+    `${base}--filled`,
+    "catalog-choice-tone",
+    `catalog-choice-tone--${accent}`,
+    "campo-choice--selected",
+    "catalog-choice-tone--selected",
+  ].join(" ");
 }
 
 const ICON_FALLBACK = [

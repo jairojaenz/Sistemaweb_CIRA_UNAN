@@ -30,7 +30,12 @@ import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import { parseLatLng } from "../../../components/NicaraguaMapModal.jsx";
 import { useToast } from "../../../components/ToastContext.jsx";
 import ValidationIssuesModal from "../../../components/ValidationIssuesModal.jsx";
-import WizardStepIndicator from "../../../components/WizardStepIndicator.jsx";
+import WizardFormStepIndicator from "../../../components/WizardFormStepIndicator.jsx";
+import {
+  CatalogChoiceCard,
+  IconField,
+  WizardStepIntro,
+} from "../../../components/formFields.jsx";
 import {
   collectSolicitudIssues,
   issuesToFormErrors,
@@ -45,7 +50,15 @@ import {
 } from "../service/solicitudServicioService.js";
 import { formToSolicitudPayload, toInputDate } from "../utils/formToSolicitudPayload.js";
 import { mapClienteToSolicitudPrefill, nombreCompletoCliente } from "../utils/mapClienteToSolicitud.js";
-import { asignarEstilosUnicos, estiloMatriz, estiloMedio, estiloServicio } from "../../../utils/catalogIcons.js";
+import {
+  asignarEstilosUnicos,
+  catalogChoiceButtonClasses,
+  catalogIconSurfaceClasses,
+  campoAccentFilledClasses,
+  estiloMatriz,
+  estiloMedio,
+  estiloServicio,
+} from "../../../utils/catalogIcons.js";
 import { getMediosRecepcion } from "../../catalogos/service/medioRecepcionService.js";
 import { getServicios } from "../../catalogos/service/servicioService.js";
 import { getMatrices } from "../../catalogos/service/matrizService.js";
@@ -64,55 +77,8 @@ function nombreUsuarioLista(u) {
   return `${nombre} ${apellido}`.trim() || u?.correoUsuario || u?.correo || `Usuario #${u?.idUsuario ?? u?.id ?? ""}`;
 }
 
-function CatalogChoiceCard({ selected, onClick, icon: Icon, tone, label, disabled }) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      aria-pressed={selected}
-      onClick={onClick}
-      className={`rounded-xl border p-4 text-left transition ${
-        disabled
-          ? "cursor-not-allowed border-gray-200 bg-white text-gray-400"
-          : selected
-            ? "border-blue-900 bg-blue-50 shadow-sm"
-            : "border-gray-200 bg-gray-50/80 hover:border-blue-300"
-      }`}
-    >
-      <div className="flex items-center gap-3">
-        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${tone}`}>
-          <Icon className="h-5 w-5" aria-hidden />
-        </span>
-        <span className={`text-sm font-semibold leading-snug ${selected ? "text-blue-900" : "text-gray-800"}`}>
-          {label}
-        </span>
-      </div>
-    </button>
-  );
-}
-
 const ICON_INPUT =
-  "w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-900 outline-none placeholder:text-gray-400 focus:border-blue-800 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400";
-
-function IconField({ id, icon: Icon, tone, label, required, error, hint, children, className = "" }) {
-  return (
-    <div className={`rounded-xl border bg-gray-50/80 p-4 ${error ? "border-red-300" : "border-gray-200"} ${className}`}>
-      <div className="mb-3 flex items-start gap-2.5">
-        <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tone}`}>
-          <Icon className="h-4 w-4" aria-hidden />
-        </span>
-        <div>
-          <label htmlFor={id} className="text-sm font-semibold text-gray-800 dark:text-slate-100">
-            {label} {required ? <span className="text-red-500">*</span> : null}
-          </label>
-          {hint ? <p className="text-xs font-normal text-gray-500 dark:text-slate-300">{hint}</p> : null}
-        </div>
-      </div>
-      {children}
-      {error ? <p className="mt-2 text-xs font-medium text-red-500">{error}</p> : null}
-    </div>
-  );
-}
+  "campo-input disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-white/5";
 
 const initialFormData = {
   solicitudNo: "",
@@ -596,13 +562,13 @@ export default function SolicitudServicioPage() {
 
   // Contenido por paso (funciones de render, no componentes, para no remontar al escribir)
   const renderStep1 = () => (
-    <div className="space-y-8">
-      <div>
-        <h2 className="mb-1 text-2xl font-bold text-blue-900 sm:text-3xl">Información del Solicitante</h2>
-        <p className="text-gray-600">Complete los datos del cliente, empresa o institución</p>
-      </div>
+    <>
+      <WizardStepIntro
+        title="Información del Solicitante"
+        description="Complete los datos del cliente, empresa o institución"
+      />
 
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <section className="campo-section">
         <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
           <span className="h-7 w-1 rounded-full bg-blue-900" />
           Datos principales
@@ -615,6 +581,7 @@ export default function SolicitudServicioPage() {
             tone="bg-blue-50 text-blue-800"
             label="Solicitud No."
             hint="Identificador interno de la solicitud"
+            filledValue={formData.solicitudNo}
           >
             <input
               id="solicitud-no"
@@ -632,6 +599,7 @@ export default function SolicitudServicioPage() {
             tone="bg-amber-50 text-amber-700"
             label="Fecha de recepción"
             hint="Día en que se recibió la solicitud"
+            filledValue={formData.fechaRecepcion}
           >
             <input
               id="fecha-recepcion"
@@ -645,7 +613,7 @@ export default function SolicitudServicioPage() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <section className="campo-section">
         <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
           <span className="h-7 w-1 rounded-full bg-yellow-400" />
           Medio de recepción
@@ -695,7 +663,7 @@ export default function SolicitudServicioPage() {
         )}
       </section>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <section className="campo-section">
         <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
           <span className="h-7 w-1 rounded-full bg-blue-900" />
           Información del Usuario
@@ -711,6 +679,7 @@ export default function SolicitudServicioPage() {
             required
             error={errors.nombreUsuario}
             className="md:col-span-2"
+            filledValue={formData.nombreUsuario}
           >
             <input
               id="nombre-usuario"
@@ -731,6 +700,7 @@ export default function SolicitudServicioPage() {
             required
             error={errors.direccionUsuario}
             className="md:col-span-2"
+            filledValue={formData.direccionUsuario}
           >
             <input
               id="direccion-usuario"
@@ -748,6 +718,7 @@ export default function SolicitudServicioPage() {
             tone="bg-indigo-50 text-indigo-700"
             label="No. RUC"
             hint="Registro único de contribuyente"
+            filledValue={formData.ruc}
           >
             <input
               id="ruc-usuario"
@@ -765,6 +736,7 @@ export default function SolicitudServicioPage() {
             tone="bg-sky-50 text-sky-700"
             label="No. de cédula"
             hint="Documento de identidad"
+            filledValue={formData.cedula}
           >
             <input
               id="cedula-usuario"
@@ -785,6 +757,7 @@ export default function SolicitudServicioPage() {
             required
             error={errors.correo}
             className="md:col-span-2"
+            filledValue={formData.correo}
           >
             <input
               id="correo-usuario"
@@ -799,7 +772,7 @@ export default function SolicitudServicioPage() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <section className="campo-section">
         <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
           <span className="h-7 w-1 rounded-full bg-yellow-400" />
           Datos de Contacto
@@ -812,6 +785,7 @@ export default function SolicitudServicioPage() {
             tone="bg-sky-50 text-sky-700"
             label="Contacto 1 — Nombre"
             hint="Contacto principal"
+            filledValue={formData.contacto1Nombre}
           >
             <input
               id="contacto1-nombre"
@@ -829,6 +803,7 @@ export default function SolicitudServicioPage() {
             tone="bg-emerald-50 text-emerald-700"
             label="Contacto 1 — Teléfono"
             hint="Teléfono principal"
+            filledValue={formData.contacto1Telefono}
           >
             <input
               id="contacto1-telefono"
@@ -846,6 +821,7 @@ export default function SolicitudServicioPage() {
             tone="bg-slate-100 text-slate-700"
             label="Contacto 2 — Nombre"
             hint="Contacto secundario"
+            filledValue={formData.contacto2Nombre}
           >
             <input
               id="contacto2-nombre"
@@ -863,6 +839,7 @@ export default function SolicitudServicioPage() {
             tone="bg-teal-50 text-teal-700"
             label="Contacto 2 — Teléfono"
             hint="Teléfono secundario"
+            filledValue={formData.contacto2Telefono}
           >
             <input
               id="contacto2-telefono"
@@ -876,18 +853,17 @@ export default function SolicitudServicioPage() {
           </IconField>
         </div>
       </section>
-    </div>
+    </>
   );
 
-  // Step 2 Component
   const renderStep2 = () => (
-    <div className="space-y-8">
-      <div>
-        <h2 className="mb-1 text-2xl font-bold text-blue-900 sm:text-3xl">Servicio Solicitado</h2>
-        <p className="text-gray-600">Seleccione el tipo de servicio y especifique los detalles</p>
-      </div>
+    <>
+      <WizardStepIntro
+        title="Servicio Solicitado"
+        description="Seleccione el tipo de servicio y especifique los detalles"
+      />
 
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <section className="campo-section">
         <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
           <span className="h-7 w-1 rounded-full bg-blue-900" />
           Servicio Solicitado <span className="text-red-500">*</span>
@@ -945,7 +921,7 @@ export default function SolicitudServicioPage() {
         {errors.tipoServicio && <p className="mt-3 text-xs font-medium text-red-500">{errors.tipoServicio}</p>}
       </section>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <section className="campo-section">
         <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
           <span className="h-7 w-1 rounded-full bg-yellow-400" />
           Matriz <span className="text-red-500">*</span>
@@ -997,23 +973,34 @@ export default function SolicitudServicioPage() {
               return (
                 <div
                   key={id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setCantidad("start")}
-                  className={`relative cursor-pointer rounded-xl border p-4 text-left transition ${
-                    isActive
-                      ? "border-blue-900 bg-blue-50 shadow-sm"
-                      : "border-gray-200 bg-gray-50/80 hover:border-blue-300"
-                  }`}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setCantidad("start");
+                    }
+                  }}
+                  className={`relative cursor-pointer p-4 text-left ${catalogChoiceButtonClasses(estilo.tone, {
+                    selected: isActive,
+                    extra: "w-full",
+                  })}`}
                 >
                   {count > 0 && (
-                    <span className="absolute right-3 top-3 inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">
+                    <span className="absolute right-3 top-3 inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800 dark:bg-sky-400/20 dark:text-sky-100">
                       {count}
                     </span>
                   )}
                   <div className="flex items-center gap-3">
-                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${estilo.tone}`}>
+                    <span className={catalogIconSurfaceClasses(estilo.tone, "lg")}>
                       <Icon className="h-5 w-5" aria-hidden />
                     </span>
-                    <span className={`text-sm font-semibold leading-snug ${isActive ? "text-blue-900" : "text-gray-800"}`}>
+                    <span
+                      className={`text-sm font-semibold leading-snug ${
+                        isActive ? "text-blue-950 dark:text-sky-100" : "text-gray-800 dark:text-slate-200"
+                      }`}
+                    >
                       {label}
                     </span>
                   </div>
@@ -1025,11 +1012,11 @@ export default function SolicitudServicioPage() {
                           e.stopPropagation();
                           setCantidad(-1);
                         }}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-100"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-100 dark:border-white/15 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
                       >
                         -
                       </button>
-                      <div className="min-w-8 rounded-full bg-slate-100 px-3 py-1 text-center text-sm font-semibold text-slate-700">
+                      <div className="min-w-8 rounded-full bg-slate-100 px-3 py-1 text-center text-sm font-semibold text-slate-700 dark:bg-white/10 dark:text-slate-200">
                         {count}
                       </div>
                       <button
@@ -1038,7 +1025,7 @@ export default function SolicitudServicioPage() {
                           e.stopPropagation();
                           setCantidad(1);
                         }}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-100"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-100 dark:border-white/15 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
                       >
                         +
                       </button>
@@ -1052,7 +1039,7 @@ export default function SolicitudServicioPage() {
           )}
         </div>
         <div className="mt-4">
-          <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+          <span className="campo-chip campo-chip--active campo-chip--accent-sky inline-flex">
             Total de muestras: {formData.numeroMuestras}
           </span>
         </div>
@@ -1060,7 +1047,7 @@ export default function SolicitudServicioPage() {
         {errors.matriz && <p className="mt-3 text-xs font-medium text-red-500">{errors.matriz}</p>}
       </section>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <section className="campo-section">
         <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
           <span className="h-7 w-1 rounded-full bg-blue-900" />
           Muestras
@@ -1073,6 +1060,7 @@ export default function SolicitudServicioPage() {
             tone="bg-indigo-50 text-indigo-700"
             label="No. de muestras"
             hint="Se completa de forma automática"
+            filledValue={formData.numeroMuestras}
           >
             <input
               id="numero-muestras"
@@ -1080,14 +1068,14 @@ export default function SolicitudServicioPage() {
               name="numeroMuestras"
               value={formData.numeroMuestras}
               readOnly
-              className={`${ICON_INPUT} bg-gray-50 text-center font-semibold text-blue-900`}
+              className={`${ICON_INPUT} text-center font-semibold`}
             />
           </IconField>
         </div>
       </section>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="mb-5 flex items-center justify-between gap-4">
+      <section className="campo-section">
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
           <div>
             <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
               <span className="h-7 w-1 rounded-full bg-yellow-400" />
@@ -1095,11 +1083,7 @@ export default function SolicitudServicioPage() {
             </h3>
             <p className="ml-4 text-sm text-gray-500">Agregue los análisis requeridos</p>
           </div>
-          <button
-            type="button"
-            onClick={handleAddAnalysis}
-            className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-blue-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-950"
-          >
+          <button type="button" onClick={handleAddAnalysis} className="campo-btn-primary">
             <Plus className="h-4 w-4" />
             Agregar
           </button>
@@ -1110,9 +1094,13 @@ export default function SolicitudServicioPage() {
             {formData.analisisSolicitados.map((analysis, index) => (
               <div
                 key={index}
-                className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/80 p-4"
+                className={`flex items-start gap-3 !p-4 ${campoAccentFilledClasses(
+                  "bg-violet-50 text-violet-700",
+                  analysis.idAnalisis || analysis.tecnica,
+                  "campo-field",
+                )}`}
               >
-                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
+                <span className={catalogIconSurfaceClasses("bg-violet-50 text-violet-700", "sm")}>
                   <FlaskConical className="h-4 w-4" aria-hidden />
                 </span>
                 <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
@@ -1148,8 +1136,8 @@ export default function SolicitudServicioPage() {
             ))}
           </div>
         ) : (
-          <div className="rounded-xl border border-blue-100 bg-blue-50/80 p-5 text-center">
-            <p className="text-sm text-gray-600">
+          <div className="rounded-xl border border-dashed border-blue-200/80 bg-blue-50/50 p-6 text-center dark:border-sky-400/25 dark:bg-sky-400/5">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
               No hay análisis agregados. Haga clic en Agregar para añadir uno.
             </p>
           </div>
@@ -1159,7 +1147,7 @@ export default function SolicitudServicioPage() {
         )}
       </section>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <section className="campo-section">
         <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
           <span className="h-7 w-1 rounded-full bg-blue-900" />
           Ubicación de Muestreo <span className="text-red-500">*</span>
@@ -1206,6 +1194,7 @@ export default function SolicitudServicioPage() {
             hint="Marque el punto en el mapa de Nicaragua"
             required
             error={errors.ubicacionMuestreo}
+            filledValue={formData.coordenadasGps}
           >
             <div className="flex gap-2">
               <input
@@ -1218,7 +1207,7 @@ export default function SolicitudServicioPage() {
               />
               <button
                 type="button"
-                className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-blue-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800"
+                className="campo-btn-primary shrink-0 px-4 py-2.5"
                 onClick={() => setMapOpen(true)}
               >
                 <MapPin className="h-4 w-4" />
@@ -1235,6 +1224,7 @@ export default function SolicitudServicioPage() {
             hint="Descripción del sitio de muestreo"
             required
             error={errors.ubicacionMuestreo}
+            filledValue={formData.ubicacionMuestreo}
           >
             <textarea
               id="ubicacion-muestreo"
@@ -1242,7 +1232,7 @@ export default function SolicitudServicioPage() {
               value={formData.ubicacionMuestreo}
               onChange={handleChange}
               placeholder="Ej. Barrio X, frente a la iglesia, Managua"
-              className="min-h-[96px] w-full resize-y rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-blue-800"
+              className="campo-input min-h-[96px] resize-y font-medium"
               rows={3}
             />
           </IconField>
@@ -1252,50 +1242,50 @@ export default function SolicitudServicioPage() {
       {( (Array.isArray(formData.tipoServicio) ? formData.tipoServicio.length > 0 : !!formData.tipoServicio)
         || (Array.isArray(formData.matriz) ? formData.matriz.length > 0 : !!formData.matriz)
         || formData.analisisSolicitados.length > 0) && (
-        <div className="rounded-lg border-l-4 border-blue-900 bg-blue-50 p-6">
-          <p className="text-sm font-semibold text-gray-700">
-            Resumen: <span className="font-bold text-blue-900">{selectedServiceLabels()}</span> |
-            <span className="font-bold text-blue-900"> {selectedMatrixLabels()}</span> |
-            <span className="font-bold text-blue-900"> {formData.analisisSolicitados.length} análisis agregado(s)</span>
+        <div className="campo-wizard-summary">
+          <h3 className="mb-3 text-lg font-bold text-blue-950 dark:text-sky-100">Resumen del paso</h3>
+          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+            {selectedServiceLabels()} · {selectedMatrixLabels()} ·{" "}
+            {formData.analisisSolicitados.length} análisis agregado(s)
           </p>
         </div>
       )}
-    </div>
+    </>
   );
 
   const renderStep3 = () => (
-    <div className="space-y-8">
-      <div>
-        <h2 className="mb-1 text-2xl font-bold text-blue-900 sm:text-3xl">Observaciones y Confirmación</h2>
-        <p className="text-gray-600">Revise su solicitud y agregue comentarios adicionales</p>
-      </div>
+    <>
+      <WizardStepIntro
+        title="Observaciones y Confirmación"
+        description="Revise su solicitud y agregue comentarios adicionales"
+      />
 
-      <div className="rounded-lg border-l-4 border-blue-900 bg-blue-50 p-6">
-        <h3 className="mb-4 text-lg font-bold text-blue-900">Resumen de su Solicitud</h3>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <div>
-            <p className="mb-1 text-xs text-gray-500">Solicitud No.</p>
-            <p className="font-semibold text-gray-800">{formData.solicitudNo || "No especificado"}</p>
+      <div className="campo-wizard-summary">
+        <h3 className="mb-4 text-lg font-bold text-blue-950 dark:text-sky-100">Resumen de su Solicitud</h3>
+        <div className="campo-summary-grid">
+          <div className="campo-summary-cell">
+            <p className="campo-summary-label">Solicitud No.</p>
+            <p className="campo-summary-value">{formData.solicitudNo || "No especificado"}</p>
           </div>
-          <div>
-            <p className="mb-1 text-xs text-gray-500">Nombre</p>
-            <p className="font-semibold text-gray-800">{formData.nombreUsuario || "No especificado"}</p>
+          <div className="campo-summary-cell">
+            <p className="campo-summary-label">Nombre</p>
+            <p className="campo-summary-value">{formData.nombreUsuario || "No especificado"}</p>
           </div>
-          <div>
-            <p className="mb-1 text-xs text-gray-500">Correo</p>
-            <p className="font-semibold text-gray-800">{formData.correo || "No especificado"}</p>
+          <div className="campo-summary-cell">
+            <p className="campo-summary-label">Correo</p>
+            <p className="campo-summary-value">{formData.correo || "No especificado"}</p>
           </div>
-          <div>
-            <p className="mb-1 text-xs text-gray-500">Tipo de servicio</p>
-            <p className="font-semibold text-gray-800">{selectedServiceLabels()}</p>
+          <div className="campo-summary-cell">
+            <p className="campo-summary-label">Tipo de servicio</p>
+            <p className="campo-summary-value">{selectedServiceLabels()}</p>
           </div>
-          <div className="sm:col-span-2">
-            <p className="mb-1 text-xs text-gray-500">Matriz</p>
-            <p className="font-semibold text-gray-800">{selectedMatrixLabels()}</p>
+          <div className="campo-summary-cell sm:col-span-2">
+            <p className="campo-summary-label">Matriz</p>
+            <p className="campo-summary-value">{selectedMatrixLabels()}</p>
           </div>
-          <div className="sm:col-span-2">
-            <p className="mb-1 text-xs text-gray-500">Ubicación de muestreo</p>
-            <p className="font-semibold text-gray-800">
+          <div className="campo-summary-cell sm:col-span-2">
+            <p className="campo-summary-label">Ubicación de muestreo</p>
+            <p className="campo-summary-value">
               {formData.modoUbicacion === "gps"
                 ? formData.coordenadasGps || "No especificado"
                 : formData.ubicacionMuestreo || "No especificado"}
@@ -1307,14 +1297,18 @@ export default function SolicitudServicioPage() {
             {formData.analisisSolicitados.map((analysis, index) => (
               <div
                 key={index}
-                className="flex items-start gap-3 rounded-xl border border-blue-100 bg-white p-4"
+                className={`flex items-start gap-3 !p-4 ${campoAccentFilledClasses(
+                  "bg-violet-50 text-violet-700",
+                  analysis.tecnica || analysis.tipoAnalisis,
+                  "campo-field",
+                )}`}
               >
-                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
+                <span className={catalogIconSurfaceClasses("bg-violet-50 text-violet-700", "sm")}>
                   <FlaskConical className="h-4 w-4" aria-hidden />
                 </span>
                 <div>
-                  <p className="text-sm font-semibold text-gray-800">{analysis.tipoAnalisis || "—"}</p>
-                  <p className="text-xs text-gray-500">{analysis.tecnica || "Sin técnica"}</p>
+                  <p className="text-sm font-semibold text-gray-800 dark:text-slate-100">{analysis.tipoAnalisis || "—"}</p>
+                  <p className="text-xs text-gray-500 dark:text-slate-400">{analysis.tecnica || "Sin técnica"}</p>
                 </div>
               </div>
             ))}
@@ -1322,14 +1316,20 @@ export default function SolicitudServicioPage() {
         )}
       </div>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <section className="campo-section">
         <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
           <span className="h-7 w-1 rounded-full bg-yellow-400" />
           Observaciones
         </h3>
         <p className="mb-5 ml-4 text-sm text-gray-500">Opcional. Máximo 200 caracteres.</p>
-        <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/80 p-4">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
+        <div
+          className={`flex items-start gap-3 !p-4 ${campoAccentFilledClasses(
+            "bg-violet-50 text-violet-700",
+            formData.observaciones,
+            "campo-field",
+          )}`}
+        >
+          <span className={catalogIconSurfaceClasses("bg-violet-50 text-violet-700", "field")}>
             <StickyNote className="h-4 w-4" aria-hidden />
           </span>
           <div className="min-w-0 flex-1">
@@ -1339,17 +1339,17 @@ export default function SolicitudServicioPage() {
               onChange={handleChange}
               maxLength={200}
               placeholder="Agregue cualquier observación, comentario o requerimiento especial para esta solicitud..."
-              className="min-h-[96px] w-full resize-y rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-blue-800"
+              className="campo-input min-h-[96px] resize-y font-medium"
               rows={4}
             />
-            <p className="mt-1 text-right text-xs text-gray-400">
+            <p className="mt-1 text-right text-xs text-gray-400 dark:text-slate-500">
               {String(formData.observaciones ?? "").length}/200
             </p>
           </div>
         </div>
       </section>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <section className="campo-section">
         <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
           <span className="h-7 w-1 rounded-full bg-blue-900" />
           Verificación final
@@ -1364,6 +1364,7 @@ export default function SolicitudServicioPage() {
             hint="Usuario que firma la solicitud"
             required
             error={errors.firma}
+            filledValue={formData.firma}
           >
             <select
               id="firma-usuario"
@@ -1389,6 +1390,7 @@ export default function SolicitudServicioPage() {
             hint="Usuario que recibe la solicitud"
             required
             error={errors.recibidoPor}
+            filledValue={formData.recibidoPor}
           >
             <select
               id="recibido-por"
@@ -1413,6 +1415,7 @@ export default function SolicitudServicioPage() {
             label="Fecha de envío de la proforma"
             hint="Día en que se enviará la proforma"
             className="md:col-span-2"
+            filledValue={formData.fechaProforma}
           >
             <input
               id="fecha-proforma"
@@ -1428,38 +1431,31 @@ export default function SolicitudServicioPage() {
           Al seleccionar la firma acepta los términos y condiciones del servicio
         </p>
       </section>
-    </div>
+    </>
   );
 
   return (
-    <div className="flex min-h-full flex-1 flex-col bg-gray-100 dark:bg-[#0d053c]">
-      {/* Header  
-      <header className="bg-blue-900 text-white py-4">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between px-4">
-          <div className="text-center md:text-left flex-1">
-            <h2 className="text-xl font-bold">SOLICITUD DE SERVICIOS</h2>
-            <p className="text-sm">UNAN-MANAGUA / CIRA — FOR-CIRA-APE-04</p>
-          </div>
-        </div>
-      </header> */}
-
-      {/* Subheader */}
-      <div className="bg-yellow-400 text-blue-900 text-center py-2 font-semibold">
+    <div className="campo-wizard flex min-h-full flex-1 flex-col">
+      <div className="campo-wizard-banner py-2.5 text-center text-sm font-bold text-blue-950 sm:text-base">
         ÁREA DE PROYECCIÓN Y EXTENSIÓN
       </div>
 
-      <div className="mx-auto w-full max-w-6xl px-6 py-12">
-        <WizardStepIndicator currentStep={currentStep} />
+      <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
+        <WizardFormStepIndicator currentStep={currentStep} labels={SOLICITUD_STEP_LABELS} />
 
-        {/* Form Container */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <div className="p-8 md:p-10">
+        <div className="campo-wizard-card">
+          <div
+            className="campo-wizard-card-progress"
+            style={{ width: `${(currentStep / 3) * 100}%` }}
+            aria-hidden
+          />
+          <div className="campo-wizard-step-body campo-wizard-step-pane">
             {idCliente && !Number.isNaN(idCliente) && (
-              <div className="mb-8 rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-                <p className="font-medium">Solicitud vinculada al cliente</p>
-                <p className="mt-0.5">
+              <div className="campo-notice campo-notice--info mb-8">
+                <p className="font-semibold">Solicitud vinculada al cliente</p>
+                <p className="mt-0.5 font-medium">
                   {etiquetaCliente}
-                  <span className="ml-2 text-blue-700">(ID: {idCliente})</span>
+                  <span className="ml-2 opacity-80">(ID: {idCliente})</span>
                 </p>
               </div>
             )}
@@ -1468,54 +1464,23 @@ export default function SolicitudServicioPage() {
             {currentStep === 3 && renderStep3()}
           </div>
 
-          <div className="flex justify-center items-center gap-3 border-t border-gray-200 bg-white px-8 py-6 md:px-10">
-            {[1, 2, 3].map((step, index) => (
-              <div key={step} className="flex items-center gap-3">
-                <div
-                  className={`h-2.5 w-2.5 rounded-full transition-all duration-300 ${
-                    step < currentStep
-                      ? "h-3 w-3 bg-yellow-400"
-                      : step === currentStep
-                        ? "h-3 w-3 bg-blue-900"
-                        : "bg-gray-300"
-                  }`}
-                />
-                {index < 2 && (
-                  <div
-                    className={`h-0.5 w-6 transition-all duration-300 ${
-                      step < currentStep ? "bg-yellow-400" : "bg-gray-300"
-                    }`}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div className="flex items-center justify-between border-t border-gray-200 bg-white px-8 py-6 md:px-10">
+          <div className="campo-wizard-footer sticky bottom-0 z-10 flex items-center justify-between gap-3 px-6 py-5 sm:px-8 md:px-10">
             <button
               type="button"
               onClick={handlePrevious}
               disabled={currentStep === 1}
-              className={`flex items-center gap-2 rounded-lg border-2 px-6 py-2 font-semibold transition-all ${
-                currentStep === 1
-                  ? "cursor-not-allowed border-gray-300 text-gray-400"
-                  : "border-blue-900 text-blue-900 hover:bg-blue-50"
-              }`}
+              className="campo-btn-outline disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400 disabled:hover:bg-transparent"
             >
               <ChevronLeft className="h-5 w-5" />
               Anterior
             </button>
 
-            <div className="text-sm font-semibold text-gray-600">
+            <div className="rounded-full bg-white/80 px-4 py-1.5 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 dark:bg-white/5 dark:text-slate-300 dark:ring-white/10">
               Paso {currentStep} de 3
             </div>
 
             {currentStep < 3 ? (
-              <button
-                type="button"
-                onClick={handleNext}
-                className="flex items-center gap-2 rounded-lg bg-blue-900 px-6 py-2 font-semibold text-white shadow-md transition-all hover:bg-blue-800 hover:shadow-lg"
-              >
+              <button type="button" onClick={handleNext} className="campo-btn-primary">
                 Siguiente
                 <ChevronRight className="h-5 w-5" />
               </button>
@@ -1524,7 +1489,7 @@ export default function SolicitudServicioPage() {
                 type="button"
                 onClick={handleSubmit}
                 disabled={saving}
-                className="flex items-center gap-2 rounded-lg bg-blue-900 px-6 py-2 font-semibold text-white shadow-md transition-all hover:bg-blue-950 hover:shadow-lg disabled:opacity-60"
+                className="campo-btn-primary campo-btn-primary--save disabled:opacity-60"
               >
                 {saving ? "Guardando…" : isEdit ? "Actualizar" : "Guardar"}
                 <ChevronRight className="h-5 w-5" />
@@ -1533,7 +1498,7 @@ export default function SolicitudServicioPage() {
           </div>
         </div>
 
-        <div className="mt-10 text-center text-sm text-gray-500">
+        <div className="mt-10 text-center text-sm text-gray-500 dark:text-slate-400">
           <p>© 2026 UNAN Managua - CIRA | Sistema de Gestión de Ingreso de Muestras Ambientales SGIMA</p>
         </div>
       </div>

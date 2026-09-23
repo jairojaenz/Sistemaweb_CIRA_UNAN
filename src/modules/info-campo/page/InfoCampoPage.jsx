@@ -40,7 +40,7 @@ import { formatLatLng, parseLatLng } from '../../../components/NicaraguaMapModal
 import { useAuth } from '../../../auth/AuthContext.jsx';
 import { useToast } from '../../../components/ToastContext.jsx';
 import ValidationIssuesModal from '../../../components/ValidationIssuesModal.jsx';
-import CampoWizardStepIndicator from '../components/CampoWizardStepIndicator.jsx';
+import WizardFormStepIndicator from '../../../components/WizardFormStepIndicator.jsx';
 import {
   CAMPO_STEP_LABELS,
   collectCampoIssues,
@@ -56,6 +56,8 @@ import {
   accentFromTone,
   catalogChoiceButtonClasses,
   catalogIconSurfaceClasses,
+  campoAccentFilledClasses,
+  campoTieneValor,
 } from '../../../utils/catalogIcons.js';
 import { getCentroDepartamento } from '../../../utils/nicaraguaUbicaciones.js';
 import { getProformas } from '../../proforma/service/proformaService.js';
@@ -122,25 +124,6 @@ function chipClass(active, accent = "sky") {
   return `campo-chip campo-chip--accent-${tone} ${active ? "campo-chip--active" : ""}`.trim();
 }
 
-function parametroCampoConValor(value) {
-  const t = String(value ?? "").trim();
-  return t !== "" && t !== "—" && t !== "-";
-}
-
-/** Ilumina la tarjeta con el acento del icono cuando hay dato capturado. */
-function campoAccentFilledClasses(tone, value, base = "campo-param-card") {
-  if (!parametroCampoConValor(value)) return base;
-  const accent = accentFromTone(tone);
-  return [
-    base,
-    `${base}--filled`,
-    "catalog-choice-tone",
-    `catalog-choice-tone--${accent}`,
-    "campo-choice--selected",
-    "catalog-choice-tone--selected",
-  ].join(" ");
-}
-
 function paramCardClass(tone, value) {
   return campoAccentFilledClasses(tone, value, "campo-param-card");
 }
@@ -195,7 +178,7 @@ function CampoStepIntro({ title, description }) {
 
 function IconField({ id, icon, tone, label, required, error, hint, filledValue, children }) {
   const FieldIcon = icon;
-  const conValor = parametroCampoConValor(filledValue);
+  const conValor = campoTieneValor(filledValue);
   const wrapClass = [
     campoAccentFilledClasses(tone, filledValue, "campo-field"),
     error ? "campo-field--error" : "",
@@ -555,7 +538,7 @@ export default function FormWizard() {
       </div>
 
       <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        <CampoWizardStepIndicator currentStep={currentStep} labels={CAMPO_STEP_LABELS} />
+        <WizardFormStepIndicator currentStep={currentStep} labels={CAMPO_STEP_LABELS} />
 
         <div className="campo-wizard-card">
           <div
@@ -1181,7 +1164,7 @@ export default function FormWizard() {
                 <div className="ml-0 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   {PARAMETROS_CAMPO.map((param) => {
                     const Icon = param.icon;
-                    const conValor = parametroCampoConValor(formData[param.name]);
+                    const conValor = campoTieneValor(formData[param.name]);
                     return (
                       <div
                         key={param.name}

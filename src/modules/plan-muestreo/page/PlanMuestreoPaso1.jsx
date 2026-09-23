@@ -22,7 +22,10 @@ import { ROUTES } from "../../../router/routes.js";
 import { formatTelefonoLocal } from "../../../utils/phoneFormat.js";
 import { getProformas } from "../../proforma/service/proformaService.js";
 import { getMuestras } from "../../catalogos/service/muestrasService.js";
-import { ICON_INPUT, IconField } from "../../../components/formFields.jsx";
+import { IconField, WizardStepIntro } from "../../../components/formFields.jsx";
+
+const ICON_INPUT =
+  "campo-input disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-white/5";
 import ValidationIssuesModal from "../../../components/ValidationIssuesModal.jsx";
 
 export default function PlanMuestreoPaso1() {
@@ -135,15 +138,13 @@ export default function PlanMuestreoPaso1() {
         onPrevious={() => {}}
         onNext={irAlPaso2}
       >
-        <div className="space-y-8">
-          <div>
-            <h2 className="mb-1 text-2xl font-bold text-blue-900 sm:text-3xl">Identificación del plan</h2>
-            <p className="text-gray-600">
-              Datos del usuario, contactos y programación del muestreo, como en el formato CIRA.
-            </p>
-          </div>
+        <>
+          <WizardStepIntro
+            title="Identificación del plan"
+            description="Datos del usuario, contactos y programación del muestreo, como en el formato CIRA."
+          />
 
-          <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <section className="campo-section">
             <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
               <span className="h-7 w-1 rounded-full bg-blue-900" />
               Datos generales
@@ -156,6 +157,7 @@ export default function PlanMuestreoPaso1() {
                 tone="bg-blue-50 text-blue-800"
                 label="Código de referencia"
                 hint="Identificador interno del plan"
+                filledValue={paso1.codigoReferencia}
               >
                 <input
                   id="plan-codigoReferencia"
@@ -173,6 +175,7 @@ export default function PlanMuestreoPaso1() {
                 hint="Nombre del usuario o proyecto"
                 required
                 error={errors.usuarioProyecto}
+                filledValue={paso1.usuarioProyecto}
               >
                 <input
                   id="plan-usuarioProyecto"
@@ -190,6 +193,7 @@ export default function PlanMuestreoPaso1() {
                 hint="Proforma asociada al plan"
                 required
                 error={errors.idProforma}
+                filledValue={paso1.idProforma}
               >
                 <select
                   id="plan-idProforma"
@@ -220,6 +224,7 @@ export default function PlanMuestreoPaso1() {
                 hint="Dirección del usuario o empresa"
                 required
                 error={errors.direccionUsuario}
+                filledValue={paso1.direccionUsuario}
               >
                 <input
                   id="plan-direccionUsuario"
@@ -232,7 +237,7 @@ export default function PlanMuestreoPaso1() {
             </div>
           </section>
 
-          <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <section className="campo-section">
             <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
               <span className="h-7 w-1 rounded-full bg-yellow-400" />
               Contacto
@@ -245,6 +250,7 @@ export default function PlanMuestreoPaso1() {
                 tone="bg-sky-50 text-sky-700"
                 label="Con atención a"
                 hint="Persona a quien se dirige el plan"
+                filledValue={paso1.atencionA}
               >
                 <input
                   id="plan-atencionA"
@@ -260,6 +266,7 @@ export default function PlanMuestreoPaso1() {
                 tone="bg-emerald-50 text-emerald-700"
                 label="Teléfono"
                 hint="Teléfono de atención"
+                filledValue={paso1.telefono}
               >
                 <input
                   id="plan-telefono"
@@ -277,6 +284,7 @@ export default function PlanMuestreoPaso1() {
                 tone="bg-indigo-50 text-indigo-700"
                 label="Persona de contacto"
                 hint="Quien coordina el muestreo"
+                filledValue={paso1.personaContacto}
               >
                 <input
                   id="plan-personaContacto"
@@ -292,6 +300,7 @@ export default function PlanMuestreoPaso1() {
                 tone="bg-teal-50 text-teal-700"
                 label="Teléfono de coordinación"
                 hint="Teléfono de la persona de contacto"
+                filledValue={paso1.telefonoContacto}
               >
                 <input
                   id="plan-telefonoContacto"
@@ -306,7 +315,7 @@ export default function PlanMuestreoPaso1() {
             </div>
           </section>
 
-          <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <section className="campo-section">
             <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
               <span className="h-7 w-1 rounded-full bg-blue-900" />
               Sitio y programación
@@ -316,12 +325,13 @@ export default function PlanMuestreoPaso1() {
               <IconField
                 id="plan-direccionSitio"
                 icon={MapPin}
-                tone="bg-rose-50 text-rose-700"
+                tone="bg-emerald-50 text-emerald-700"
                 label="Dirección del sitio(s) a muestrear"
                 hint="Ubicación o sitios donde se tomará la muestra"
                 required
                 error={errors.direccionSitio}
                 className="md:col-span-3"
+                filledValue={paso1.direccionSitio}
               >
                 <input
                   id="plan-direccionSitio"
@@ -339,6 +349,7 @@ export default function PlanMuestreoPaso1() {
                 hint="Día programado para el muestreo"
                 required
                 error={errors.fechaMuestreo}
+                filledValue={paso1.fechaMuestreo}
               >
                 <input
                   id="plan-fechaMuestreo"
@@ -354,6 +365,7 @@ export default function PlanMuestreoPaso1() {
                 tone="bg-red-50 text-red-600"
                 label="Hora de salida"
                 hint="Salida hacia el sitio"
+                filledValue={paso1.horaSalida}
               >
                 <input
                   id="plan-horaSalida"
@@ -369,6 +381,7 @@ export default function PlanMuestreoPaso1() {
                 tone="bg-emerald-50 text-emerald-600"
                 label="Hora de regreso"
                 hint="Regreso al laboratorio"
+                filledValue={paso1.horaRegreso}
               >
                 <input
                   id="plan-horaRegreso"
@@ -381,7 +394,7 @@ export default function PlanMuestreoPaso1() {
             </div>
           </section>
 
-          <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <section className="campo-section">
             <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
               <span className="h-7 w-1 rounded-full bg-yellow-400" />
               Vinculación en sistema
@@ -395,6 +408,7 @@ export default function PlanMuestreoPaso1() {
               hint="Muestra del catálogo asociada al plan"
               required
               error={errors.idMuestra}
+              filledValue={paso1.idMuestra}
             >
               <select
                 id="plan-idMuestra"
@@ -411,7 +425,7 @@ export default function PlanMuestreoPaso1() {
               </select>
             </IconField>
           </section>
-        </div>
+        </>
       </PlanMuestreoLayout>
 
       <ValidationIssuesModal

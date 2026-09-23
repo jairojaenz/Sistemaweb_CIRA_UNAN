@@ -26,7 +26,10 @@ import {
 import { useAuth } from "../../../auth/AuthContext.jsx";
 import { useToast } from "../../../components/ToastContext.jsx";
 import ValidationIssuesModal from "../../../components/ValidationIssuesModal.jsx";
-import { CatalogChoiceCard, ICON_INPUT, IconField } from "../../../components/formFields.jsx";
+import { CatalogChoiceCard, IconField, WizardStepIntro } from "../../../components/formFields.jsx";
+
+const ICON_INPUT =
+  "campo-input disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-white/5";
 import { ROUTES } from "../../../router/routes.js";
 import EnsayosMultiSelect from "../../plan-muestreo/components/EnsayosMultiSelect.jsx";
 import { getAnalisis } from "../../catalogos/service/analisisService.js";
@@ -47,19 +50,19 @@ const ESTADOS_CUSTODIA = [
     value: "Pendiente",
     hint: "Aún no sale del laboratorio",
     icon: Clock,
-    tone: "bg-amber-100 text-amber-700",
+    tone: "bg-amber-50 text-amber-700",
   },
   {
     value: "En tránsito",
     hint: "Muestra en traslado",
     icon: Truck,
-    tone: "bg-sky-100 text-sky-700",
+    tone: "bg-sky-50 text-sky-700",
   },
   {
     value: "Recibida",
     hint: "Ya llegó al destino",
     icon: PackageCheck,
-    tone: "bg-emerald-100 text-emerald-700",
+    tone: "bg-emerald-50 text-emerald-700",
   },
   {
     value: "Cerrada",
@@ -277,25 +280,22 @@ export default function CustodiaPage() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="min-h-full w-full bg-gray-100 text-gray-800 dark:bg-[#0d053c] dark:text-slate-100">
-      <div className="bg-yellow-400 py-2 text-center font-semibold text-blue-900">
+    <form onSubmit={handleSubmit} className="campo-wizard flex min-h-full flex-1 flex-col">
+      <div className="campo-wizard-banner py-2.5 text-center text-sm font-bold text-blue-950 sm:text-base">
         ÁREA DE PROYECCIÓN Y EXTENSIÓN
       </div>
 
-      <div className="mx-auto w-full max-w-5xl px-6 py-8">
-        <div className="overflow-hidden rounded-xl bg-white shadow-lg">
-          <div className="p-8 md:p-10">
-            <div className="mb-8">
-              <h1 className="text-2xl font-bold text-blue-900">
-                {isEdit ? "Editar cadena de custodia" : "Nueva cadena de custodia"}
-              </h1>
-              <p className="mt-1 text-sm text-gray-500">
-                Vincule el formato de campo, las muestras con sus análisis y registre las entregas.
-              </p>
-            </div>
+      <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
+        <div className="campo-wizard-card">
+          <div className="campo-wizard-card-progress w-full" aria-hidden />
+          <div className="campo-wizard-step-body campo-wizard-step-pane">
+            <WizardStepIntro
+              title={isEdit ? "Editar cadena de custodia" : "Nueva cadena de custodia"}
+              description="Vincule el formato de campo, las muestras con sus análisis y registre las entregas."
+            />
 
             <div className="flex flex-col gap-6">
-              <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <section className="campo-section">
                 <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
                   <span className="h-7 w-1 rounded-full bg-blue-900" />
                   Identificación
@@ -312,6 +312,7 @@ export default function CustodiaPage() {
                     hint="Registro de información de campo asociado"
                     required
                     error={errors.idFormatoCampo}
+                    filledValue={form.idFormatoCampo}
                   >
                     <select
                       id="custodia-formatoCampo"
@@ -333,6 +334,7 @@ export default function CustodiaPage() {
                     tone="bg-sky-50 text-sky-700"
                     label="Registrado por"
                     hint="Usuario de la sesión"
+                    filledValue={form.usuarioCreacion || sessionUserName(user)}
                   >
                     <input
                       id="custodia-usuarioCreacion"
@@ -362,7 +364,7 @@ export default function CustodiaPage() {
                 </div>
               </section>
 
-              <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <section className="campo-section">
                 <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h3 className="flex items-center gap-3 text-lg font-bold text-blue-900">
@@ -376,7 +378,7 @@ export default function CustodiaPage() {
                   <button
                     type="button"
                     onClick={() => setForm((p) => ({ ...p, detalles: [...p.detalles, emptyDetalle()] }))}
-                    className="inline-flex items-center gap-2 rounded-lg bg-blue-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-800"
+                    className="campo-btn-primary text-sm"
                   >
                     <Plus className="h-4 w-4" />
                     Agregar muestra
@@ -392,8 +394,11 @@ export default function CustodiaPage() {
                       (m) => String(m.idMuestra) === String(detalle.idMuestra),
                     );
                     return (
-                      <article key={index} className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                        <header className="flex items-center justify-between gap-3 border-b border-gray-100 bg-slate-50 px-5 py-3">
+                      <article
+                        key={index}
+                        className="overflow-hidden rounded-xl border border-gray-200/90 bg-white/40 shadow-sm dark:border-sky-400/15 dark:bg-white/[0.03]"
+                      >
+                        <header className="flex items-center justify-between gap-3 border-b border-gray-200/80 bg-slate-50/90 px-5 py-3 dark:border-sky-400/10 dark:bg-white/5">
                           <div className="flex min-w-0 items-center gap-3">
                             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-900 text-sm font-bold text-white">
                               {index + 1}
@@ -430,6 +435,7 @@ export default function CustodiaPage() {
                             hint="Identificación de la muestra"
                             required
                             error={errors[`muestra-${index}`]}
+                            filledValue={detalle.idMuestra}
                           >
                             <select
                               id={`custodia-muestra-${index}`}
@@ -451,6 +457,7 @@ export default function CustodiaPage() {
                             tone="bg-violet-50 text-violet-700"
                             label="Análisis solicitados"
                             hint="Uno o más ensayos de la muestra"
+                            filledValue={detalle.idsAnalisis?.length}
                           >
                             <EnsayosMultiSelect
                               id={`custodia-analisis-${index}`}
@@ -466,7 +473,7 @@ export default function CustodiaPage() {
                 </div>
               </section>
 
-              <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <section className="campo-section">
                 <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h3 className="flex items-center gap-3 text-lg font-bold text-blue-900">
@@ -485,7 +492,7 @@ export default function CustodiaPage() {
                         entregas: [...p.entregas, emptyEntrega(idUsuarioSesion)],
                       }))
                     }
-                    className="inline-flex items-center gap-2 rounded-lg bg-blue-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-800"
+                    className="campo-btn-primary text-sm"
                   >
                     <Plus className="h-4 w-4" />
                     Agregar entrega
@@ -497,8 +504,11 @@ export default function CustodiaPage() {
 
                 <div className="space-y-4">
                   {form.entregas.map((entrega, index) => (
-                    <article key={index} className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                      <header className="flex items-center justify-between gap-3 border-b border-gray-100 bg-slate-50 px-5 py-3">
+                    <article
+                      key={index}
+                      className="overflow-hidden rounded-xl border border-gray-200/90 bg-white/40 shadow-sm dark:border-sky-400/15 dark:bg-white/[0.03]"
+                    >
+                      <header className="flex items-center justify-between gap-3 border-b border-gray-200/80 bg-slate-50/90 px-5 py-3 dark:border-sky-400/10 dark:bg-white/5">
                         <div className="flex min-w-0 items-center gap-3">
                           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-900 text-sm font-bold text-white">
                             {index + 1}
@@ -537,6 +547,7 @@ export default function CustodiaPage() {
                           hint="Día en que se entrega"
                           required
                           error={errors[`fechaEntrega-${index}`]}
+                          filledValue={entrega.fechaEntrega}
                         >
                           <input
                             id={`custodia-fechaEntrega-${index}`}
@@ -554,6 +565,7 @@ export default function CustodiaPage() {
                           hint="Salida de la muestra"
                           required
                           error={errors[`horaEntrega-${index}`]}
+                          filledValue={entrega.horaEntrega}
                         >
                           <input
                             id={`custodia-horaEntrega-${index}`}
@@ -571,6 +583,7 @@ export default function CustodiaPage() {
                           hint="Día en que se recibe"
                           required
                           error={errors[`fechaRecibido-${index}`]}
+                          filledValue={entrega.fechaRecibido}
                         >
                           <input
                             id={`custodia-fechaRecibido-${index}`}
@@ -588,6 +601,7 @@ export default function CustodiaPage() {
                           hint="Entrada de la muestra"
                           required
                           error={errors[`horaRecibido-${index}`]}
+                          filledValue={entrega.horaRecibido}
                         >
                           <input
                             id={`custodia-horaRecibido-${index}`}
@@ -606,6 +620,7 @@ export default function CustodiaPage() {
                           required
                           error={errors[`idUsuario-${index}`]}
                           className="lg:col-span-2"
+                          filledValue={entrega.idUsuario}
                         >
                           <select
                             id={`custodia-usuario-${index}`}
@@ -633,6 +648,7 @@ export default function CustodiaPage() {
                           required
                           error={errors[`idCliente-${index}`]}
                           className="lg:col-span-2"
+                          filledValue={entrega.idCliente}
                         >
                           <select
                             id={`custodia-cliente-${index}`}
@@ -661,23 +677,27 @@ export default function CustodiaPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-8 py-6 md:px-10">
+          <div className="campo-wizard-footer sticky bottom-0 z-10 flex items-center justify-between gap-3 px-6 py-5 sm:px-8 md:px-10">
             <button
               type="button"
               onClick={() => navigate(ROUTES.custodia)}
-              className="flex items-center gap-2 rounded-lg border-2 border-blue-900 px-6 py-2 font-semibold text-blue-900 transition-all hover:bg-blue-50"
+              className="campo-btn-outline"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-6 py-2 font-semibold text-white shadow-md transition-all hover:bg-green-700 hover:shadow-lg disabled:opacity-60"
+              className="campo-btn-primary campo-btn-primary--save disabled:opacity-60"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {isEdit ? "Guardar cambios" : "Crear custodia"}
             </button>
           </div>
+        </div>
+
+        <div className="mt-10 text-center text-sm text-gray-500 dark:text-slate-400">
+          <p>© {new Date().getFullYear()} UNAN Managua - CIRA | Cadena de custodia</p>
         </div>
       </div>
 

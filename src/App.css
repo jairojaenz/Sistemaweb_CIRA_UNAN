@@ -1326,7 +1326,8 @@ html.dark .campo-choice--selected:not(.catalog-choice-tone) {
   --choice-check-fg: #fff;
 }
 
-.catalog-choice-tone--rose {
+.catalog-choice-tone--rose,
+.catalog-choice-tone--red {
   --choice-bg: rgb(255 241 242 / 0.92);
   --choice-border: rgb(253 164 175 / 0.7);
   --choice-bg-hover: rgb(255 228 230 / 0.98);
@@ -1447,7 +1448,8 @@ html.dark .catalog-choice-tone--indigo {
   --choice-border-sel: rgba(129, 140, 248, 0.72);
 }
 
-html.dark .catalog-choice-tone--rose {
+html.dark .catalog-choice-tone--rose,
+html.dark .catalog-choice-tone--red {
   --choice-bg: rgba(244, 63, 94, 0.13);
   --choice-border: rgba(244, 63, 94, 0.34);
   --choice-bg-hover: rgba(244, 63, 94, 0.22);
@@ -1921,7 +1923,8 @@ html.dark .catalog-icon-surface--indigo {
   box-shadow: inset 0 0 0 1px rgba(129, 140, 248, 0.38);
 }
 
-html.dark .catalog-icon-surface--rose {
+html.dark .catalog-icon-surface--rose,
+html.dark .catalog-icon-surface--red {
   background-color: rgba(244, 63, 94, 0.2) !important;
   color: rgb(253 164 175) !important;
   box-shadow: inset 0 0 0 1px rgba(244, 63, 94, 0.35);

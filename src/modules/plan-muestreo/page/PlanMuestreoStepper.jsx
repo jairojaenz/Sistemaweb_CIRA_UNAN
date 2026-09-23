@@ -1,6 +1,7 @@
-import WizardStepIndicator from "../../../components/WizardStepIndicator.jsx";
+import WizardFormStepIndicator from "../../../components/WizardFormStepIndicator.jsx";
 import { PLAN_STEP_LABELS } from "../utils/planMuestreoValidation.js";
 
+/** @deprecated El layout incluye el stepper; conservado por compatibilidad. */
 export default function PlanMuestreoStepper({ step }) {
-  return <WizardStepIndicator currentStep={step} totalSteps={3} labels={PLAN_STEP_LABELS} />;
+  return <WizardFormStepIndicator currentStep={step} labels={PLAN_STEP_LABELS} />;
 }

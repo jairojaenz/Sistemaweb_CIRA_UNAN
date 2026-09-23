@@ -11,7 +11,14 @@ import {
   UserRound,
 } from "lucide-react";
 import PlanMuestreoLayout from "./PlanMuestreoLayout.jsx";
-import { ICON_INPUT, IconField } from "../../../components/formFields.jsx";
+import { IconField, WizardStepIntro } from "../../../components/formFields.jsx";
+import {
+  campoAccentFilledClasses,
+  catalogIconSurfaceClasses,
+} from "../../../utils/catalogIcons.js";
+
+const ICON_INPUT =
+  "campo-input disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-white/5";
 import ValidationIssuesModal from "../../../components/ValidationIssuesModal.jsx";
 import { useAuth } from "../../../auth/AuthContext.jsx";
 import { useToast } from "../../../components/ToastContext.jsx";
@@ -65,16 +72,16 @@ function FirmaCard({
   error,
 }) {
   return (
-    <article className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-      <header className="flex items-center gap-3 border-b border-gray-100 bg-slate-50 px-4 py-3">
-        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tone}`}>
+    <article className="campo-section overflow-hidden !p-0">
+      <header className="flex items-center gap-3 border-b border-gray-200/80 bg-slate-50/90 px-4 py-3 dark:border-sky-400/10 dark:bg-white/5">
+        <span className={catalogIconSurfaceClasses(tone, "field")}>
           <Icon className="h-4 w-4" aria-hidden />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-blue-900">
+          <p className="font-semibold text-blue-900 dark:text-sky-100">
             {number}. {title}
           </p>
-          <p className="text-xs text-gray-500">{subtitle}</p>
+          <p className="text-xs text-gray-500 dark:text-slate-400">{subtitle}</p>
         </div>
       </header>
       <div className="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_13rem_12rem]">
@@ -86,6 +93,7 @@ function FirmaCard({
           hint="Usuario responsable de esta firma"
           required
           error={error}
+          filledValue={userId}
         >
           <select
             id={nameId}
@@ -102,10 +110,24 @@ function FirmaCard({
             ))}
           </select>
         </IconField>
-        <IconField id={dateId} icon={CalendarDays} tone="bg-amber-50 text-amber-700" label="Fecha" hint="Día de la firma">
+        <IconField
+          id={dateId}
+          icon={CalendarDays}
+          tone="bg-amber-50 text-amber-700"
+          label="Fecha"
+          hint="Día de la firma"
+          filledValue={dateValue}
+        >
           <input id={dateId} className={ICON_INPUT} type="date" value={dateValue} onChange={onDate} />
         </IconField>
-        <IconField id={timeId} icon={Clock} tone="bg-sky-50 text-sky-700" label="Hora" hint="Hora de la firma">
+        <IconField
+          id={timeId}
+          icon={Clock}
+          tone="bg-sky-50 text-sky-700"
+          label="Hora"
+          hint="Hora de la firma"
+          filledValue={timeValue}
+        >
           <input id={timeId} className={ICON_INPUT} type="time" value={timeValue} onChange={onTime} />
         </IconField>
       </div>
@@ -273,33 +295,39 @@ export default function PlanMuestreoPaso3() {
         submitLabel={saving ? "Guardando…" : isEdit ? "Actualizar" : "Crear"}
         submitDisabled={saving}
       >
-        <div className="space-y-8">
-          <div>
-            <h2 className="mb-1 text-2xl font-bold text-blue-900 sm:text-3xl">Cierre y firmas</h2>
-            <p className="text-gray-600">
-              Observaciones finales y responsables que elaboran, reciben y entregan el plan.
-            </p>
-          </div>
+        <>
+          <WizardStepIntro
+            title="Cierre y firmas"
+            description="Observaciones finales y responsables que elaboran, reciben y entregan el plan."
+          />
 
-          <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <section className="campo-section">
             <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
               <span className="h-7 w-1 rounded-full bg-yellow-400" />
               Observaciones
             </h3>
             <p className="mb-5 ml-4 text-sm text-gray-500">Notas del muestreo y comentarios del coordinador</p>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/80 p-4">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
+              <div
+                className={`flex items-start gap-3 !p-4 ${campoAccentFilledClasses(
+                  "bg-violet-50 text-violet-700",
+                  paso3.observacionesMuestreo,
+                  "campo-field",
+                )}`}
+              >
+                <span className={catalogIconSurfaceClasses("bg-violet-50 text-violet-700", "field")}>
                   <StickyNote className="h-4 w-4" aria-hidden />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <label htmlFor="plan-obs-muestreo" className="text-sm font-semibold text-gray-800">
+                  <label htmlFor="plan-obs-muestreo" className="text-sm font-semibold text-gray-800 dark:text-slate-100">
                     Observaciones relacionadas al muestreo
                   </label>
-                  <p className="mb-2 text-xs text-gray-500">Condiciones del sitio, incidencias o notas técnicas</p>
+                  <p className="mb-2 text-xs text-gray-500 dark:text-slate-400">
+                    Condiciones del sitio, incidencias o notas técnicas
+                  </p>
                   <textarea
                     id="plan-obs-muestreo"
-                    className="min-h-[96px] w-full resize-y rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-blue-800"
+                    className="campo-input min-h-[96px] resize-y font-medium"
                     rows={3}
                     placeholder="Condiciones del sitio, incidencias o notas técnicas…"
                     value={paso3.observacionesMuestreo ?? ""}
@@ -307,18 +335,26 @@ export default function PlanMuestreoPaso3() {
                   />
                 </div>
               </div>
-              <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/80 p-4">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700">
+              <div
+                className={`flex items-start gap-3 !p-4 ${campoAccentFilledClasses(
+                  "bg-teal-50 text-teal-700",
+                  paso3.observacionesCoordinador,
+                  "campo-field",
+                )}`}
+              >
+                <span className={catalogIconSurfaceClasses("bg-teal-50 text-teal-700", "field")}>
                   <MessageSquare className="h-4 w-4" aria-hidden />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <label htmlFor="plan-obs-coordinador" className="text-sm font-semibold text-gray-800">
+                  <label htmlFor="plan-obs-coordinador" className="text-sm font-semibold text-gray-800 dark:text-slate-100">
                     Comentarios del coordinador
                   </label>
-                  <p className="mb-2 text-xs text-gray-500">Observaciones de quien coordina el muestreo</p>
+                  <p className="mb-2 text-xs text-gray-500 dark:text-slate-400">
+                    Observaciones de quien coordina el muestreo
+                  </p>
                   <textarea
                     id="plan-obs-coordinador"
-                    className="min-h-[96px] w-full resize-y rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-blue-800"
+                    className="campo-input min-h-[96px] resize-y font-medium"
                     rows={3}
                     placeholder="Observaciones o comentarios del coordinador del muestreo…"
                     value={paso3.observacionesCoordinador ?? ""}
@@ -329,7 +365,7 @@ export default function PlanMuestreoPaso3() {
             </div>
           </section>
 
-          <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <section className="campo-section">
             <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
               <span className="h-7 w-1 rounded-full bg-blue-900" />
               Responsables y firmas
@@ -402,17 +438,17 @@ export default function PlanMuestreoPaso3() {
             </div>
           </section>
 
-          <aside className="flex gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          <aside className="campo-notice campo-notice--info flex gap-3 text-sm">
             <Phone className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
             <div>
               <p className="font-semibold">Contactos APE</p>
-              <p className="mt-0.5 text-blue-800/80">
+              <p className="mt-0.5 font-medium opacity-90">
                 Oficinas: 2278-8987 / 82, ext. 8318 y 8317. Denis Herrera: 8391-2846. Sandra Vásquez:
                 8994-6598.
               </p>
             </div>
           </aside>
-        </div>
+        </>
       </PlanMuestreoLayout>
 
       <ValidationIssuesModal

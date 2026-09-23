@@ -1,4 +1,11 @@
-import { catalogChoiceButtonClasses, catalogIconSurfaceClasses } from "../utils/catalogIcons.js";
+import {
+  accentFromTone,
+  campoAccentFilledClasses,
+  catalogChoiceButtonClasses,
+  catalogIconSurfaceClasses,
+  campoTieneValor,
+} from "../utils/catalogIcons.js";
+import { Check } from "lucide-react";
 
 export const ICON_INPUT =
   "w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-900 outline-none placeholder:text-gray-400 focus:border-blue-800 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 dark:border-sky-400/25 dark:bg-[#251d50] dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:border-sky-400 dark:disabled:bg-[#1a1250] dark:disabled:text-slate-500";
@@ -22,47 +29,103 @@ export function selectedCardFromTone(tone = "") {
 
 export function CatalogChoiceCard({ selected, onClick, icon, tone, label, disabled, hint }) {
   const ChoiceIcon = icon;
+  const accent = accentFromTone(tone);
   return (
     <button
       type="button"
       disabled={disabled}
       aria-pressed={selected}
       onClick={onClick}
+      data-accent={accent}
       className={`p-4 text-left ${catalogChoiceButtonClasses(tone, { selected: selected && !disabled, disabled, extra: "w-full" })}`}
     >
       <div className="flex items-center gap-3">
-        <span className={catalogIconSurfaceClasses(tone, "md")}>
+        <span className={catalogIconSurfaceClasses(tone, "lg")}>
           <ChoiceIcon className="h-5 w-5" aria-hidden />
         </span>
-        <span className="min-w-0">
-          <span className={`block text-sm font-semibold leading-snug ${selected ? "text-blue-900 dark:text-sky-100" : "text-gray-800 dark:text-slate-100"}`}>
+        <span className="min-w-0 flex-1">
+          <span
+            className={`block text-sm font-semibold leading-snug ${
+              selected ? "text-blue-950 dark:text-sky-100" : "text-gray-800 dark:text-slate-200"
+            }`}
+          >
             {label}
           </span>
           {hint ? <span className="mt-0.5 block text-xs font-normal text-gray-500 dark:text-slate-300">{hint}</span> : null}
         </span>
+        {selected && !disabled ? (
+          <span className={`catalog-choice-check catalog-choice-check--${accent}`}>
+            <Check className="h-4 w-4" strokeWidth={2.5} aria-hidden />
+          </span>
+        ) : null}
       </div>
     </button>
   );
 }
 
-export function IconField({ id, icon, tone, label, required, error, hint, children, className = "" }) {
+export function IconField({
+  id,
+  icon,
+  tone,
+  label,
+  required,
+  error,
+  hint,
+  filledValue,
+  children,
+  className = "",
+}) {
   const FieldIcon = icon;
+  const conValor = campoTieneValor(filledValue);
+  const wrapClass = [
+    campoAccentFilledClasses(tone, filledValue, "campo-field"),
+    error ? "campo-field--error" : "",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
   return (
-    <div className={`rounded-xl border bg-gray-50/80 p-4 ${error ? "border-red-300" : "border-gray-200"} ${className}`}>
+    <div className={wrapClass}>
       <div className="mb-3 flex items-start gap-2.5">
         <span className={catalogIconSurfaceClasses(tone, "field")}>
           <FieldIcon className="h-4 w-4" aria-hidden />
         </span>
-        <div>
-          <label htmlFor={id} className="text-sm font-semibold text-gray-800 dark:text-slate-100">
+        <div className="min-w-0">
+          <label
+            htmlFor={id}
+            className={`text-sm font-semibold ${
+              conValor ? "text-blue-950 dark:text-slate-100" : "text-gray-800 dark:text-slate-100"
+            }`}
+          >
             {label} {required ? <span className="text-red-500">*</span> : null}
           </label>
-          {hint ? <p className="text-xs font-normal text-gray-500 dark:text-slate-300">{hint}</p> : null}
+          {hint ? (
+            <p
+              className={`text-xs font-normal leading-snug ${
+                conValor ? "text-slate-600 dark:text-slate-300" : "text-gray-500 dark:text-slate-400"
+              }`}
+            >
+              {hint}
+            </p>
+          ) : null}
         </div>
       </div>
       {children}
       {error ? <p className="mt-2 text-xs font-medium text-red-500">{error}</p> : null}
     </div>
+  );
+}
+
+export function WizardStepIntro({ title, description }) {
+  return (
+    <header className="campo-step-intro">
+      <h2 className="text-xl font-bold tracking-tight text-blue-950 dark:text-white sm:text-2xl md:text-[1.65rem]">
+        {title}
+      </h2>
+      <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300 md:text-[0.9375rem]">
+        {description}
+      </p>
+    </header>
   );
 }
 

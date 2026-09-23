@@ -1,8 +1,9 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import PlanMuestreoStepper from "./PlanMuestreoStepper.jsx";
+import WizardFormStepIndicator from "../../../components/WizardFormStepIndicator.jsx";
+import { PLAN_STEP_LABELS } from "../utils/planMuestreoValidation.js";
 
 /**
- * Layout compartido Plan de Muestreo: barra amarilla, pasos fuera del card, formulario en card blanco.
+ * Layout compartido Plan de Muestreo (shell visual alineado con Información de Campo / Solicitud).
  */
 export default function PlanMuestreoLayout({
   step,
@@ -19,60 +20,56 @@ export default function PlanMuestreoLayout({
   compact = false,
   areaBanner = "ÁREA DE PROYECCIÓN Y EXTENSIÓN",
 }) {
-  const maxWidth = wide ? "max-w-7xl" : "max-w-5xl";
+  const maxWidth = wide ? "max-w-6xl" : "max-w-6xl";
+
   return (
-    <div className="min-h-full w-full bg-gray-100 text-gray-800 dark:bg-[#0d053c] dark:text-slate-100">
-      <div className="bg-yellow-400 py-2 text-center font-semibold text-blue-900">
+    <div className="campo-wizard flex min-h-full flex-1 flex-col">
+      <div className="campo-wizard-banner py-2.5 text-center text-sm font-bold text-blue-950 sm:text-base">
         {areaBanner}
       </div>
 
-      <div className={`mx-auto w-full px-6 ${maxWidth} ${compact ? "pt-6" : "pt-12"}`}>
-        <PlanMuestreoStepper step={step} />
-      </div>
-
       <div
-        className={`mx-auto w-full px-6 ${maxWidth} ${compact ? "pb-8" : "pb-12"}`}
+        className={`mx-auto w-full flex-1 px-4 sm:px-6 ${maxWidth} ${
+          compact ? "py-6 sm:py-8" : "py-8 sm:py-10"
+        }`}
       >
-        <div className="overflow-hidden rounded-xl bg-white shadow-lg dark:bg-[#251d50] dark:shadow-none dark:ring-1 dark:ring-sky-400/20">
-          <div className={compact ? "p-5 md:p-6" : "p-8 md:p-10"}>{children}</div>
+        <WizardFormStepIndicator currentStep={step} labels={PLAN_STEP_LABELS} />
 
+        <div className="campo-wizard-card">
           <div
-            className={`flex items-center justify-between border-t border-gray-200 bg-gray-50 dark:border-sky-400/20 dark:bg-[#1a1250] ${
-              compact ? "px-5 py-4 md:px-6" : "px-8 py-6 md:px-10"
-            }`}
-          >
+            className="campo-wizard-card-progress"
+            style={{ width: `${(step / 3) * 100}%` }}
+            aria-hidden
+          />
+          <div className="campo-wizard-step-body campo-wizard-step-pane">{children}</div>
+
+          <div className="campo-wizard-footer sticky bottom-0 z-10 flex items-center justify-between gap-3 px-6 py-5 sm:px-8 md:px-10">
             <button
               type="button"
               onClick={onPrevious}
               disabled={previousDisabled}
-              className={`flex items-center gap-2 rounded-lg border-2 px-6 py-2 font-semibold transition-all ${
-                previousDisabled
-                  ? "cursor-not-allowed border-gray-300 text-gray-400"
-                  : "border-blue-900 text-blue-900 hover:bg-blue-50"
-              }`}
+              className="campo-btn-outline disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400 disabled:hover:bg-transparent"
             >
               <ChevronLeft className="h-5 w-5" />
               Anterior
             </button>
 
-            <div className="text-sm font-semibold text-gray-600">Paso {step} de 3</div>
+            <div className="rounded-full bg-white/80 px-4 py-1.5 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 dark:bg-white/5 dark:text-slate-300 dark:ring-white/10">
+              Paso {step} de 3
+            </div>
 
             {isLastStep ? (
               <button
                 type="button"
                 onClick={onSubmit}
                 disabled={submitDisabled}
-                className="flex items-center gap-2 rounded-lg bg-green-600 px-6 py-2 font-semibold text-white shadow-md transition-all hover:bg-green-700 hover:shadow-lg disabled:opacity-60"
+                className="campo-btn-primary campo-btn-primary--save disabled:opacity-60"
               >
                 {submitLabel}
                 <ChevronRight className="h-5 w-5" />
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={onNext}
-                className="flex items-center gap-2 rounded-lg bg-blue-900 px-6 py-2 font-semibold text-white shadow-md transition-all hover:bg-blue-800 hover:shadow-lg"
-              >
+              <button type="button" onClick={onNext} className="campo-btn-primary">
                 {nextLabel}
                 <ChevronRight className="h-5 w-5" />
               </button>
@@ -80,10 +77,8 @@ export default function PlanMuestreoLayout({
           </div>
         </div>
 
-        <div className={`text-center text-sm text-gray-500 ${compact ? "mt-6" : "mt-10"}`}>
-          <p>
-            © {new Date().getFullYear()} UNAN Managua - CIRA | Plan de Muestreo
-          </p>
+        <div className={`text-center text-sm text-gray-500 dark:text-slate-400 ${compact ? "mt-6" : "mt-10"}`}>
+          <p>© {new Date().getFullYear()} UNAN Managua - CIRA | Plan de Muestreo</p>
         </div>
       </div>
     </div>

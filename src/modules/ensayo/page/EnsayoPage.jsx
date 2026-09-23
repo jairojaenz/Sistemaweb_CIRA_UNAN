@@ -35,8 +35,11 @@ import {
 import { useAuth } from "../../../auth/AuthContext.jsx";
 import { useToast } from "../../../components/ToastContext.jsx";
 import ValidationIssuesModal from "../../../components/ValidationIssuesModal.jsx";
-import WizardStepIndicator from "../../../components/WizardStepIndicator.jsx";
-import { CatalogChoiceCard, ICON_INPUT, IconField } from "../../../components/formFields.jsx";
+import WizardFormStepIndicator from "../../../components/WizardFormStepIndicator.jsx";
+import { CatalogChoiceCard, IconField, WizardStepIntro } from "../../../components/formFields.jsx";
+
+const ICON_INPUT =
+  "campo-input disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-white/5";
 import { ROUTES } from "../../../router/routes.js";
 import { getAnalisis } from "../../catalogos/service/analisisService.js";
 import { getMuestras } from "../../catalogos/service/muestrasService.js";
@@ -320,29 +323,30 @@ export default function EnsayoPage() {
         e.preventDefault();
         if (currentStep < 3) goNext();
       }}
-      className="min-h-full w-full bg-gray-100 text-gray-800 dark:bg-[#0d053c] dark:text-slate-100"
+      className="campo-wizard flex min-h-full flex-1 flex-col"
     >
-      <div className="bg-yellow-400 py-2 text-center font-semibold text-blue-900">
+      <div className="campo-wizard-banner py-2.5 text-center text-sm font-bold text-blue-950 sm:text-base">
         ÁREA DE PROYECCIÓN Y EXTENSIÓN
       </div>
 
-      <div className="mx-auto w-full max-w-6xl px-6 py-8">
-        <div className="overflow-hidden rounded-xl bg-white shadow-lg">
-          <div className="p-8 md:p-10">
-            <div className="mb-8">
-              <h1 className="text-2xl font-bold text-blue-900">
-                {isEdit ? "Editar formato de ensayo" : "Nuevo formato de ensayo"}
-              </h1>
-              <p className="mt-1 text-sm text-gray-500">
-                Vincule laboratorio y orden, registre condiciones y capture los resultados por muestra.
-              </p>
-            </div>
+      <div className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
+        <WizardFormStepIndicator currentStep={currentStep} labels={ENSAYO_SECTION_LABELS} />
 
-            <WizardStepIndicator currentStep={currentStep} labels={ENSAYO_SECTION_LABELS} />
+        <div className="campo-wizard-card">
+          <div
+            className="campo-wizard-card-progress"
+            style={{ width: `${(currentStep / 3) * 100}%` }}
+            aria-hidden
+          />
+          <div className="campo-wizard-step-body campo-wizard-step-pane">
+            <WizardStepIntro
+              title={isEdit ? "Editar formato de ensayo" : "Nuevo formato de ensayo"}
+              description="Vincule laboratorio y orden, registre condiciones y capture los resultados por muestra."
+            />
 
             <div className="flex flex-col gap-6">
               {currentStep === 1 ? (
-              <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <section className="campo-section">
                 <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
                   <span className="h-7 w-1 rounded-full bg-blue-900" />
                   Identificación
@@ -359,6 +363,7 @@ export default function EnsayoPage() {
                     hint="Laboratorio que realiza el ensayo"
                     required
                     error={errors.idLaboratorio}
+                    filledValue={form.idLaboratorio}
                   >
                     <select
                       id="ensayo-laboratorio"
@@ -382,6 +387,7 @@ export default function EnsayoPage() {
                     hint="Puede cargar las muestras de la orden"
                     required
                     error={errors.idFormatoOrden}
+                    filledValue={form.idFormatoOrden}
                   >
                     <div className="flex flex-col gap-2 sm:flex-row">
                       <select
@@ -400,7 +406,7 @@ export default function EnsayoPage() {
                       <button
                         type="button"
                         onClick={() => cargarDesdeOrden(form.idFormatoOrden)}
-                        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border-2 border-blue-900 px-3 py-2 text-sm font-semibold text-blue-900 hover:bg-blue-50"
+                        className="campo-btn-outline shrink-0 px-3 py-2 text-sm"
                       >
                         <Download className="h-4 w-4" />
                         Cargar muestras
@@ -413,6 +419,7 @@ export default function EnsayoPage() {
                     tone="bg-sky-50 text-sky-700"
                     label="Elaboró"
                     hint="Usuario que registra el formato"
+                    filledValue={form.usuarioElaboracion || sessionUserName(user)}
                   >
                     <input
                       id="ensayo-usuario"
@@ -427,6 +434,7 @@ export default function EnsayoPage() {
                     tone="bg-blue-50 text-blue-800"
                     label="Fecha de elaboración"
                     hint="Registro del formato"
+                    filledValue={form.fechaElaboracion}
                   >
                     <input
                       id="ensayo-fechaElaboracion"
@@ -443,7 +451,7 @@ export default function EnsayoPage() {
                   <CatalogChoiceCard
                     selected={form.datosCampo === true}
                     icon={MapPin}
-                    tone="bg-emerald-100 text-emerald-700"
+                    tone="bg-emerald-50 text-emerald-700"
                     label="Incluye datos de campo"
                     hint="El ensayo usa mediciones tomadas en campo"
                     onClick={() => setForm((p) => ({ ...p, datosCampo: true }))}
@@ -451,7 +459,7 @@ export default function EnsayoPage() {
                   <CatalogChoiceCard
                     selected={form.datosCampo === false}
                     icon={Microscope}
-                    tone="bg-indigo-100 text-indigo-700"
+                    tone="bg-indigo-50 text-indigo-700"
                     label="Solo laboratorio"
                     hint="Sin mediciones de campo"
                     onClick={() => setForm((p) => ({ ...p, datosCampo: false }))}
@@ -461,7 +469,7 @@ export default function EnsayoPage() {
               ) : null}
 
               {currentStep === 2 ? (
-              <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <section className="campo-section">
                 <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
                   <span className="h-7 w-1 rounded-full bg-yellow-400" />
                   Periodo y condiciones
@@ -478,6 +486,7 @@ export default function EnsayoPage() {
                     hint="Día en que inicia el ensayo"
                     required
                     error={errors.fechaInicio}
+                    filledValue={form.fechaInicio}
                   >
                     <input
                       id="ensayo-fechaInicio"
@@ -495,6 +504,7 @@ export default function EnsayoPage() {
                     hint="Día en que concluye el ensayo"
                     required
                     error={errors.fechaFin}
+                    filledValue={form.fechaFin}
                   >
                     <input
                       id="ensayo-fechaFin"
@@ -513,6 +523,7 @@ export default function EnsayoPage() {
                     required
                     error={errors.planMuestreo}
                     className="md:col-span-2"
+                    filledValue={form.planMuestreo}
                   >
                     <input
                       id="ensayo-plan"
@@ -530,6 +541,7 @@ export default function EnsayoPage() {
                     hint="Temperatura, humedad u otras"
                     required
                     error={errors.condicionesAmbientales}
+                    filledValue={form.condicionesAmbientales}
                   >
                     <input
                       id="ensayo-amb"
@@ -547,6 +559,7 @@ export default function EnsayoPage() {
                     hint="Estado de la muestra al ensayar"
                     required
                     error={errors.condicionesItem}
+                    filledValue={form.condicionesItem}
                   >
                     <input
                       id="ensayo-item"
@@ -562,6 +575,7 @@ export default function EnsayoPage() {
                     tone="bg-amber-50 text-amber-800"
                     label="Clave"
                     hint="Clave o código interno (opcional)"
+                    filledValue={form.clave}
                   >
                     <input
                       id="ensayo-clave"
@@ -577,6 +591,7 @@ export default function EnsayoPage() {
                     tone="bg-violet-50 text-violet-700"
                     label="Equivalencia"
                     hint="Equivalencia o conversión (opcional)"
+                    filledValue={form.equivalencia}
                   >
                     <input
                       id="ensayo-equivalencia"
@@ -593,10 +608,11 @@ export default function EnsayoPage() {
                     label="Observaciones"
                     hint="Notas adicionales del ensayo"
                     className="md:col-span-2"
+                    filledValue={form.observaciones}
                   >
                     <textarea
                       id="ensayo-obs"
-                      className={`${ICON_INPUT} min-h-[88px] resize-y`}
+                      className="campo-input min-h-[88px] resize-y font-medium"
                       value={form.observaciones}
                       onChange={(e) => setForm((p) => ({ ...p, observaciones: e.target.value }))}
                       placeholder="Observaciones"
@@ -607,7 +623,7 @@ export default function EnsayoPage() {
               ) : null}
 
               {currentStep === 3 ? (
-              <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <section className="campo-section">
                 <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h3 className="flex items-center gap-3 text-lg font-bold text-blue-900">
@@ -621,7 +637,7 @@ export default function EnsayoPage() {
                   <button
                     type="button"
                     onClick={() => setForm((p) => ({ ...p, resultados: [...p.resultados, emptyResultado()] }))}
-                    className="inline-flex items-center gap-2 rounded-lg bg-blue-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-800"
+                    className="campo-btn-primary text-sm"
                   >
                     <Plus className="h-4 w-4" />
                     Agregar resultado
@@ -633,8 +649,11 @@ export default function EnsayoPage() {
 
                 <div className="space-y-4">
                   {form.resultados.map((fila, index) => (
-                    <article key={index} className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                      <header className="flex items-center justify-between gap-3 border-b border-gray-100 bg-slate-50 px-5 py-3">
+                    <article
+                      key={index}
+                      className="overflow-hidden rounded-xl border border-gray-200/90 bg-white/40 shadow-sm dark:border-sky-400/15 dark:bg-white/[0.03]"
+                    >
+                      <header className="flex items-center justify-between gap-3 border-b border-gray-200/80 bg-slate-50/90 px-5 py-3 dark:border-sky-400/10 dark:bg-white/5">
                         <div className="flex min-w-0 items-center gap-3">
                           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-900 text-sm font-bold text-white">
                             {index + 1}
@@ -675,6 +694,7 @@ export default function EnsayoPage() {
                           required
                           error={errors[`muestra-${index}`]}
                           className="lg:col-span-2"
+                          filledValue={fila.idMuestra}
                         >
                           <select
                             id={`ensayo-muestra-${index}`}
@@ -704,6 +724,7 @@ export default function EnsayoPage() {
                           required
                           error={errors[`analisis-${index}`]}
                           className="lg:col-span-2"
+                          filledValue={fila.idAnalisis}
                         >
                           <select
                             id={`ensayo-analisis-${index}`}
@@ -730,6 +751,7 @@ export default function EnsayoPage() {
                           tone="bg-indigo-50 text-indigo-700"
                           label="Método"
                           hint="Método analítico"
+                          filledValue={fila.metodo}
                         >
                           <input
                             id={`ensayo-metodo-${index}`}
@@ -745,6 +767,7 @@ export default function EnsayoPage() {
                           tone="bg-blue-50 text-blue-800"
                           label="Resultado"
                           hint="Valor obtenido"
+                          filledValue={fila.resultado}
                         >
                           <input
                             id={`ensayo-resultado-${index}`}
@@ -760,6 +783,7 @@ export default function EnsayoPage() {
                           tone="bg-teal-50 text-teal-700"
                           label="Unidad"
                           hint="Unidad de medida"
+                          filledValue={fila.unidad}
                         >
                           <input
                             id={`ensayo-unidad-${index}`}
@@ -775,6 +799,7 @@ export default function EnsayoPage() {
                           tone="bg-amber-50 text-amber-700"
                           label="Límite / rango"
                           hint="Cuantificación"
+                          filledValue={fila.limiteRangoCuantificacion}
                         >
                           <input
                             id={`ensayo-limite-${index}`}
@@ -792,6 +817,7 @@ export default function EnsayoPage() {
                           tone="bg-orange-50 text-orange-700"
                           label="Incertidumbre"
                           hint="Incertidumbre del método"
+                          filledValue={fila.incertidumbre}
                         >
                           <input
                             id={`ensayo-incert-${index}`}
@@ -807,6 +833,7 @@ export default function EnsayoPage() {
                           tone="bg-sky-50 text-sky-700"
                           label="Meq"
                           hint="Miliequivalentes"
+                          filledValue={fila.meq}
                         >
                           <input
                             id={`ensayo-meq-${index}`}
@@ -823,6 +850,7 @@ export default function EnsayoPage() {
                           label="VMA"
                           hint="Valor máximo admisible"
                           className="md:col-span-2 lg:col-span-2"
+                          filledValue={fila.valorMaximoAdmisible}
                         >
                           <input
                             id={`ensayo-vma-${index}`}
@@ -843,24 +871,20 @@ export default function EnsayoPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-8 py-6 md:px-10">
+          <div className="campo-wizard-footer sticky bottom-0 z-10 flex items-center justify-between gap-3 px-6 py-5 sm:px-8 md:px-10">
             <button
               type="button"
               onClick={currentStep === 1 ? () => navigate(ROUTES.ensayos) : goPrev}
-              className="flex items-center gap-2 rounded-lg border-2 border-blue-900 px-6 py-2 font-semibold text-blue-900 transition-all hover:bg-blue-50"
+              className="campo-btn-outline"
             >
               <ChevronLeft className="h-5 w-5" />
               {currentStep === 1 ? "Cancelar" : "Anterior"}
             </button>
-            <div className="text-sm font-semibold text-gray-600">
-              Paso {currentStep} de 3 — {ENSAYO_SECTION_LABELS[currentStep - 1]}
+            <div className="rounded-full bg-white/80 px-4 py-1.5 text-sm font-semibold text-slate-600 ring-1 ring-slate-200 dark:bg-white/5 dark:text-slate-300 dark:ring-white/10">
+              Paso {currentStep} de 3
             </div>
             {currentStep < 3 ? (
-              <button
-                type="button"
-                onClick={goNext}
-                className="inline-flex items-center gap-2 rounded-lg bg-blue-900 px-6 py-2 font-semibold text-white shadow-md transition-all hover:bg-blue-800 hover:shadow-lg"
-              >
+              <button type="button" onClick={goNext} className="campo-btn-primary">
                 Siguiente
                 <ChevronRight className="h-5 w-5" />
               </button>
@@ -869,13 +893,17 @@ export default function EnsayoPage() {
                 type="button"
                 disabled={saving}
                 onClick={handleSubmit}
-                className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-6 py-2 font-semibold text-white shadow-md transition-all hover:bg-green-700 hover:shadow-lg disabled:opacity-60"
+                className="campo-btn-primary campo-btn-primary--save disabled:opacity-60"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 {isEdit ? "Guardar cambios" : "Crear ensayo"}
               </button>
             )}
           </div>
+        </div>
+
+        <div className="mt-10 text-center text-sm text-gray-500 dark:text-slate-400">
+          <p>© {new Date().getFullYear()} UNAN Managua - CIRA | Formato de ensayo</p>
         </div>
       </div>
 

@@ -23,7 +23,15 @@ import EnsayosMultiSelect, {
   idsEnsayosFromRow,
   labelsEnsayos,
 } from "../components/EnsayosMultiSelect.jsx";
-import { CatalogChoiceCard, HoraChoiceCard, ICON_INPUT, IconField } from "../../../components/formFields.jsx";
+import {
+  CatalogChoiceCard,
+  HoraChoiceCard,
+  IconField,
+  WizardStepIntro,
+} from "../../../components/formFields.jsx";
+
+const ICON_INPUT =
+  "campo-input disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-white/5";
 import ValidationIssuesModal from "../../../components/ValidationIssuesModal.jsx";
 import { loadDraft, saveDraft } from "../service/planMuestreoDraftStorage.js";
 import { collectPlanIssues, issuesToFormErrors, PLAN_STEP_LABELS } from "../utils/planMuestreoValidation.js";
@@ -58,23 +66,19 @@ function TipoMuestreoModal({
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-        <h3 className="text-lg font-semibold text-blue-900">{title}</h3>
-        {description ? <p className="mt-2 text-sm text-gray-600">{description}</p> : null}
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-[#251d50] dark:ring-1 dark:ring-sky-400/20">
+        <h3 className="text-lg font-semibold text-blue-900 dark:text-sky-100">{title}</h3>
+        {description ? <p className="mt-2 text-sm text-gray-600 dark:text-slate-300">{description}</p> : null}
         <div className="mt-4">{children}</div>
         <div className="mt-5 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
-          >
+          <button type="button" onClick={onCancel} className="campo-btn-outline px-4 py-2 text-sm">
             Cancelar
           </button>
           <button
             type="button"
             disabled={confirmDisabled}
             onClick={onConfirm}
-            className="rounded-lg bg-blue-900 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="campo-btn-primary px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
           >
             {confirmText}
           </button>
@@ -285,13 +289,13 @@ export default function PlanMuestreoPaso2() {
         onPrevious={() => navigate(ROUTES.planMuestreoPaso(1))}
         onNext={irAlPaso3}
       >
-        <div className="space-y-8">
-          <div>
-            <h2 className="mb-1 text-2xl font-bold text-blue-900 sm:text-3xl">Detalle del muestreo</h2>
-            <p className="text-gray-600">Tipo de muestreo, coordinadores y puntos a muestrear</p>
-          </div>
+        <>
+          <WizardStepIntro
+            title="Detalle del muestreo"
+            description="Tipo de muestreo, coordinadores y puntos a muestrear"
+          />
 
-          <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <section className="campo-section">
             <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
               <span className="h-7 w-1 rounded-full bg-blue-900" />
               Tipo de muestreo
@@ -320,7 +324,7 @@ export default function PlanMuestreoPaso2() {
             ) : null}
 
             {paso2.tipoMuestreo === "puntual" ? (
-              <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50/70 p-4 text-sm text-gray-700">
+              <div className="campo-notice campo-notice--info mt-4 text-sm">
                 {paso2.horaPuntual ? (
                   <span>
                     Hora puntual: <span className="font-semibold text-blue-900">{paso2.horaPuntual}</span>
@@ -390,6 +394,7 @@ export default function PlanMuestreoPaso2() {
                 hint="Responsable de dirigir el muestreo"
                 required
                 error={errors.coordinador}
+                filledValue={paso2.coordinador}
               >
                 <select
                   id="plan-coordinador"
@@ -417,6 +422,7 @@ export default function PlanMuestreoPaso2() {
                 hint="Debe ser una persona distinta"
                 required
                 error={errors.reemplazoCoordinador}
+                filledValue={paso2.reemplazoCoordinador}
               >
                 <select
                   id="plan-reemplazo"
@@ -439,7 +445,7 @@ export default function PlanMuestreoPaso2() {
             </div>
           </section>
 
-          <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <section className="campo-section">
             <h3 className="mb-1 flex items-center gap-3 text-lg font-bold text-blue-900">
               <span className="h-7 w-1 rounded-full bg-yellow-400" />
               Detalle del muestreo
@@ -450,8 +456,11 @@ export default function PlanMuestreoPaso2() {
 
             <div className="space-y-4">
               {detalle.map((row, idx) => (
-                <article key={idx} className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                  <header className="flex items-center justify-between gap-3 border-b border-gray-100 bg-slate-50 px-5 py-3">
+                <article
+                  key={idx}
+                  className="overflow-hidden rounded-xl border border-gray-200/90 bg-white/40 shadow-sm dark:border-sky-400/15 dark:bg-white/[0.03]"
+                >
+                  <header className="flex items-center justify-between gap-3 border-b border-gray-200/80 bg-slate-50/90 px-5 py-3 dark:border-sky-400/10 dark:bg-white/5">
                     <div className="flex min-w-0 items-center gap-3">
                       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-900 text-sm font-bold text-white">
                         {idx + 1}
@@ -484,6 +493,7 @@ export default function PlanMuestreoPaso2() {
                       hint="Sitio o estación"
                       required
                       error={errors[`lugar-${idx}`]}
+                      filledValue={row.lugarMuestreo}
                     >
                       <input
                         id={`detalle-lugar-${idx}`}
@@ -501,6 +511,7 @@ export default function PlanMuestreoPaso2() {
                       hint="Código o nombre"
                       required
                       error={errors[`identificacion-${idx}`]}
+                      filledValue={row.identificacionMuestra}
                     >
                       <input
                         id={`detalle-id-${idx}`}
@@ -519,6 +530,7 @@ export default function PlanMuestreoPaso2() {
                       label="Coordenadas"
                       hint="Marque el punto en el mapa"
                       className="md:col-span-2"
+                      filledValue={row.coordenadas}
                     >
                       <div className="flex gap-2">
                         <input
@@ -531,7 +543,7 @@ export default function PlanMuestreoPaso2() {
                         />
                         <button
                           type="button"
-                          className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-blue-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800"
+                          className="campo-btn-primary shrink-0 px-4 py-2.5 text-sm"
                           onClick={() => setMapRowIdx(idx)}
                         >
                           <MapPin className="h-4 w-4" />
@@ -547,6 +559,7 @@ export default function PlanMuestreoPaso2() {
                       hint="Tipo de matriz de este punto"
                       required
                       error={errors[`matriz-${idx}`]}
+                      filledValue={row.idMatriz}
                     >
                       <select
                         id={`detalle-matriz-${idx}`}
@@ -577,6 +590,7 @@ export default function PlanMuestreoPaso2() {
                       tone="bg-amber-50 text-amber-800"
                       label="Fuente"
                       hint="Fuente de la matriz elegida"
+                      filledValue={row.idFuente}
                     >
                       <select
                         id={`detalle-fuente-${idx}`}
@@ -610,6 +624,7 @@ export default function PlanMuestreoPaso2() {
                       tone="bg-slate-100 text-slate-700"
                       label="Tipo de envase / Volumen"
                       hint="Plástico, vidrio, bolsa u otro"
+                      filledValue={row.tipoEnvaseVolumen}
                     >
                       <select
                         id={`detalle-envase-${idx}`}
@@ -633,6 +648,7 @@ export default function PlanMuestreoPaso2() {
                       tone="bg-violet-50 text-violet-700"
                       label="Preservantes"
                       hint="Conservante de la muestra"
+                      filledValue={row.idPreservante}
                     >
                       <select
                         id={`detalle-preservantes-${idx}`}
@@ -664,6 +680,7 @@ export default function PlanMuestreoPaso2() {
                       required
                       error={errors[`ensayos-${idx}`]}
                       className="md:col-span-2"
+                      filledValue={row.ensayosSolicitados || row.idsEnsayos?.length}
                     >
                       <EnsayosMultiSelect
                         id={`detalle-ensayos-${idx}`}
@@ -685,7 +702,7 @@ export default function PlanMuestreoPaso2() {
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-lg bg-blue-900 px-4 py-2.5 font-semibold text-white hover:bg-blue-800"
+                className="campo-btn-primary"
                 onClick={addRow}
               >
                 <Plus className="h-4 w-4" aria-hidden />
@@ -696,7 +713,7 @@ export default function PlanMuestreoPaso2() {
               </p>
             </div>
           </section>
-        </div>
+        </>
 
         <TipoMuestreoModal
           open={modalPuntualOpen}
