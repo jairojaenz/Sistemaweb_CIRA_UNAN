@@ -142,6 +142,34 @@ export function rangoDesdeZoom(zoom) {
   return Math.min(PUNTO_RANGE_MAX, Math.max(PUNTO_RANGE_MIN, estimado));
 }
 
+/** En 3D la cámara debe seguir inclinada al alejar; solo el globo va en picada. */
+export function inclinacionSegunRango(range) {
+  const r = Number(range);
+  if (!Number.isFinite(r) || r >= 8_000_000) return GLOBE_TILT;
+  if (r >= 600_000) return 52;
+  return TILT_3D;
+}
+
+function centroActual3d(mapa3d) {
+  const c = mapa3d?.center;
+  const lat = Number(c?.lat);
+  const lng = Number(c?.lng);
+  const altitude = Number(c?.altitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return { lat: NICARAGUA_CENTER.lat, lng: NICARAGUA_CENTER.lng, altitude: 0 };
+  }
+  return { lat, lng, altitude: Number.isFinite(altitude) ? altitude : 0 };
+}
+
+export function aplicarInclinacion3d(mapa3d, range) {
+  if (!mapa3d) return;
+  const r = Number.isFinite(Number(range)) ? Number(range) : numeroEnMapa3d(mapa3d, "range", 0);
+  const tilt = inclinacionSegunRango(r);
+  if (Math.abs(numeroEnMapa3d(mapa3d, "tilt", 0) - tilt) > 0.4) {
+    mapa3d.tilt = tilt;
+  }
+}
+
 export function acotarRangoPunto(mapa3d, fallback = PUNTO_RANGE_MIN) {
   if (!mapa3d) return fallback;
   const r = Number(mapa3d.range);
@@ -151,12 +179,55 @@ export function acotarRangoPunto(mapa3d, fallback = PUNTO_RANGE_MIN) {
   return acotado;
 }
 
-/** factor < 1 acerca; factor > 1 aleja */
+/** factor < 1 acerca; factor > 1 aleja. Conserva la inclinación 3D. */
 export function ajustarRango3d(mapa3d, factor) {
   if (!mapa3d) return;
   mapa3d.stopCameraAnimation?.();
   const r = acotarRangoPunto(mapa3d);
-  mapa3d.range = Math.min(PUNTO_RANGE_MAX, Math.max(PUNTO_RANGE_MIN, r * factor));
+  const next = Math.min(PUNTO_RANGE_MAX, Math.max(PUNTO_RANGE_MIN, r * factor));
+  const camera = {
+    center: centroActual3d(mapa3d),
+    range: next,
+    tilt: inclinacionSegunRango(next),
+    heading: numeroEnMapa3d(mapa3d, "heading", HEADING_3D),
+  };
+  if (typeof mapa3d.flyCameraTo === "function") {
+    mapa3d.flyCameraTo({ endCamera: camera, durationMillis: 420 });
+    return;
+  }
+  Object.assign(mapa3d, camera);
+}
+
+/** Si el gesto de zoom aplana la cámara, recupera la inclinación 3D. */
+export function vincularMantenerInclinacion3d(mapa3d) {
+  if (!mapa3d) return () => {};
+  let rafId = 0;
+
+  const restaurar = () => {
+    const range = numeroEnMapa3d(mapa3d, "range", 0);
+    aplicarInclinacion3d(mapa3d, range);
+  };
+
+  const programar = () => {
+    cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(restaurar);
+  };
+
+  const onSteady = (ev) => {
+    if (ev?.isSteady === true) restaurar();
+  };
+
+  mapa3d.addEventListener?.("gmp-steadychange", onSteady);
+  const quitarWheel = enlazarEnContenedorMapa(mapa3d, "wheel", programar, {
+    passive: true,
+    capture: true,
+  });
+
+  return () => {
+    cancelAnimationFrame(rafId);
+    mapa3d.removeEventListener?.("gmp-steadychange", onSteady);
+    quitarWheel();
+  };
 }
 
 export async function cargarMaps3d() {

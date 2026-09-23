@@ -20,6 +20,7 @@ import {
   solicitarPantallaCompleta,
   volarYOrbitarPunto3d,
   ajustarRango3d,
+  vincularMantenerInclinacion3d,
 } from "../../../utils/googleMapsNicaragua.js";
 import IconoPantallaCompleta from "../../../components/IconoPantallaCompleta.jsx";
 
@@ -161,9 +162,12 @@ export default function NicaraguaMap({
   const [cargando3d, setCargando3d] = useState(false);
   const vista3dRef = useRef(false);
   const rotacionGloboCleanupRef = useRef(null);
+  const mantenerTiltCleanupRef = useRef(null);
   const puntoOrbitaRef = useRef(null);
   const centroGloboRef = useRef(null);
   const [giroOrbitalActivo, setGiroOrbitalActivo] = useState(false);
+  const [busqueda, setBusqueda] = useState("");
+  const [listaOculta, setListaOculta] = useState(false);
 
   function avisoGiroDetenido() {
     setGiroOrbitalActivo(false);
@@ -218,9 +222,25 @@ export default function NicaraguaMap({
       const key = f.properties.idGrupo || f.properties.id;
       if (!seen.has(key)) seen.set(key, f);
     });
-    return [...seen.values()];
-  }, [features]);
+    const items = [...seen.values()];
+    const q = busqueda.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((f) => {
+      const nombre = String(f.properties.nombre || "").toLowerCase();
+      const plan = String(f.properties.plan || "").toLowerCase();
+      return nombre.includes(q) || plan.includes(q);
+    });
+  }, [features, busqueda]);
   featuresRef.current = features;
+
+  useEffect(() => {
+    setBusqueda("");
+  }, [modo]);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => redimensionarMapa(mapRef.current), 80);
+    return () => window.clearTimeout(id);
+  }, [listaOculta]);
   const estado = cargando ? "cargando" : features.length ? "listo" : "vacio";
   const esClientes = modo === "clientes";
   const sinKey = !googleMapsApiKey();
@@ -258,6 +278,8 @@ export default function NicaraguaMap({
         infoRef.current = null;
       }
       pararGiroOrbital();
+      mantenerTiltCleanupRef.current?.();
+      mantenerTiltCleanupRef.current = null;
       destruirMapa3d(map3dHost.current);
       mapa3dRef.current = null;
       mapRef.current = null;
@@ -328,6 +350,8 @@ export default function NicaraguaMap({
         idCapa: "satelite",
         restringirNicaragua: !mapaGlobo,
       });
+      mantenerTiltCleanupRef.current?.();
+      mantenerTiltCleanupRef.current = vincularMantenerInclinacion3d(mapa3dRef.current);
       sincronizarMarcadores3d(lib, mapa3dRef.current, featuresRef.current, irAPunto);
       centroGloboRef.current = centroMapa;
       puntoOrbitaRef.current = null;
@@ -354,6 +378,8 @@ export default function NicaraguaMap({
 
   function apagarVista3d() {
     pararGiroOrbital();
+    mantenerTiltCleanupRef.current?.();
+    mantenerTiltCleanupRef.current = null;
     destruirMapa3d(map3dHost.current);
     mapa3dRef.current = null;
     window.setTimeout(() => redimensionarMapa(mapRef.current), 80);
@@ -420,10 +446,12 @@ export default function NicaraguaMap({
   return (
     <div
       ref={pantallaRef}
-      className={`dash-mapa-fs grid lg:grid-cols-[minmax(0,1fr)_11rem] ${
+      className={`dash-mapa-fs grid ${
         rellenoPantalla
-          ? "h-full min-h-0 flex-1 gap-0 bg-black"
-          : `gap-4 bg-gray-100 dark:bg-[#0d053c] ${completo ? "h-full p-4" : ""}`
+          ? `geoloc-mapa-fs h-full min-h-0 flex-1 gap-0 bg-black ${
+              listaOculta ? "grid-cols-1" : "lg:grid-cols-[minmax(0,1fr)_16rem]"
+            }`
+          : `${listaOculta ? "grid-cols-1" : "lg:grid-cols-[minmax(0,1fr)_11rem]"} gap-4 bg-gray-100 dark:bg-[#0d053c] ${completo ? "h-full p-4" : ""}`
       }`}
     >
       <div className={`relative min-h-0 ${rellenoPantalla || completo ? "h-full" : ""}`}>
@@ -531,6 +559,27 @@ export default function NicaraguaMap({
             </button>
           ))}
         </div>
+        {listaOculta ? (
+          <button
+            type="button"
+            onClick={() => setListaOculta(false)}
+            title={esClientes ? "Mostrar clientes" : "Mostrar planes de muestreo"}
+            aria-label={esClientes ? "Mostrar clientes" : "Mostrar planes de muestreo"}
+            className={
+              rellenoPantalla
+                ? "geoloc-lista-abrir geoloc-mapa-btn-flotante absolute right-0 top-1/2 z-20 flex h-16 w-6 -translate-y-1/2 items-center justify-center rounded-l-lg"
+                : "absolute right-0 top-1/2 z-20 flex h-16 w-6 -translate-y-1/2 items-center justify-center rounded-l-lg bg-white text-slate-600 shadow-[0_1px_4px_rgba(0,0,0,0.3)] hover:text-slate-900 dark:bg-[#251d50] dark:text-slate-200"
+            }
+          >
+            <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+              <path
+                fillRule="evenodd"
+                d="M12.78 4.22a.75.75 0 010 1.06L8.06 10l4.72 4.72a.75.75 0 11-1.06 1.06l-5.25-5.25a.75.75 0 010-1.06l5.25-5.25a.75.75 0 011.06 0z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
+        ) : null}
         <div className="absolute bottom-2.5 right-2.5 z-20 flex flex-col gap-2">
           <button
             type="button"
@@ -615,6 +664,8 @@ export default function NicaraguaMap({
 
       <div
         className={`dash-mapa-lista flex min-h-0 flex-col ${
+          listaOculta ? "hidden" : ""
+        } ${
           rellenoPantalla
             ? "h-full border-l border-white/10 bg-black py-2 pl-2 pr-1"
             : completo
@@ -622,13 +673,62 @@ export default function NicaraguaMap({
               : alturaMapa
         }`}
       >
-        <p
-          className={`mb-2 shrink-0 px-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${
-            rellenoPantalla ? "geoloc-lista-titulo text-slate-400" : "text-slate-500"
-          }`}
-        >
-          {esClientes ? "Clientes" : "Planes de muestreo"}
-        </p>
+        <div className="mb-2 flex shrink-0 items-center gap-1 px-1">
+          <p
+            className={`min-w-0 flex-1 truncate text-[10px] font-semibold uppercase tracking-[0.16em] ${
+              rellenoPantalla ? "geoloc-lista-titulo text-slate-400" : "text-slate-500"
+            }`}
+          >
+            {esClientes ? "Clientes" : "Planes de muestreo"}
+          </p>
+          <button
+            type="button"
+            onClick={() => setListaOculta(true)}
+            title="Ocultar lista"
+            aria-label="Ocultar lista"
+            className={
+              rellenoPantalla
+                ? "geoloc-lista-cerrar flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+                : "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-100"
+            }
+          >
+            <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+              <path
+                fillRule="evenodd"
+                d="M5.22 5.22a.75.75 0 011.06 0L10 8.94l3.72-3.72a.75.75 0 111.06 1.06L11.06 10l3.72 3.72a.75.75 0 11-1.06 1.06L10 11.06l-3.72 3.72a.75.75 0 01-1.06-1.06L8.94 10 5.22 6.28a.75.75 0 010-1.06z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
+        </div>
+        <div className="relative mb-2 shrink-0 px-1">
+          <svg
+            className={`pointer-events-none absolute left-3 top-1/2 h-3 w-3 -translate-y-1/2 ${
+              rellenoPantalla ? "text-slate-500" : "text-slate-400"
+            }`}
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            aria-hidden
+          >
+            <path
+              fillRule="evenodd"
+              d="M8.5 3a5.5 5.5 0 013.96 9.24l3.15 3.15a.75.75 0 11-1.06 1.06l-3.15-3.15A5.5 5.5 0 118.5 3zm0 1.5a4 4 0 100 8 4 4 0 000-8z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <input
+            type="search"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder={esClientes ? "Buscar cliente..." : "Buscar por nombre..."}
+            aria-label={esClientes ? "Filtrar clientes por nombre" : "Filtrar muestras por nombre"}
+            className={
+              rellenoPantalla
+                ? "geoloc-lista-busqueda w-full rounded-xl py-1.5 pl-7 pr-2 text-[11px] outline-none"
+                : "w-full rounded-xl bg-white py-1.5 pl-7 pr-2 text-[11px] text-slate-700 ring-1 ring-slate-200 outline-none placeholder:text-slate-400 focus:ring-blue-300 dark:bg-[#251d50] dark:text-slate-200 dark:ring-white/10 dark:placeholder:text-slate-500 dark:focus:ring-sky-400/40"
+            }
+          />
+        </div>
         <ul className="dash-scroll min-h-0 flex-1 space-y-2 overflow-y-auto overflow-x-hidden pr-1">
           {listaLateral.length ? (
             listaLateral.map((f, i) => (
@@ -663,7 +763,11 @@ export default function NicaraguaMap({
             <li
               className={`px-2.5 text-[11px] ${rellenoPantalla ? "geoloc-lista-vacio" : "text-slate-500"}`}
             >
-              {esClientes ? "Sin clientes aún" : "Sin planes aún"}
+              {busqueda.trim()
+                ? "Sin coincidencias"
+                : esClientes
+                  ? "Sin clientes aún"
+                  : "Sin planes aún"}
             </li>
           )}
         </ul>
