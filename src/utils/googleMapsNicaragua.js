@@ -199,6 +199,13 @@ export function rangoDesdeZoom(zoom) {
   return Math.min(PUNTO_RANGE_MAX, Math.max(PUNTO_RANGE_MIN, estimado));
 }
 
+export function zoomDesdeRango(range) {
+  const r = Number(range);
+  if (!Number.isFinite(r) || r <= 0) return 14;
+  const z = 6 + Math.log2(1_100_000 / r);
+  return Math.min(20, Math.max(6, z));
+}
+
 /** En 3D la cámara debe seguir inclinada al alejar; solo el globo va en picada. */
 export function inclinacionSegunRango(range) {
   const r = Number(range);
@@ -207,7 +214,7 @@ export function inclinacionSegunRango(range) {
   return TILT_3D;
 }
 
-function centroActual3d(mapa3d) {
+export function centroActual3d(mapa3d) {
   const c = mapa3d?.center;
   const lat = Number(c?.lat);
   const lng = Number(c?.lng);
@@ -299,7 +306,11 @@ export function modoMapa3d(idCapa) {
   return idCapa === "calles" ? "HYBRID" : "SATELLITE";
 }
 
-export function crearMapa3d(lib, host, { center, zoom, idCapa, restringirNicaragua = true } = {}) {
+export function crearMapa3d(
+  lib,
+  host,
+  { center, zoom, idCapa, restringirNicaragua = true, range, tilt } = {},
+) {
   const { Map3DElement } = lib;
   if (!Map3DElement) {
     throw new Error("Google Maps no devolvió Map3DElement");
@@ -307,12 +318,24 @@ export function crearMapa3d(lib, host, { center, zoom, idCapa, restringirNicarag
   const punto = center || NICARAGUA_CENTER;
   const zoomEfectivo = zoom ?? (restringirNicaragua ? 6.4 : 4.2);
   const camaraGlobo = camaraGloboDesdeCentro(punto);
+  const acercado =
+    Number.isFinite(Number(range)) || (Number.isFinite(Number(zoomEfectivo)) && Number(zoomEfectivo) >= 10);
+  const rangeFinal = Number.isFinite(Number(range))
+    ? Number(range)
+    : acercado || restringirNicaragua
+      ? rangoDesdeZoom(zoomEfectivo)
+      : camaraGlobo.range;
+  const tiltFinal = Number.isFinite(Number(tilt))
+    ? Number(tilt)
+    : acercado || restringirNicaragua
+      ? TILT_3D
+      : camaraGlobo.tilt;
   const base = {
     mode: modoMapa3d(idCapa),
-    center: restringirNicaragua ? { lat: punto.lat, lng: punto.lng, altitude: 0 } : camaraGlobo.center,
-    range: restringirNicaragua ? rangoDesdeZoom(zoomEfectivo) : camaraGlobo.range,
-    tilt: restringirNicaragua ? TILT_3D : camaraGlobo.tilt,
-    heading: restringirNicaragua ? HEADING_3D : camaraGlobo.heading,
+    center: { lat: punto.lat, lng: punto.lng, altitude: 0 },
+    range: rangeFinal,
+    tilt: tiltFinal,
+    heading: HEADING_3D,
     defaultUIHidden: true,
     gestureHandling: "GREEDY",
   };
@@ -632,7 +655,10 @@ export function sincronizarMarcadores3d(lib, mapa3d, features, onClick) {
   });
 }
 
-export function opcionesMapaNicaragua(maps, { center, zoom, mapTypeId = "hybrid", zoomControl = true } = {}) {
+export function opcionesMapaNicaragua(
+  maps,
+  { center, zoom, mapTypeId = "hybrid", zoomControl = true, streetViewControl = false } = {},
+) {
   return {
     center: center || NICARAGUA_CENTER,
     zoom: zoom ?? 6.4,
@@ -641,8 +667,12 @@ export function opcionesMapaNicaragua(maps, { center, zoom, mapTypeId = "hybrid"
     mapTypeId,
     disableDefaultUI: true,
     zoomControl,
+    streetViewControl,
     ...(zoomControl
       ? { zoomControlOptions: { position: maps.ControlPosition?.TOP_LEFT ?? 1 } }
+      : {}),
+    ...(streetViewControl
+      ? { streetViewControlOptions: { position: maps.ControlPosition?.LEFT_BOTTOM ?? 6 } }
       : {}),
     gestureHandling: "greedy",
     restriction: {
@@ -650,4 +680,296 @@ export function opcionesMapaNicaragua(maps, { center, zoom, mapTypeId = "hybrid"
       strictBounds: false,
     },
   };
+}
+
+const SV_RANGE_CALLE_M = 34;
+const SV_TILT_CALLE = 82;
+export const SV_VUELO_MS = 1650;
+export const SV_ZOOM_CALLE = 19;
+
+function easeInOutCubic(t) {
+  return t < 0.5 ? 4 * t * t * t : 1 - (Math.pow(-2 * t + 2, 3) / 2);
+}
+
+export function esperarMs(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+export function headingEntre(a, b) {
+  if (!a || !b) return 0;
+  const dLng = ((Number(b.lng) - Number(a.lng)) * Math.PI) / 180;
+  const lat1 = (Number(a.lat) * Math.PI) / 180;
+  const lat2 = (Number(b.lat) * Math.PI) / 180;
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+
+export function leerCamara3d(mapa3d) {
+  if (!mapa3d) return null;
+  const c = centroActual3d(mapa3d);
+  return {
+    lat: c.lat,
+    lng: c.lng,
+    altitude: c.altitude,
+    range: numeroEnMapa3d(mapa3d, "range", 800),
+    tilt: numeroEnMapa3d(mapa3d, "tilt", TILT_3D),
+    heading: numeroEnMapa3d(mapa3d, "heading", HEADING_3D),
+  };
+}
+
+export function camaraInmersionStreetView({ lat, lng, heading }) {
+  return {
+    lat,
+    lng,
+    altitude: 0,
+    range: SV_RANGE_CALLE_M,
+    tilt: SV_TILT_CALLE,
+    heading: Number.isFinite(Number(heading)) ? Number(heading) : HEADING_3D,
+  };
+}
+
+export function volarCamara3d(mapa3d, camera, durationMillis = SV_VUELO_MS) {
+  return new Promise((resolve) => {
+    if (!mapa3d || !camera) {
+      resolve();
+      return;
+    }
+    const endCamera = {
+      center: {
+        lat: Number(camera.lat),
+        lng: Number(camera.lng),
+        altitude: Number.isFinite(Number(camera.altitude)) ? Number(camera.altitude) : 0,
+      },
+      range: Number(camera.range) || SV_RANGE_CALLE_M,
+      tilt: Number.isFinite(Number(camera.tilt)) ? Number(camera.tilt) : SV_TILT_CALLE,
+      heading: Number.isFinite(Number(camera.heading)) ? Number(camera.heading) : HEADING_3D,
+    };
+    mapa3d.stopCameraAnimation?.();
+    if (typeof mapa3d.flyCameraTo !== "function") {
+      Object.assign(mapa3d, endCamera);
+      resolve();
+      return;
+    }
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      window.clearTimeout(tid);
+      mapa3d.removeEventListener?.("gmp-animationend", finish);
+      resolve();
+    };
+    const tid = window.setTimeout(finish, durationMillis + 280);
+    mapa3d.addEventListener("gmp-animationend", finish, { once: true });
+    mapa3d.flyCameraTo({ endCamera, durationMillis });
+  });
+}
+
+export function animarVista2d(map, { lat, lng, zoom }, duracion = 1200) {
+  return new Promise((resolve) => {
+    if (!map || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) {
+      resolve();
+      return;
+    }
+    const c0 = map.getCenter?.();
+    const lat0 = Number.isFinite(c0?.lat?.()) ? c0.lat() : Number(lat);
+    const lng0 = Number.isFinite(c0?.lng?.()) ? c0.lng() : Number(lng);
+    const z0 = Number(map.getZoom?.());
+    const z1 = Number.isFinite(Number(zoom)) ? Number(zoom) : z0;
+    const zoom0 = Number.isFinite(z0) ? z0 : z1;
+    const t0 = performance.now();
+    const step = (now) => {
+      const t = Math.min(1, (now - t0) / duracion);
+      const e = easeInOutCubic(t);
+      map.setCenter({
+        lat: lat0 + (Number(lat) - lat0) * e,
+        lng: lng0 + (Number(lng) - lng0) * e,
+      });
+      if (Number.isFinite(zoom0) && Number.isFinite(z1)) {
+        map.setZoom(zoom0 + (z1 - zoom0) * e);
+      }
+      if (t < 1) {
+        window.requestAnimationFrame(step);
+        return;
+      }
+      resolve();
+    };
+    window.requestAnimationFrame(step);
+  });
+}
+
+const OPCIONES_PANORAMA_SV = {
+  visible: false,
+  disableDefaultUI: false,
+  enableCloseButton: false,
+  imageDateControl: true,
+  addressControl: false,
+  fullscreenControl: false,
+  motionTracking: false,
+  motionTrackingControl: false,
+  panControl: false,
+  zoomControl: false,
+  linksControl: true,
+  clickToGo: true,
+  scrollwheel: true,
+};
+
+export function configurarStreetView(map) {
+  const sv = map?.getStreetView?.();
+  if (!sv) return null;
+  sv.setOptions({ ...OPCIONES_PANORAMA_SV, visible: false });
+  return sv;
+}
+
+export function crearPanoramaStreetView(maps, host, { esCalle = true } = {}) {
+  if (!maps?.StreetViewPanorama || !host) return null;
+  host.replaceChildren();
+  return new maps.StreetViewPanorama(host, {
+    ...OPCIONES_PANORAMA_SV,
+    linksControl: esCalle,
+    clickToGo: esCalle,
+  });
+}
+
+export function destruirPanoramaStreetView(sv, host, maps) {
+  sv?.setVisible(false);
+  if (maps?.event && sv) maps.event.clearInstanceListeners(sv);
+  host?.replaceChildren();
+}
+
+export function redimensionarPanorama(maps, sv) {
+  if (!sv || !maps?.event) return;
+  maps.event.trigger(sv, "resize");
+}
+
+export function mostrarCoberturaStreetView(maps, map) {
+  const layer = new maps.StreetViewCoverageLayer();
+  layer.setMap(map);
+  return layer;
+}
+
+function metrosEntre(a, b) {
+  const r = 6371000;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const lat1 = (a.lat * Math.PI) / 180;
+  const lat2 = (b.lat * Math.PI) / 180;
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * r * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+function panoramaDesdeData(data, origen) {
+  const latLng = data?.location?.latLng;
+  if (!latLng) return null;
+  const lat = latLng.lat();
+  const lng = latLng.lng();
+  const rumbo =
+    Number(data.tiles?.centerHeading) ||
+    Number(data.tiles?.originHeading) ||
+    Number(data.links?.[0]?.heading);
+  const esCalle = Array.isArray(data.links) && data.links.length > 0;
+  return {
+    lat,
+    lng,
+    pano: data.location.pano,
+    heading: Number.isFinite(rumbo) ? rumbo : undefined,
+    esCalle,
+    metros: origen ? metrosEntre(origen, { lat, lng }) : 0,
+  };
+}
+
+function pedirPanorama(maps, { lat, lng, radius, source }) {
+  return new Promise((resolve) => {
+    const svc = new maps.StreetViewService();
+    svc.getPanorama(
+      {
+        location: { lat, lng },
+        radius,
+        source,
+        preference: maps.StreetViewPreference?.NEAREST ?? "nearest",
+      },
+      (data, status) => {
+        if ((status === "OK" || status === maps.StreetViewStatus?.OK) && data?.location?.latLng) {
+          resolve(panoramaDesdeData(data, { lat, lng }));
+          return;
+        }
+        resolve(null);
+      },
+    );
+  });
+}
+
+export async function consultarPanoramaStreetView(
+  maps,
+  { lat, lng, radius = 80, desdePunto = false },
+) {
+  const outdoor = maps.StreetViewSource?.OUTDOOR ?? "outdoor";
+  const defecto = maps.StreetViewSource?.DEFAULT ?? "default";
+
+  if (desdePunto) {
+    const lugar = await pedirPanorama(maps, { lat, lng, radius: Math.min(radius, 80), source: defecto });
+    if (lugar && !lugar.esCalle && lugar.metros <= 80) return { ...lugar, esCalle: false };
+    if (lugar && lugar.metros <= 80) return lugar;
+    const calleCerca = await pedirPanorama(maps, { lat, lng, radius, source: outdoor });
+    if (calleCerca?.esCalle && calleCerca.metros <= radius) return calleCerca;
+    return lugar && lugar.metros <= 80 ? { ...lugar, esCalle: Boolean(lugar.esCalle) } : null;
+  }
+
+  const calle = await pedirPanorama(maps, { lat, lng, radius, source: outdoor });
+  if (calle?.esCalle && calle.metros <= radius) return calle;
+  const lugar = await pedirPanorama(maps, { lat, lng, radius: 40, source: defecto });
+  if (lugar && lugar.metros <= 40) return { ...lugar, esCalle: Boolean(lugar.esCalle) };
+  return null;
+}
+
+export function esperarPanoramaListo(maps, sv, timeout = 2800) {
+  return new Promise((resolve) => {
+    if (!sv) {
+      resolve(false);
+      return;
+    }
+    let done = false;
+    const finish = (ok) => {
+      if (done) return;
+      done = true;
+      window.clearTimeout(tid);
+      if (listener && maps?.event) maps.event.removeListener(listener);
+      resolve(ok);
+    };
+    const revisar = () => {
+      const st = sv.getStatus?.();
+      if (st === "OK" || st === maps.StreetViewStatus?.OK) {
+        finish(Boolean(sv.getPano?.()));
+        return;
+      }
+      if (st === "ZERO_RESULTS" || st === maps.StreetViewStatus?.ZERO_RESULTS) {
+        finish(false);
+      }
+    };
+    const listener = maps?.event ? maps.event.addListener(sv, "status_changed", revisar) : null;
+    const tid = window.setTimeout(() => finish(Boolean(sv.getVisible?.() && sv.getPano?.())), timeout);
+    revisar();
+  });
+}
+
+export function abrirStreetViewEn(sv, { lat, lng, pano, heading = 0, esCalle = true }) {
+  if (!sv) return;
+  const esLugar = esCalle === false;
+  sv.setOptions({
+    ...OPCIONES_PANORAMA_SV,
+    visible: true,
+    linksControl: !esLugar,
+    clickToGo: !esLugar,
+  });
+  if (pano) sv.setPano(pano);
+  if (!esLugar) sv.setPosition({ lat, lng });
+  sv.setPov({ heading: Number.isFinite(Number(heading)) ? Number(heading) : 0, pitch: 0 });
+  sv.setZoom(1);
+  sv.setVisible(true);
+}
+
+export function cerrarStreetView(sv) {
+  sv?.setVisible(false);
 }

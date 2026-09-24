@@ -21,6 +21,20 @@ import {
   volarYOrbitarPunto3d,
   ajustarRango3d,
   vincularMantenerInclinacion3d,
+  zoomDesdeRango,
+  configurarStreetView,
+  mostrarCoberturaStreetView,
+  consultarPanoramaStreetView,
+  crearPanoramaStreetView,
+  destruirPanoramaStreetView,
+  redimensionarPanorama,
+  esperarPanoramaListo,
+  abrirStreetViewEn,
+  esperarMs,
+  headingEntre,
+  leerCamara3d,
+  animarVista2d,
+  SV_ZOOM_CALLE,
 } from "../../../utils/googleMapsNicaragua.js";
 import IconoPantallaCompleta from "../../../components/IconoPantallaCompleta.jsx";
 
@@ -115,7 +129,7 @@ function popupHtml(props) {
   </div>`;
 }
 
-function syncMarkers(maps, map, features, markersRef, infoRef) {
+function syncMarkers(maps, map, features, markersRef, infoRef, onPunto) {
   markersRef.current.forEach((m) => m.setMap(null));
   const icon = iconoPin(maps);
   markersRef.current = (features ?? []).map((f) => {
@@ -126,6 +140,7 @@ function syncMarkers(maps, map, features, markersRef, infoRef) {
       title: f.properties.nombre,
     });
     marker.addListener("click", () => {
+      if (onPunto?.(f)) return;
       if (!infoRef.current) infoRef.current = new maps.InfoWindow();
       infoRef.current.setContent(popupHtml(f.properties));
       infoRef.current.open({ map, anchor: marker });
@@ -168,6 +183,23 @@ export default function NicaraguaMap({
   const [giroOrbitalActivo, setGiroOrbitalActivo] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [listaOculta, setListaOculta] = useState(false);
+  const [modoStreetView, setModoStreetView] = useState(false);
+  const modoStreetViewRef = useRef(false);
+  const [panoramaStreetView, setPanoramaStreetView] = useState(false);
+  const [avisoStreetView, setAvisoStreetView] = useState("");
+  const coberturaSvRef = useRef(null);
+  const clickSvRef = useRef(null);
+  const visibleSvRef = useRef(null);
+  const streetViewDesde3dRef = useRef(false);
+  const streetViewOrigenRef = useRef(null);
+  const abriendoSvRef = useRef(false);
+  const transicionSvRef = useRef(false);
+  const svHost = useRef(null);
+  const svPanoRef = useRef(null);
+  const abrirSvRef = useRef(null);
+  const onPuntoSvRef = useRef(null);
+  const [veloSv, setVeloSv] = useState(false);
+  modoStreetViewRef.current = modoStreetView;
 
   function avisoGiroDetenido() {
     setGiroOrbitalActivo(false);
@@ -257,10 +289,19 @@ export default function NicaraguaMap({
             zoom: 6.4,
             mapTypeId: mapTypeDeCapa("satelite"),
             zoomControl: false,
+            streetViewControl: false,
           }),
         );
         mapRef.current = created;
-        syncMarkers(maps, created, featuresRef.current, markersRef, infoRef);
+        const sv = configurarStreetView(created);
+        if (sv && maps.event) {
+          visibleSvRef.current = maps.event.addListener(sv, "visible_changed", () => {
+            if (sv.getVisible()) sv.setVisible(false);
+          });
+        }
+        syncMarkers(maps, created, featuresRef.current, markersRef, infoRef, (f) =>
+          onPuntoSvRef.current?.(f),
+        );
       })
       .catch((err) => {
         if (!cancelled) setErrorMapa(err?.message || "No se pudo cargar Google Maps");
@@ -277,6 +318,19 @@ export default function NicaraguaMap({
       pararGiroOrbital();
       mantenerTiltCleanupRef.current?.();
       mantenerTiltCleanupRef.current = null;
+      coberturaSvRef.current?.setMap(null);
+      coberturaSvRef.current = null;
+      if (clickSvRef.current && mapsRef.current?.event) {
+        mapsRef.current.event.removeListener(clickSvRef.current);
+        clickSvRef.current = null;
+      }
+      if (visibleSvRef.current && mapsRef.current?.event) {
+        mapsRef.current.event.removeListener(visibleSvRef.current);
+        visibleSvRef.current = null;
+      }
+      destruirPanoramaStreetView(svPanoRef.current, svHost.current, mapsRef.current);
+      svPanoRef.current = null;
+      setPanoramaStreetView(false);
       destruirMapa3d(map3dHost.current);
       mapa3dRef.current = null;
       mapRef.current = null;
@@ -299,7 +353,9 @@ export default function NicaraguaMap({
 
   useEffect(() => {
     if (mapRef.current && mapsRef.current && !vista3dRef.current) {
-      syncMarkers(mapsRef.current, mapRef.current, features, markersRef, infoRef);
+      syncMarkers(mapsRef.current, mapRef.current, features, markersRef, infoRef, (f) =>
+        onPuntoSvRef.current?.(f),
+      );
     }
     if (vista3dRef.current && mapa3dRef.current && lib3dRef.current) {
       sincronizarMarcadores3d(lib3dRef.current, mapa3dRef.current, features, irAPunto);
@@ -331,19 +387,33 @@ export default function NicaraguaMap({
     if (mapRef.current) mapRef.current.setMapTypeId(mapTypeDeCapa(id));
   }
 
-  async function activarVista3d() {
+  async function activarVista3d({ forzar = false } = {}) {
     if (!map3dHost.current) return;
+    vista3dRef.current = true;
+    setVista3d(true);
+    if (mapa3dRef.current && !forzar) return;
+    if (forzar && mapa3dRef.current) {
+      destruirMapa3d(map3dHost.current);
+      mapa3dRef.current = null;
+    }
     setCargando3d(true);
     setError3d("");
     try {
       const lib = await cargarMaps3d();
       if (!vista3dRef.current) return;
       lib3dRef.current = lib;
+      const origen = streetViewOrigenRef.current;
+      const restaurar = Boolean(origen?.desde3d);
       const center = mapRef.current?.getCenter?.();
-      const centroMapa = center ? { lat: center.lat(), lng: center.lng() } : undefined;
+      const centroMapa = restaurar
+        ? { lat: origen.lat, lng: origen.lng }
+        : center
+          ? { lat: center.lat(), lng: center.lng() }
+          : undefined;
       mapa3dRef.current = crearMapa3d(lib, map3dHost.current, {
         center: centroMapa,
-        zoom: mapRef.current?.getZoom?.() ?? (mapaGlobo ? 4.2 : 6.4),
+        zoom: restaurar ? origen.zoom : mapRef.current?.getZoom?.() ?? (mapaGlobo ? 4.2 : 6.4),
+        range: restaurar ? origen.range : undefined,
         idCapa: "satelite",
         restringirNicaragua: !mapaGlobo,
       });
@@ -351,9 +421,9 @@ export default function NicaraguaMap({
       mantenerTiltCleanupRef.current = vincularMantenerInclinacion3d(mapa3dRef.current);
       sincronizarMarcadores3d(lib, mapa3dRef.current, featuresRef.current, irAPunto);
       centroGloboRef.current = centroMapa;
-      puntoOrbitaRef.current = null;
+      if (!restaurar) puntoOrbitaRef.current = null;
       pararGiroOrbital();
-      if (mapaGlobo) {
+      if (mapaGlobo && !restaurar) {
         rotacionGloboCleanupRef.current = iniciarRotacionGlobo(mapa3dRef.current, {
           center: centroMapa,
           alDetenerse: avisoGiroDetenido,
@@ -373,24 +443,258 @@ export default function NicaraguaMap({
     }
   }
 
+  function revelarMapa2d() {
+    mapEl.current?.classList.remove("invisible");
+    map3dHost.current?.classList.add("hidden");
+  }
+
   function apagarVista3d() {
     pararGiroOrbital();
     mantenerTiltCleanupRef.current?.();
     mantenerTiltCleanupRef.current = null;
+    revelarMapa2d();
     destruirMapa3d(map3dHost.current);
     mapa3dRef.current = null;
     window.setTimeout(() => redimensionarMapa(mapRef.current), 80);
   }
 
-  function alternarVista3d() {
-    const next = !vista3dRef.current;
-    vista3dRef.current = next;
-    setVista3d(next);
-    if (next) {
-      activarVista3d();
+  function aplicarVista2d(origen) {
+    const map = mapRef.current;
+    if (!map || !origen) return;
+    map.setCenter({ lat: origen.lat, lng: origen.lng });
+    if (Number.isFinite(origen.zoom)) map.setZoom(origen.zoom);
+    redimensionarMapa(map);
+  }
+
+  function capturarOrigenVista() {
+    const centro = centroVistaActual();
+    if (!centro) return null;
+    const desde3d = Boolean(vista3dRef.current && mapa3dRef.current);
+    if (desde3d) {
+      const cam = leerCamara3d(mapa3dRef.current);
+      return {
+        ...cam,
+        zoom: zoomDesdeRango(cam?.range),
+        desde3d: true,
+      };
+    }
+    return {
+      lat: centro.lat,
+      lng: centro.lng,
+      zoom: mapRef.current?.getZoom?.() ?? 14,
+      desde3d: false,
+    };
+  }
+
+  function cerrarPanoramaPropio() {
+    destruirPanoramaStreetView(svPanoRef.current, svHost.current, mapsRef.current);
+    svPanoRef.current = null;
+    mapRef.current?.getStreetView?.()?.setVisible(false);
+  }
+
+  function limpiarModoStreetView() {
+    const maps = mapsRef.current;
+    coberturaSvRef.current?.setMap(null);
+    coberturaSvRef.current = null;
+    if (clickSvRef.current && maps?.event) {
+      maps.event.removeListener(clickSvRef.current);
+      clickSvRef.current = null;
+    }
+    setModoStreetView(false);
+    setPanoramaStreetView(false);
+    abriendoSvRef.current = false;
+    setAvisoStreetView("");
+    setVeloSv(false);
+    transicionSvRef.current = false;
+  }
+
+  async function salirModoStreetView({ volverA3d = false } = {}) {
+    const map = mapRef.current;
+    const origen = streetViewOrigenRef.current;
+    const restaurar3d = Boolean(volverA3d || streetViewDesde3dRef.current);
+    transicionSvRef.current = true;
+    setVeloSv(false);
+    cerrarPanoramaPropio();
+    setPanoramaStreetView(false);
+    abriendoSvRef.current = false;
+
+    if (restaurar3d) {
+      if (mapa3dRef.current) {
+        destruirMapa3d(map3dHost.current);
+        mapa3dRef.current = null;
+      }
+      streetViewDesde3dRef.current = false;
+      limpiarModoStreetView();
+      if (origen) aplicarVista2d(origen);
+      await esperarMs(40);
+      await activarVista3d({ forzar: true });
       return;
     }
-    apagarVista3d();
+
+    revelarMapa2d();
+    vista3dRef.current = false;
+    setVista3d(false);
+    if (origen) {
+      aplicarVista2d({ lat: origen.lat, lng: origen.lng, zoom: SV_ZOOM_CALLE });
+      await animarVista2d(map, origen, 900);
+    }
+    streetViewDesde3dRef.current = false;
+    limpiarModoStreetView();
+  }
+
+  async function abrirStreetViewEnPunto(lat, lng, { desdePunto = false } = {}) {
+    const maps = mapsRef.current;
+    const map = mapRef.current;
+    if (!maps || !map || transicionSvRef.current) return false;
+    const hallado = await consultarPanoramaStreetView(maps, {
+      lat,
+      lng,
+      radius: desdePunto ? 250 : 80,
+      desdePunto,
+    });
+    if (!hallado) return false;
+
+    transicionSvRef.current = true;
+    const origen = streetViewOrigenRef.current;
+    const heading = Number.isFinite(hallado.heading)
+      ? hallado.heading
+      : headingEntre(origen || hallado, hallado);
+
+    try {
+      revelarMapa2d();
+      vista3dRef.current = false;
+      setVista3d(false);
+      setVeloSv(false);
+      aplicarVista2d({
+        lat: hallado.lat,
+        lng: hallado.lng,
+        zoom: Math.min(map.getZoom?.() ?? 14, 16),
+      });
+      redimensionarMapa(map);
+      await esperarMs(80);
+      await animarVista2d(map, { lat: hallado.lat, lng: hallado.lng, zoom: SV_ZOOM_CALLE }, 1100);
+      redimensionarMapa(map);
+      await esperarMs(40);
+
+      setPanoramaStreetView(true);
+      await esperarMs(60);
+      cerrarPanoramaPropio();
+      const host = svHost.current;
+      if (!host) return false;
+      const pano = crearPanoramaStreetView(maps, host, { esCalle: hallado.esCalle !== false });
+      if (!pano) return false;
+      svPanoRef.current = pano;
+      abriendoSvRef.current = true;
+      abrirStreetViewEn(pano, { ...hallado, heading, esCalle: hallado.esCalle !== false });
+      redimensionarPanorama(maps, pano);
+      const listo = await esperarPanoramaListo(maps, pano);
+      redimensionarPanorama(maps, pano);
+      if (!listo) {
+        cerrarPanoramaPropio();
+        abriendoSvRef.current = false;
+        setPanoramaStreetView(false);
+        revelarMapa2d();
+        aplicarVista2d(origen || hallado);
+        return false;
+      }
+      setAvisoStreetView(
+        hallado.esCalle === false ? "Vista del lugar. Aquí no hay desplazamiento por calle." : "",
+      );
+      return true;
+    } catch {
+      cerrarPanoramaPropio();
+      abriendoSvRef.current = false;
+      setPanoramaStreetView(false);
+      revelarMapa2d();
+      return false;
+    } finally {
+      setVeloSv(false);
+      transicionSvRef.current = false;
+    }
+  }
+
+  abrirSvRef.current = abrirStreetViewEnPunto;
+  onPuntoSvRef.current = (f) => {
+    if (!modoStreetViewRef.current) return false;
+    abrirStreetViewEnPunto(f.properties.lat, f.properties.lng, { desdePunto: true }).then((ok) => {
+      if (!ok) {
+        setAvisoStreetView("Este punto no tiene Street View cerca. Haz clic en una calle azul.");
+      }
+    });
+    return true;
+  };
+
+  function centroVistaActual() {
+    if (vista3dRef.current && mapa3dRef.current) {
+      const c = mapa3dRef.current.center;
+      const lat = Number(c?.lat);
+      const lng = Number(c?.lng);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+    }
+    const center = mapRef.current?.getCenter?.();
+    if (!center) return null;
+    return { lat: center.lat(), lng: center.lng() };
+  }
+
+  async function alternarStreetView() {
+    if (transicionSvRef.current) return;
+    if (modoStreetView) {
+      await salirModoStreetView();
+      return;
+    }
+    const maps = mapsRef.current;
+    const map = mapRef.current;
+    if (!maps || !map) return;
+
+    const origen = capturarOrigenVista();
+    streetViewOrigenRef.current = origen;
+    streetViewDesde3dRef.current = Boolean(origen?.desde3d);
+    abriendoSvRef.current = false;
+    cerrarPanoramaPropio();
+    setPanoramaStreetView(false);
+    aplicarVista2d(origen);
+    pararGiroOrbital();
+
+    if (vista3dRef.current) {
+      vista3dRef.current = false;
+      setVista3d(false);
+      window.setTimeout(() => {
+        aplicarVista2d(origen);
+        redimensionarMapa(map);
+      }, 80);
+    }
+
+    setModoStreetView(true);
+    coberturaSvRef.current?.setMap(null);
+    coberturaSvRef.current = mostrarCoberturaStreetView(maps, map);
+
+    if (clickSvRef.current && maps.event) maps.event.removeListener(clickSvRef.current);
+    clickSvRef.current = map.addListener("click", (e) => {
+      const lat = e.latLng?.lat?.();
+      const lng = e.latLng?.lng?.();
+      if (lat == null || lng == null) return;
+      abrirStreetViewEnPunto(lat, lng).then((ok) => {
+        if (!ok) {
+          setAvisoStreetView("No hay Street View aquí. Haz clic en una calle destacada (línea azul).");
+        }
+      });
+    });
+
+    setAvisoStreetView("Haz clic en una calle destacada o en un punto con cobertura.");
+  }
+
+  async function alternarVista3d() {
+    if (panoramaStreetView || modoStreetView) {
+      await salirModoStreetView({ volverA3d: true });
+      return;
+    }
+    if (vista3dRef.current) {
+      vista3dRef.current = false;
+      setVista3d(false);
+      apagarVista3d();
+      return;
+    }
+    await activarVista3d({ forzar: true });
   }
 
   function cambiarZoom(delta) {
@@ -409,6 +713,10 @@ export default function NicaraguaMap({
 
   function irAPunto(feature) {
     if (!feature) return;
+    if (modoStreetViewRef.current) {
+      onPuntoSvRef.current?.(feature);
+      return;
+    }
     if (vista3dRef.current && mapa3dRef.current) {
       puntoOrbitaRef.current = {
         lat: feature.properties.lat,
@@ -454,13 +762,27 @@ export default function NicaraguaMap({
       <div className={`relative min-h-0 ${rellenoPantalla || completo ? "h-full" : ""}`}>
         <div
           ref={mapEl}
-          className={`dash-demanda-map w-full overflow-hidden ${mapaShellClass} ${vista3d ? "invisible" : ""}`}
+          className={`dash-demanda-map w-full overflow-hidden ${mapaShellClass} ${
+            vista3d ? "invisible" : ""
+          } ${panoramaStreetView ? "geoloc-sv-vivo" : ""}`}
         />
         <div
           ref={map3dHost}
           className={`dash-demanda-map absolute inset-0 overflow-hidden ${mapaShellClass} ${
             vista3d ? "" : "hidden"
           }`}
+        />
+        <div
+          ref={svHost}
+          className={`geoloc-sv-host absolute inset-0 z-[15] overflow-hidden ${mapaShellClass} ${
+            panoramaStreetView ? "" : "hidden"
+          }`}
+        />
+        <div
+          className={`geoloc-sv-velo pointer-events-none absolute inset-0 z-[25] bg-black transition-opacity duration-300 ${
+            veloSv ? "opacity-100" : "opacity-0"
+          }`}
+          aria-hidden
         />
         <div className="absolute left-2 top-2 z-20 flex flex-col gap-1.5">
           <div
@@ -581,7 +903,51 @@ export default function NicaraguaMap({
             </svg>
           </button>
         ) : null}
+        {panoramaStreetView ? (
+          <div className="absolute bottom-2.5 left-2 z-30 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => salirModoStreetView()}
+              title="Salir de Street View"
+              aria-label="Salir de Street View"
+              className={`geoloc-mapa-btn-flotante flex h-10 items-center gap-1.5 rounded px-3 text-[11px] font-semibold ${
+                rellenoPantalla ? "" : "bg-white text-[#666] shadow-[0_1px_4px_rgba(0,0,0,0.3)]"
+              }`}
+            >
+              Salir
+            </button>
+            <button
+              type="button"
+              onClick={alternarVista3d}
+              title="Volver a vista 3D"
+              aria-label="Volver a vista 3D"
+              className={`geoloc-mapa-btn-flotante flex h-10 w-10 items-center justify-center rounded text-[13px] font-bold ${
+                rellenoPantalla ? "" : "bg-white text-[#666] shadow-[0_1px_4px_rgba(0,0,0,0.3)]"
+              }`}
+            >
+              3D
+            </button>
+          </div>
+        ) : (
         <div className="absolute bottom-2.5 right-2.5 z-20 flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={alternarStreetView}
+            title={modoStreetView ? "Salir de Street View" : "Street View"}
+            aria-label={modoStreetView ? "Salir de Street View" : "Street View"}
+            aria-pressed={modoStreetView}
+            className={`geoloc-mapa-btn-flotante flex h-10 w-10 items-center justify-center rounded ${
+              modoStreetView
+                ? "geoloc-mapa-btn-flotante--activo"
+                : rellenoPantalla
+                  ? ""
+                  : "bg-white text-[#666] shadow-[0_1px_4px_rgba(0,0,0,0.3)] hover:text-[#333]"
+            }`}
+          >
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+              <path d="M12 5.5a2 2 0 110-4 2 2 0 010 4zm-1.15 2.1C8.4 8.05 6.7 9.7 6.2 12.15l-.45 2.2a.75.75 0 101.47.3l.38-1.85.7 1.15V21a.75.75 0 101.5 0v-5.6l.72-1.18.62 3.1a.75.75 0 101.48-.3l-.95-4.72c-.2-1 .14-1.72.86-2.22.5-.35.8-.92.8-1.53 0-.28-.05-.54-.14-.78A6.8 6.8 0 0012 8c-.74 0-1.45.12-2.15.36z" />
+            </svg>
+          </button>
           <button
             type="button"
             onClick={alternarVista3d}
@@ -632,6 +998,12 @@ export default function NicaraguaMap({
             <IconoPantallaCompleta activo={completo} />
           </button>
         </div>
+        )}
+        {avisoStreetView && !vista3d ? (
+          <div className="absolute bottom-14 left-2 right-14 z-20 rounded-lg bg-black/70 px-3 py-2 text-[11px] text-white ring-1 ring-white/20">
+            {avisoStreetView}
+          </div>
+        ) : null}
         {error3d ? (
           <div className="absolute bottom-14 left-2 right-14 z-20 rounded-lg bg-white/95 px-3 py-2 text-[11px] text-amber-800 ring-1 ring-slate-200 dark:bg-[#251d50]/90 dark:text-amber-100 dark:ring-white/10">
             {error3d}

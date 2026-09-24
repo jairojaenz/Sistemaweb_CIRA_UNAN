@@ -814,6 +814,34 @@ html.dark .dash-mapa-fs:-webkit-full-screen {
   height: 100%;
 }
 
+/* Street View: ocultar pegman, brújula y tracking nativos (chocan con nuestros botones).
+   Las flechas de desplazamiento (linksControl) se dejan visibles. */
+.dash-demanda-map .gm-svpc,
+.dash-demanda-map .gm-compass,
+.dash-demanda-map .gm-iv-address,
+.geoloc-page .gm-svpc,
+.geoloc-page .gm-compass {
+  display: none !important;
+}
+
+.dash-demanda-map.geoloc-sv-vivo .widget-scene,
+.geoloc-page .widget-scene {
+  visibility: visible !important;
+}
+
+.geoloc-sv-host {
+  color-scheme: light;
+  background: transparent;
+}
+
+.geoloc-sv-host,
+.geoloc-sv-host .widget-scene,
+.geoloc-sv-host canvas {
+  width: 100% !important;
+  height: 100% !important;
+  visibility: visible !important;
+}
+
 .dash-demanda-map gmp-map-3d {
   display: block;
   width: 100%;
