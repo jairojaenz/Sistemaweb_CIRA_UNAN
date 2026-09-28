@@ -2147,6 +2147,16 @@ select.campo-input {
   padding-right: 2rem;
 }
 
+.campo-wizard select option {
+  background: #fff;
+  color: #1e293b;
+}
+
+html.dark .campo-wizard select option {
+  background: #251d50;
+  color: #e2e8f0;
+}
+
 .campo-btn-outline {
   display: inline-flex;
   align-items: center;
