@@ -375,7 +375,8 @@ export default function SolicitudServicioPage() {
           modoUbicacion: parseLatLng(s.direccionMuestreo) ? "gps" : "direccion",
           observaciones: s.observacion ?? "",
           fechaProforma: toInputDate(s.fechaEnvioProforma),
-          firma: s.idUsuario ? String(s.idUsuario) : prev.firma,
+          firma: String(s.firmaSolicitud || s.idUsuario || prev.firma || ""),
+          recibidoPor: String(s.recibidoPorSolicitud || prev.recibidoPor || ""),
           estado: s.estado ?? "Pendiente",
         }));
       } catch (err) {

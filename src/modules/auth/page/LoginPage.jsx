@@ -35,7 +35,7 @@ export default function LoginPage() {
           </div>
           {/* Mismo interruptor de tema que el dashboard, para usarlo antes de iniciar sesión. */}
           <div className="mt-3 flex w-full justify-center md:mt-0 md:w-1/3 md:justify-end">
-            <ThemeToggle />
+            
           </div>
         </div>
       </header>

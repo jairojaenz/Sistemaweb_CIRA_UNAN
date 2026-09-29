@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   FaBars,
@@ -12,16 +12,18 @@ import {
   FaGlobeAmericas,
   FaHome,
   FaMicroscope,
+  FaMoon,
   FaSignOutAlt,
+  FaSun,
   FaTasks,
   FaUniversity,
   FaUserCircle,
-  FaUsersCog,
+  FaUsersCog, 
+  FaPalette
 } from "react-icons/fa";
 import { useAuth } from "../auth/AuthContext";
 import { isAdministrador } from "../modules/auth/model/constants.js";
 import { ROUTES } from "../router/routes";
-import ThemeToggle from "../components/ThemeToggle.jsx";
 import ciraLogo from "../assets/CIRA.png";
 import unanLogo from "../assets/unan-managua.png";
 
@@ -76,6 +78,85 @@ function ConfirmDialog({ open, onConfirm, onCancel }) {
         </div>
       </div>
     </div>
+  );
+}
+
+const THEME_KEY = "theme";
+
+function getInitialDark() {
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === "dark") return true;
+    if (saved === "light") return false;
+  } catch {
+    /* localStorage no disponible */
+  }
+  return document.documentElement.classList.contains("dark");
+}
+
+/**
+ * Ítem "Modo oscuro" del sidebar, con forma de switch.
+ * Mismas medidas que los módulos del menú (rounded-xl, py-2.5, px-4, gap-3).
+ * Maneja el tema por sí mismo: pone/quita la clase "dark" en <html> y lo guarda.
+ */
+function SidebarThemeItem({ sidebarOpen }) {
+  const [isDark, setIsDark] = useState(getInitialDark);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle("dark", isDark);
+    root.setAttribute("data-theme", isDark ? "dark" : "light");
+    root.style.colorScheme = isDark ? "dark" : "light";
+    try {
+      localStorage.setItem(THEME_KEY, isDark ? "dark" : "light");
+    } catch {
+      /* localStorage no disponible */
+    }
+  }, [isDark]);
+
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={isDark}
+      aria-label="Modo oscuro"
+      title={!sidebarOpen ? (isDark ? "Modo oscuro activado" : "Modo claro activado") : undefined}
+      onClick={() => setIsDark((v) => !v)}
+      className={[
+        "flex w-full items-center rounded-xl border-l-4 border-transparent py-2.5 text-sm font-medium text-blue-100 transition-colors duration-200",
+        "hover:border-yellow-400/50 hover:bg-blue-800/70 hover:text-white",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/60",
+        sidebarOpen ? "gap-3 px-4" : "justify-center px-0",
+      ].join(" ")}
+    >
+      {sidebarOpen && (
+        <>
+          <FaPalette className="h-5 w-5 flex-shrink-0 opacity-90" />
+          <span className="flex-1 truncate text-left">Apariencia</span>
+        </>
+      )}
+
+      {/* Switch */}
+      <span
+        className={[
+          "relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full border transition-colors duration-200",
+          isDark ? "border-yellow-400 bg-yellow-400" : "border-blue-600 bg-blue-800",
+        ].join(" ")}
+      >
+        <span
+          className={[
+            "absolute left-0.5 flex h-5 w-5 items-center justify-center rounded-full shadow transition-transform duration-200",
+            isDark ? "translate-x-5 bg-blue-900" : "translate-x-0 bg-white",
+          ].join(" ")}
+        >
+          {isDark ? (
+            <FaMoon className="h-2.5 w-2.5 text-yellow-400" />
+          ) : (
+            <FaSun className="h-2.5 w-2.5 text-yellow-500" />
+          )}
+        </span>
+      </span>
+    </button>
   );
 }
 
@@ -406,62 +487,62 @@ export default function DashboardLayout() {
               {sidebarOpen && <span className="truncate">Gestión de Clientes</span>}
             </NavLink>
           )}
+
+          {/* Apariencia: siempre visible, debajo del último módulo */}
+          <SidebarThemeItem sidebarOpen={sidebarOpen} />
         </nav>
 
         <div className="border-t border-blue-800/60 bg-blue-950/20 p-2">
-  {/* Información del usuario */}
-  {sidebarOpen && user && (
-    <div className="mb-1.5 flex items-center gap-2 rounded-lg border border-yellow-400/30 bg-blue-800/40 px-2 py-1.5">
+          {/* Información del usuario */}
+          {sidebarOpen && user && (
+            <div className="mb-1.5 flex items-center gap-2 rounded-lg border border-yellow-400/30 bg-blue-800/40 px-2 py-1.5">
+              {/* Avatar */}
+              <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-yellow-400">
+                <FaUserCircle className="h-4 w-4 text-blue-900" />
+              </div>
 
-      {/* Avatar */}
-      <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-yellow-400">
-        <FaUserCircle className="h-4 w-4 text-blue-900" />
-      </div>
+              {/* Información */}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-semibold leading-tight text-white">
+                  {user.nombre} {user.apellido}
+                </p>
 
-      {/* Información */}
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-semibold leading-tight text-white">
-          {user.nombre} {user.apellido}
-        </p>
+                <p className="truncate text-[10px] leading-tight text-blue-300">
+                  {user.cargoNombre}
+                </p>
+              </div>
+            </div>
+          )}
 
-        <p className="truncate text-[10px] leading-tight text-blue-300">
-          {user.cargoNombre}
-        </p>
-      </div>
-    </div>
-  )}
+          {/* Botón cerrar sesión */}
+          <button
+            type="button"
+            title={!sidebarOpen ? "Cerrar sesión" : undefined}
+            onClick={() => setShowLogoutConfirm(true)}
+            className={[
+              "group flex w-full items-center rounded-lg border border-yellow-400/30 bg-blue-800/40",
+              "font-semibold text-white",
+              "transition-all duration-200",
+              "hover:border-yellow-400/60 hover:bg-blue-800/70",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-300/60",
+              sidebarOpen
+                ? "justify-start gap-2 px-2 py-1.5"
+                : "mx-auto h-9 w-9 justify-center p-0",
+            ].join(" ")}
+          >
+            <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-yellow-400 text-blue-900">
+              <FaSignOutAlt className="h-3 w-3" />
+            </span>
 
-  {/* Botón cerrar sesión */}
-  <button
-    type="button"
-    title={!sidebarOpen ? "Cerrar sesión" : undefined}
-    onClick={() => setShowLogoutConfirm(true)}
-    className={[
-      "group flex w-full items-center rounded-lg border border-yellow-400/30 bg-blue-800/40",
-      "font-semibold text-white",
-      "transition-all duration-200",
-      "hover:border-yellow-400/60 hover:bg-blue-800/70",
-      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-300/60",
-      sidebarOpen ? "justify-start gap-2 px-2 py-1.5" : "h-9 w-9 justify-center p-0",
-    ].join(" ")}
-  >
-    <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-yellow-400 text-blue-900">
-      <FaSignOutAlt className="h-3 w-3" />
-    </span>
+            {sidebarOpen && <span className="truncate text-xs">Cerrar Sesión</span>}
+          </button>
+        </div>
 
-    {sidebarOpen && (
-      <span className="truncate text-xs">
-        Cerrar Sesión
-      </span>
-    )}
-  </button>
-</div>
-
-      <ConfirmDialog
-        open={showLogoutConfirm}
-        onConfirm={handleLogout}
-        onCancel={() => setShowLogoutConfirm(false)}
-      />
+        <ConfirmDialog
+          open={showLogoutConfirm}
+          onConfirm={handleLogout}
+          onCancel={() => setShowLogoutConfirm(false)}
+        />
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-gray-100 dark:bg-[#0d053c]">
@@ -507,9 +588,7 @@ export default function DashboardLayout() {
                 {getPageTitle(pathname)}
               </p>
             </div>
-            <div className="flex flex-shrink-0 items-center justify-end gap-2 sm:gap-3">
-              {/* Interruptor claro/oscuro: a la izquierda del logo CIRA. */}
-              <ThemeToggle />
+            <div className="flex flex-shrink-0 items-center justify-end">
               <img
                 src={ciraLogo}
                 alt="CIRA"

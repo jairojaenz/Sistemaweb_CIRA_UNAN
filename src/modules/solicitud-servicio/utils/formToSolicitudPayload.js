@@ -46,6 +46,8 @@ export function formToSolicitudPayload(form, { idCliente, idUsuario } = {}) {
         : trimOrNull(form.ubicacionMuestreo) || "",
     observacion: trimOrNull(form.observaciones),
     fechaEnvioProforma: toIsoDate(form.fechaProforma),
+    firmaSolicitud: trimOrNull(form.firma),
+    recibidoPorSolicitud: trimOrNull(form.recibidoPor),
     estado: form.estado || "Pendiente",
     idServicios: servicios.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0),
     matrices: matrices

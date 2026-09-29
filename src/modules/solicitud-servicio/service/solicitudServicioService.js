@@ -31,6 +31,8 @@ export function normalizeSolicitudFromApi(raw) {
     servicios: raw.servicios ?? raw.Servicios ?? [],
     numMuestras: raw.numMuestras ?? raw.NumMuestras ?? 0,
     direccionMuestreo: raw.direccionMuestreo ?? raw.DireccionMuestreo ?? "",
+    firmaSolicitud: raw.firmaSolicitud ?? raw.FirmaSolicitud ?? "",
+    recibidoPorSolicitud: raw.recibidoPorSolicitud ?? raw.RecibidoPorSolicitud ?? "",
     observacion: raw.observacion ?? raw.Observacion ?? raw.observacionSolicitud ?? "",
     observacionSolicitud: raw.observacion ?? raw.Observacion ?? raw.observacionSolicitud ?? "",
     fechaEnvioProforma: raw.fechaEnvioProforma ?? raw.FechaEnvioProforma ?? "",
