@@ -172,7 +172,7 @@ export default function SolicitudServicioPage() {
       normalizedPrefill.tipoServicio = [normalizedPrefill.tipoServicio];
     }
     setFormData((prev) => ({ ...prev, ...normalizedPrefill }));
-  }, [idCliente, clienteDesdeNavegacion]);
+  }, [idCliente, clienteDesdeNavegacion, isEdit]);
 
   function cerrarAvisoInactivo() {
     setAvisoClienteInactivo(false);
@@ -348,25 +348,47 @@ export default function SolicitudServicioPage() {
             /* el wizard sigue con los datos de la solicitud */
           }
         }
+        const catalogoServicios = serviceTypes.length ? serviceTypes : await getServicios().catch(() => []);
+        const catalogoAnalisis = analisisCatalogo.length ? analisisCatalogo : await getAnalisis().catch(() => []);
+        const idsServicios = s.idServicios.length
+          ? s.idServicios
+          : s.servicios.map((servicio) => {
+              if (typeof servicio === "object") return Number(servicio.idServicio ?? servicio.IdServicio ?? servicio.id ?? servicio.Id) || 0;
+              const nombre = String(servicio).trim().toLocaleLowerCase();
+              return Number(catalogoServicios.find((item) =>
+                String(item.nombreServicio ?? item.nombre ?? "").trim().toLocaleLowerCase() === nombre,
+              )?.idServicio) || 0;
+            }).filter((id) => id > 0);
         setFormData((prev) => ({
           ...prev,
           ...prefillCliente,
           solicitudNo: s.numeroSolicitud ?? "",
           fechaRecepcion: toInputDate(s.fechaRecepcion),
-          medioRecepcion: s.idMedioRecepcion ? Number(s.idMedioRecepcion) : "",
+          medioRecepcion: Number(s.idMedioRecepcion) || "",
           nombreUsuario: s.cliente ?? prefillCliente.nombreUsuario ?? "",
+          direccionUsuario: s.direccionCliente || prefillCliente.direccionUsuario || "",
+          ruc: s.numeroRuc || prefillCliente.ruc || "",
+          cedula: s.cedulaCliente || prefillCliente.cedula || "",
           correo: s.correoCliente ?? prefillCliente.correo ?? "",
-          tipoServicio: (s.idServicios ?? []).map(Number).filter((id) => id > 0),
+          contacto1Nombre: s.nombreContactoSolicitud || prefillCliente.contacto1Nombre || "",
+          contacto1Telefono: s.num1ContactoSolicitud || prefillCliente.contacto1Telefono || "",
+          contacto2Nombre: s.nombreContacto2Solicitud || prefillCliente.contacto2Nombre || "",
+          contacto2Telefono: s.num2ContactoSolicitud || prefillCliente.contacto2Telefono || "",
+          tipoServicio: idsServicios.map(Number).filter((id) => id > 0),
           matriz: (s.matrices ?? []).map((m) => ({
-            idMatriz: Number(m.idMatriz ?? m.IdMatriz),
-            numMuestras: m.numMuestras ?? m.NumMuestras ?? 0,
-          })),
-          numeroMuestras: s.numMuestras ?? 0,
+            idMatriz: Number(m.idMatriz ?? m.IdMatriz ?? m.id ?? m.Id),
+            numMuestras: Number(m.numMuestras ?? m.NumMuestras ?? m.cantidad ?? m.Cantidad ?? 0),
+          })).filter((m) => m.idMatriz > 0),
+          numeroMuestras: Number(s.numMuestras) || 0,
           analisisSolicitados: (s.detalles ?? []).map((d) => ({
-            idAnalisis: Number(d.idAnalisis ?? d.IdAnalisis) || "",
+            idAnalisis: Number(d.idAnalisis ?? d.IdAnalisis) || Number(catalogoAnalisis.find((item) =>
+              String(item.nombreAnalisis ?? item.nombre ?? "").trim().toLocaleLowerCase() ===
+              String(d.nombreAnalisis ?? d.NombreAnalisis ?? "").trim().toLocaleLowerCase(),
+            )?.idAnalisis) || "",
+            idGrupoAnalisis: Number(d.idGrupoAnalisis ?? d.IdGrupoAnalisis) || "",
             tipoAnalisis: d.nombreAnalisis ?? d.NombreAnalisis ?? "",
-            tecnica: d.abreviacionAnalisis ?? d.AbreviacionAnalisis ?? "",
-            cantidad: d.cantidad ?? 1,
+            tecnica: d.abreviacionAnalisis ?? d.AbreviacionAnalisis ?? d.nombreTecnicaTexto ?? d.NombreTecnicaTexto ?? "",
+            cantidad: Number(d.cantidad ?? d.Cantidad ?? 1) || 1,
           })),
           ubicacionMuestreo: parseLatLng(s.direccionMuestreo) ? "" : (s.direccionMuestreo ?? ""),
           coordenadasGps: parseLatLng(s.direccionMuestreo)
@@ -387,7 +409,7 @@ export default function SolicitudServicioPage() {
     return () => {
       mounted = false;
     };
-  }, [isEdit, idSolicitud, addToast]);
+  }, [isEdit, idSolicitud, addToast, serviceTypes, analisisCatalogo]);
 
   // Auto-sync numeroMuestras with sum of matriz[].numMuestras
   useEffect(() => {
@@ -464,14 +486,6 @@ export default function SolicitudServicioPage() {
       ...prev,
       analisisSolicitados: prev.analisisSolicitados.filter((_, i) => i !== index),
     }));
-  };
-
-  const handleAnalysisChange = (index, field, value) => {
-    setFormData(prev => {
-      const updated = [...prev.analisisSolicitados];
-      updated[index] = { ...updated[index], [field]: value };
-      return { ...prev, analisisSolicitados: updated };
-    });
   };
 
   const handleAnalysisSelect = (index, idAnalisis) => {

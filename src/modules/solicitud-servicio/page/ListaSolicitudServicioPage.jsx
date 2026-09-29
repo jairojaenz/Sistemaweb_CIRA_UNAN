@@ -21,8 +21,15 @@ import { ROUTES } from "../../../router/routes.js";
 import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import {
   deleteSolicitudServicio,
+  getSolicitudById,
   getSolicitudes,
 } from "../service/solicitudServicioService.js";
+import { getClienteById } from "../../clientes/service/clienteService.js";
+import { getMediosRecepcion } from "../../catalogos/service/medioRecepcionService.js";
+import { getServicios } from "../../catalogos/service/servicioService.js";
+import { getMatrices } from "../../catalogos/service/matrizService.js";
+import { getAnalisis } from "../../catalogos/service/analisisService.js";
+import { getUsuarios } from "../../usuarios/service/usuarioService.js";
 
 const ACCIONES_MENU_ALTURA_PX = 220;
 
@@ -41,6 +48,9 @@ export default function ListaSolicitudServicioPage() {
 
   const [detailSolicitud, setDetailSolicitud] =
     useState(null);
+  const [detailCliente, setDetailCliente] = useState(null);
+  const [detailCatalogos, setDetailCatalogos] = useState({});
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -98,12 +108,49 @@ export default function ListaSolicitudServicioPage() {
 
   const [accionesMenu, setAccionesMenu] = useState(null);
 
-  function openDetailModal(solicitud) {
+  async function openDetailModal(solicitud) {
     setDetailSolicitud(solicitud);
+    setDetailCliente(null);
+    setDetailCatalogos({});
+    setDetailLoading(true);
+    try {
+      const results = await Promise.allSettled([
+          getSolicitudById(solicitud.idFormatoSolicitud),
+          solicitud.idCliente ? getClienteById(solicitud.idCliente) : Promise.resolve(null),
+          getMediosRecepcion(),
+          getServicios(),
+          getMatrices(),
+          getAnalisis(),
+          getUsuarios(),
+        ]);
+      const [fullResult, clienteResult, mediosResult, serviciosResult, matricesResult, analisisResult, usuariosResult] = results;
+      if (fullResult.status === "rejected") throw fullResult.reason;
+      setDetailSolicitud(fullResult.value ?? solicitud);
+      setDetailCliente(clienteResult.status === "fulfilled" ? clienteResult.value : null);
+      setDetailCatalogos({
+        medios: mediosResult.status === "fulfilled" ? mediosResult.value : [],
+        servicios: serviciosResult.status === "fulfilled" ? serviciosResult.value : [],
+        matrices: matricesResult.status === "fulfilled" ? matricesResult.value : [],
+        analisis: analisisResult.status === "fulfilled" ? analisisResult.value : [],
+        usuarios: usuariosResult.status === "fulfilled" ? usuariosResult.value : [],
+      });
+    } catch (err) {
+      try {
+        const full = await getSolicitudById(solicitud.idFormatoSolicitud);
+        setDetailSolicitud(full ?? solicitud);
+      } catch {
+        addToast(err?.message || "No se pudo cargar el detalle completo de la solicitud.", "error");
+      }
+    } finally {
+      setDetailLoading(false);
+    }
   }
 
   function closeDetailModal() {
     setDetailSolicitud(null);
+    setDetailCliente(null);
+    setDetailCatalogos({});
+    setDetailLoading(false);
   }
 
   function abrirMenuAcciones(e, solicitud) {
@@ -443,105 +490,97 @@ export default function ListaSolicitudServicioPage() {
             </div>
 
             <div className="space-y-6 p-6">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <DetailRow
-                  label="Solicitud"
-                  value={
-                    detailSolicitud.numeroSolicitud
-                  }
-                />
+              {detailLoading && <p className="text-sm text-slate-500">Cargando detalle completo...</p>}
 
-                <DetailRow
-                  label="Cliente"
-                  value={
-                    detailSolicitud.cliente
-                  }
-                />
+              <DetailSection title="Datos principales">
+                <div className="grid gap-x-6 sm:grid-cols-2">
+                  <DetailRow label="Solicitud No." value={detailSolicitud.numeroSolicitud} />
+                  <DetailRow label="Estado" value={detailSolicitud.estado} />
+                  <DetailRow label="Cliente" value={detailSolicitud.cliente || detailCliente?.nombreCliente} />
+                  <DetailRow label="Usuario" value={detailSolicitud.usuario} />
+                  <DetailRow label="Fecha de recepción" value={detailSolicitud.fechaRecepcionSolicitud} />
+                  <DetailRow label="Medio de recepción" value={catalogLabel(detailSolicitud.idMedioRecepcion, detailCatalogos.medios, "idMedioRecepcion", "nombreMedioRecepcion")} />
+                  <DetailRow label="Correo" value={detailSolicitud.correoCliente || detailCliente?.correoCliente} />
+                  <DetailRow label="Dirección del solicitante" value={detailSolicitud.direccionCliente || detailCliente?.direccionCliente} />
+                  <DetailRow label="RUC" value={detailSolicitud.numeroRuc || detailCliente?.numeroRuc} />
+                  <DetailRow label="Cédula" value={detailSolicitud.cedulaCliente || detailCliente?.cedulaCliente} />
+                  <DetailRow label="Contacto principal" value={detailSolicitud.nombreContactoSolicitud || detailCliente?.nombreContacto} />
+                  <DetailRow label="Teléfono principal" value={detailSolicitud.num1ContactoSolicitud || detailCliente?.celularCliente || detailCliente?.telefonoCliente} />
+                  <DetailRow label="Contacto secundario" value={detailSolicitud.nombreContacto2Solicitud} />
+                  <DetailRow label="Teléfono secundario" value={detailSolicitud.num2ContactoSolicitud} />
+                </div>
+              </DetailSection>
 
-                <DetailRow
-                  label="Usuario"
-                  value={
-                    detailSolicitud.usuario
-                  }
-                />
+              <DetailSection title="Servicios">
+                <p className="text-sm text-slate-700">
+                  {detailSolicitud.idServicios?.length
+                    ? detailSolicitud.idServicios.map((id) => catalogLabel(id, detailCatalogos.servicios, "idServicio", "nombreServicio")).join(", ")
+                    : detailSolicitud.servicios?.map((item) => typeof item === "string" ? item : item.nombreServicio ?? item.nombre ?? "").filter(Boolean).join(", ") || detailSolicitud.servicio || "Sin servicios registrados."}
+                </p>
+              </DetailSection>
 
-                <DetailRow
-                  label="Estado"
-                  value={
-                    detailSolicitud.estado
-                  }
-                />
-
-                <DetailRow
-                  label="Fecha recepción"
-                  value={
-                    detailSolicitud.fechaRecepcionSolicitud
-                  }
-                />
-
-                <DetailRow
-                  label="Contacto"
-                  value={
-                    detailSolicitud.num1ContactoSolicitud
-                  }
-                />
-              </div>
-
-              <div className="rounded-lg border border-gray-200 bg-slate-50 p-4">
-                <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
-                  Análisis solicitados
-                </h3>
-
-                {detailSolicitud.detalles?.length > 0 ? (
-                  <div className="theme-table overflow-x-auto rounded-lg border border-gray-200">
+              <DetailSection title="Matrices y muestras">
+                {detailSolicitud.matrices?.length ? (
+                  <div className="theme-table overflow-x-auto rounded border border-gray-200">
                     <table className="w-full text-left text-sm">
-                      <thead className="bg-gray-200 text-xs uppercase text-gray-600">
-                        <tr>
-                          <th className="px-3 py-2 font-semibold">Análisis</th>
-                          <th className="px-3 py-2 font-semibold">Técnica / Abrev.</th>
-                          <th className="px-3 py-2 text-center font-semibold">Cant.</th>
-                          <th className="px-3 py-2 font-semibold">Laboratorio</th>
-                          <th className="px-3 py-2 text-right font-semibold">Precio</th>
-                        </tr>
+                      <thead className="bg-gray-100 text-xs uppercase text-gray-600">
+                        <tr><th className="px-3 py-2">Matriz</th><th className="px-3 py-2 text-right">Cantidad de muestras</th></tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200 bg-white">
+                        {detailSolicitud.matrices.map((m, index) => (
+                          <tr key={`${m.idMatriz ?? m.nombreMatriz}-${index}`}>
+                            <td className="px-3 py-2">{m.nombreMatriz || catalogLabel(m.idMatriz, detailCatalogos.matrices, "idMatriz", "nombreMatriz")}</td>
+                            <td className="px-3 py-2 text-right">{m.numMuestras}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-slate-50 font-semibold">
+                        <tr><td className="px-3 py-2">Total</td><td className="px-3 py-2 text-right">{detailSolicitud.numMuestras || detailSolicitud.matrices.reduce((sum, m) => sum + (Number(m.numMuestras) || 0), 0)}</td></tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                ) : (
+                  <DetailRow label="Matriz" value={detailSolicitud.matriz} />
+                )}
+                {!detailSolicitud.matrices?.length && <DetailRow label="Total de muestras" value={detailSolicitud.numMuestras} />}
+              </DetailSection>
+
+              <DetailSection title="Análisis solicitados">
+                {detailSolicitud.detalles?.length > 0 ? (
+                  <div className="theme-table overflow-x-auto rounded border border-gray-200">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-gray-100 text-xs uppercase text-gray-600">
+                        <tr><th className="px-3 py-2">Análisis</th><th className="px-3 py-2">Técnica / Abreviatura</th><th className="px-3 py-2 text-center">Cantidad</th><th className="px-3 py-2">Laboratorio</th><th className="px-3 py-2 text-right">Precio</th></tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200 bg-white">
                         {detailSolicitud.detalles.map((d, index) => (
                           <tr key={`${d.idAnalisis ?? d.nombreAnalisis}-${index}`}>
-                            <td className="px-3 py-2 font-medium text-gray-800">
-                              {d.nombreAnalisis}
-                            </td>
-                            <td className="px-3 py-2 text-gray-600">
-                              {d.nombreTecnicaTexto || d.abreviacionAnalisis || "—"}
-                            </td>
+                            <td className="px-3 py-2 font-medium">{d.nombreAnalisis || catalogLabel(d.idAnalisis, detailCatalogos.analisis, "idAnalisis", "nombreAnalisis") || "—"}</td>
+                            <td className="px-3 py-2 text-gray-600">{d.nombreTecnicaTexto || d.abreviacionAnalisis || "—"}</td>
                             <td className="px-3 py-2 text-center">{d.cantidad ?? 1}</td>
-                            <td className="px-3 py-2 text-gray-600">
-                              {d.nombreLaboratorio || "—"}
-                            </td>
-                            <td className="px-3 py-2 text-right text-gray-600">
-                              {d.precioAnalisis != null
-                                ? `C$${Number(d.precioAnalisis).toLocaleString("es-NI", { minimumFractionDigits: 2 })}`
-                                : "—"}
-                            </td>
+                            <td className="px-3 py-2 text-gray-600">{d.nombreLaboratorio || "—"}</td>
+                            <td className="px-3 py-2 text-right text-gray-600">{d.precioAnalisis != null ? `C$${Number(d.precioAnalisis).toLocaleString("es-NI", { minimumFractionDigits: 2 })}` : "—"}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                ) : (
-                  <p className="text-sm text-gray-500">Sin análisis registrados.</p>
-                )}
-              </div>
+                ) : <p className="text-sm text-gray-500">Sin análisis registrados.</p>}
+              </DetailSection>
 
-              <div>
-                <p className="mb-2 text-sm font-semibold text-slate-600">
-                  Observación
-                </p>
+              <DetailSection title="Muestreo y observaciones">
+                <DetailRow label="Ubicación de muestreo" value={detailSolicitud.direccionMuestreo} />
+                <DetailRow label="Observaciones" value={detailSolicitud.observacionSolicitud} />
+              </DetailSection>
 
-                <div className="rounded-lg border border-gray-200 bg-slate-50 p-4 text-sm text-slate-700">
-                  {detailSolicitud.observacionSolicitud ||
-                    "—"}
+              <DetailSection title="Verificación">
+                <div className="grid gap-x-6 sm:grid-cols-2">
+                  <DetailRow label="Firma del usuario" value={catalogLabel(detailSolicitud.firmaSolicitud, detailCatalogos.usuarios, "idUsuario", "nombreUsuario")} />
+                  <DetailRow label="Solicitud recibida por" value={catalogLabel(detailSolicitud.recibidoPorSolicitud, detailCatalogos.usuarios, "idUsuario", "nombreUsuario")} />
+                  <DetailRow label="Fecha de envío de proforma" value={detailSolicitud.fechaEnvioProforma} />
+                  <DetailRow label="ID de usuario responsable" value={detailSolicitud.idUsuario} />
                 </div>
-              </div>
+              </DetailSection>
 
               <div className="flex justify-end border-t pt-4">
                 <button
@@ -571,5 +610,28 @@ function DetailRow({ label, value }) {
         {value || "—"}
       </dd>
     </div>
+  );
+}
+
+function catalogLabel(value, items = [], idKey, nameKey) {
+  if (value == null || value === "") return "—";
+  const id = typeof value === "object"
+    ? value[idKey] ?? value[idKey.charAt(0).toUpperCase() + idKey.slice(1)] ?? value.id ?? value.Id
+    : value;
+  const item = items.find((entry) => String(entry[idKey] ?? entry[idKey.charAt(0).toUpperCase() + idKey.slice(1)] ?? entry.id ?? entry.Id) === String(id));
+  if (!item) return typeof value === "object" ? value[nameKey] ?? value.nombre ?? value.Nombre ?? String(id) : String(value);
+  const name = item[nameKey] ?? item[nameKey.charAt(0).toUpperCase() + nameKey.slice(1)] ?? item.nombre ?? item.Nombre ?? "";
+  if (nameKey === "nombreUsuario") {
+    return `${name} ${item.apellidoUsuario ?? item.ApellidoUsuario ?? ""}`.trim() || item.correoUsuario || String(id);
+  }
+  return name || String(id);
+}
+
+function DetailSection({ title, children }) {
+  return (
+    <section className="border-b border-gray-200 pb-5 last:border-0 last:pb-0">
+      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-500">{title}</h3>
+      {children}
+    </section>
   );
 }

@@ -9,7 +9,7 @@ function toIsoDate(value, fallback = new Date()) {
     const d = new Date(`${value}T12:00:00`);
     if (!Number.isNaN(d.getTime())) return d.toISOString();
   }
-  return fallback.toISOString();
+  return fallback?.toISOString() ?? null;
 }
 
 /**
@@ -45,7 +45,7 @@ export function formToSolicitudPayload(form, { idCliente, idUsuario } = {}) {
         ? trimOrNull(form.coordenadasGps) || ""
         : trimOrNull(form.ubicacionMuestreo) || "",
     observacion: trimOrNull(form.observaciones),
-    fechaEnvioProforma: toIsoDate(form.fechaProforma),
+    fechaEnvioProforma: form.fechaProforma ? toIsoDate(form.fechaProforma) : null,
     firmaSolicitud: trimOrNull(form.firma),
     recibidoPorSolicitud: trimOrNull(form.recibidoPor),
     estado: form.estado || "Pendiente",
