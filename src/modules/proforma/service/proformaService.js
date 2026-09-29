@@ -8,7 +8,7 @@
  * Aquí se unifican para que Number() no reciba undefined → C$NaN.
  */
 import { apiGet, apiPost, apiPut } from "../../../auth/api";
-import { asList } from "../../../utils/apiList.js";
+import { asList, normalizeNamedItem } from "../../../utils/apiList.js";
 
 export { getSolicitudById } from "../../solicitud-servicio/service/solicitudServicioService.js";
 
@@ -59,7 +59,9 @@ export async function getProformas() {
 
 export async function getTiposMuestreo() {
   const res = await apiGet("/api/catalogos/tipos-muestreo");
-  return asList(res);
+  return asList(res).map((raw) =>
+    normalizeNamedItem(raw, { idKey: "idTipoMuestreo", nameKey: "nombreTipoMuestreo" }),
+  );
 }
 
 export async function createProforma(data) {
